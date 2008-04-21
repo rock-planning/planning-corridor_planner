@@ -1,0 +1,7 @@
+ADD_LIBRARY(Nav SHARED
+    dstar.cc)
+
+INSTALL(TARGETS Nav
+    LIBRARY DESTINATION lib)
+INSTALL(FILES dstar.hh DESTINATION include/nav)
+
