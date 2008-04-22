@@ -24,10 +24,8 @@ void TraversabilityMap::setValue(size_t id, uint8_t value)
 void TraversabilityMap::setValue(size_t x, size_t y, uint8_t value)
 { return setValue(getCellID(x, y), value); }
 
-const int NeighbourIterator::m_x_offsets[9] = { 0, 1, 1, 0, -1, -1, -1,  0,  1 };
-const int NeighbourIterator::m_y_offsets[9] = { 0, 0, 1, 1,  1,  0, -1, -1, -1 };
-
-NeighbourIterator::NeighbourIterator(GridGraph& graph, int x, int y, int mask)
+template<typename GC>
+NeighbourGenericIterator<GC>::NeighbourGenericIterator(GC& graph, int x, int y, int mask)
     : m_graph(&graph), m_x(x), m_y(y)
     , m_mask(mask)
     , m_neighbour(1)
@@ -36,7 +34,9 @@ NeighbourIterator::NeighbourIterator(GridGraph& graph, int x, int y, int mask)
     findNextNeighbour();
 }
 float& NeighbourIterator::value() { return m_graph->getValue(x(), y()); }
-void NeighbourIterator::findNextNeighbour()
+
+template<typename GC>
+void NeighbourGenericIterator<GC>::findNextNeighbour()
 {
     /* Initialize m_neighbour to the value of the first non-zero bit
      * in the parent field of (x, y)
@@ -76,17 +76,23 @@ void GridGraph::clearParent(size_t x, size_t y, uint8_t old_parent)
 
 NeighbourIterator GridGraph::parentsBegin(size_t x, size_t y)
 { return NeighbourIterator(*this, x, y, getParents(x, y)); }
-NeighbourIterator GridGraph::parentsEnd()
+NeighbourConstIterator GridGraph::parentsBegin(size_t x, size_t y) const
+{ return NeighbourConstIterator(*this, x, y, getParents(x, y)); }
+NeighbourIterator GridGraph::parentsEnd() const
 { return NeighbourIterator(); }
-NeighbourIterator GridGraph::neighboursBegin(size_t x, size_t y)
-{ 
+static int neighboursMask(int x, int y, int xsize, int ysize)
+{
     int mask = 0xFF;
-    mask &= ~((x == 0) * (BOTTOM_LEFT | LEFT | TOP_LEFT));
-    mask &= ~((x == m_xsize - 1) * (BOTTOM_RIGHT | RIGHT | TOP_RIGHT));
-    mask &= ~((y == 0) * (BOTTOM_LEFT | BOTTOM | BOTTOM_RIGHT));
-    mask &= ~((y == m_ysize - 1) * (TOP_LEFT | TOP | TOP_RIGHT));
-    return NeighbourIterator(*this, x, y, mask); 
+    mask &= ~((x == 0) * (GridGraph::BOTTOM_LEFT | GridGraph::LEFT | GridGraph::TOP_LEFT));
+    mask &= ~((x == xsize - 1) * (GridGraph::BOTTOM_RIGHT | GridGraph::RIGHT | GridGraph::TOP_RIGHT));
+    mask &= ~((y == 0) * (GridGraph::BOTTOM_LEFT | GridGraph::BOTTOM | GridGraph::BOTTOM_RIGHT));
+    mask &= ~((y == ysize - 1) * (GridGraph::TOP_LEFT | GridGraph::TOP | GridGraph::TOP_RIGHT));
+    return mask;
 }
-NeighbourIterator GridGraph::neighboursEnd()
+NeighbourIterator GridGraph::neighboursBegin(size_t x, size_t y)
+{ return NeighbourIterator(*this, x, y, neighboursMask(x, y, m_xsize, m_ysize)); }
+NeighbourConstIterator GridGraph::neighboursBegin(size_t x, size_t y) const
+{ return NeighbourConstIterator(*this, x, y, neighboursMask(x, y, m_xsize, m_ysize)); }
+NeighbourIterator GridGraph::neighboursEnd() const
 { return NeighbourIterator(); }
 

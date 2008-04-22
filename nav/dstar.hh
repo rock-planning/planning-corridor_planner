@@ -2,6 +2,8 @@
 #define NAV_DSTAR_HPP
 
 #include <vector>
+#include <map>
+#include <boost/type_traits.hpp>
 
 namespace Nav {
     /** Basic tools for maps which are regular grids */
@@ -55,14 +57,20 @@ namespace Nav {
 
     class GridGraph;
 
-    /** Objects of this class are used to iterate on GridGraph cells. 
+    /** Base class for iteration around GridGraph cells. It is the common part
+     * of NeighbourIterator and NeighbourConstIterator, the two classes you should
+     * be using.
      *
      * @see GridGraph::parentsBegin GridGraph::parentsEnd GridGraph::neighboursBegin GridGraph::neighboursEnd
      */
-    class NeighbourIterator
+    template<typename GraphClass>
+    class NeighbourGenericIterator
     {
+        friend class NeighbourGenericIterator<typename boost::add_const<GraphClass>::type>;
+
+    protected:
         /** The underlying graph */
-        GridGraph* m_graph;
+        GraphClass* m_graph;
 
         /** The position of the node whose neighbours we are visiting */
         int m_x, m_y;
@@ -93,29 +101,34 @@ namespace Nav {
         void findNextNeighbour();
 
     public:
-        NeighbourIterator()
+        NeighbourGenericIterator()
             : m_graph(0), m_neighbour(END_NEIGHBOUR) {}
-        NeighbourIterator(GridGraph& graph, int x, int y, int mask);
+        NeighbourGenericIterator(GraphClass& graph, int x, int y, int mask);
+        NeighbourGenericIterator(NeighbourGenericIterator<typename boost::remove_const<GraphClass>::type> const& other)
+        {
+            m_graph     = other.m_graph;
+            m_x         = other.m_x;
+            m_y         = other.m_y;
+            m_mask      = other.m_mask;
+            m_neighbour = other.m_neighbour;
+        }
 
         int getMask() const { return m_mask; }
 
-        /** The index of the neighbour we are currently visiting. Useful mostly
-         * for debugging purposes */
-        int getNeighbour() const { return m_neighbour; }
+        /** The neighbour we are currently visiting, as a value defined
+         * in GridGraph::RELATIONS */
+        int getNeighbour() const { return 1 << (m_neighbour - 1); }
 
         /** The position of the node on which we are iterating */
-        int nodeX() const { return m_x; }
-        int nodeY() const { return m_y; }
+        int sourceX() const { return m_x; }
+        int sourceY() const { return m_y; }
 
         /** The position of the currently-iterated neighbour */
         int x() const { return m_x + m_x_offsets[m_neighbour]; }
         int y() const { return m_y + m_y_offsets[m_neighbour]; }
 
-        /** The value of the currently-iterated neighbour */
-        float& value();
-
         /** Advance the iteration one step */
-        NeighbourIterator& operator++()
+        NeighbourGenericIterator<GraphClass>& operator++()
         {
             ++m_neighbour;
             m_mask >>= 1;
@@ -127,7 +140,7 @@ namespace Nav {
          * iteration. It means that they both point to the same underlying cell
          * in the graph \b and are iterating around the same center node
          */
-        bool operator == (NeighbourIterator const& other) const
+        bool operator == (NeighbourGenericIterator const& other) const
         {
             return (m_neighbour == other.m_neighbour
                     || (m_neighbour >= END_NEIGHBOUR && other.m_neighbour >= END_NEIGHBOUR)
@@ -137,9 +150,42 @@ namespace Nav {
         }
         /** The inverse of ==
          */
-        bool operator != (NeighbourIterator const& other) const { return !(*this == other); }
+        bool operator != (NeighbourGenericIterator const& other) const { return !(*this == other); }
     };
 
+    template<typename GraphClass>
+    const int NeighbourGenericIterator<GraphClass>::m_x_offsets[9] = { 0, 1, 1, 0, -1, -1, -1,  0,  1 };
+    template<typename GraphClass>
+    const int NeighbourGenericIterator<GraphClass>::m_y_offsets[9] = { 0, 0, 1, 1,  1,  0, -1, -1, -1 };
+
+    class NeighbourIterator : public NeighbourGenericIterator<GridGraph>
+    {
+    public:
+        NeighbourIterator()
+            : NeighbourGenericIterator<GridGraph>() {}
+        NeighbourIterator(GridGraph& graph, int x, int y, int mask)
+            : NeighbourGenericIterator<GridGraph>(graph, x, y, mask) {}
+        NeighbourIterator(NeighbourGenericIterator<GridGraph> const& source)
+            : NeighbourGenericIterator<GridGraph>(source) {}
+
+        /** The value of the currently-iterated neighbour */
+        float& value();
+        float value() const;
+    };
+
+    class NeighbourConstIterator : public NeighbourGenericIterator<GridGraph const>
+    {
+    public:
+        NeighbourConstIterator()
+            : NeighbourGenericIterator<GridGraph const>() {}
+        NeighbourConstIterator(GridGraph const& graph, int x, int y, int mask)
+            : NeighbourGenericIterator<GridGraph const>(graph, x, y, mask) {}
+        NeighbourConstIterator(NeighbourIterator const& source)
+            : NeighbourGenericIterator<GridGraph const>(source) {}
+
+        /** The value of the currently-iterated neighbour */
+        float value() const;
+    };
 
     /** Objects of this class represent a DAG based on regular grids. Each node
      * in the graph has 8 neighbours, and given a node, only itss parents are
@@ -151,6 +197,7 @@ namespace Nav {
     {
     public:
         typedef NeighbourIterator iterator;
+        typedef NeighbourConstIterator const_iterator;
 
         /** Enum which describes the mapping between the bits in m_parents and
          * the actual neighbour direction.
@@ -219,19 +266,31 @@ namespace Nav {
          * parents of (x, y). See also getParents.
          */
         iterator parentsBegin(size_t x, size_t y);
+        /** Returns a NeighbourIterator object which allows to iterate on the
+         * parents of (x, y). See also getParents.
+         */
+        const_iterator parentsBegin(size_t x, size_t y) const;
         /** Returns the past-the-end NeighbourIterator object to iterate on the
          * parents of cells.
          */
-        iterator parentsEnd();
+        iterator parentsEnd() const;
         /** Returns a NeighbourIterator object which allows to iterate on the
          * neighbours of (x, y). Neighbours are the cells directly adjacent to
          * the considered cell.
          */
         iterator neighboursBegin(size_t x, size_t y);
+        /** Returns a NeighbourIterator object which allows to iterate on the
+         * neighbours of (x, y). Neighbours are the cells directly adjacent to
+         * the considered cell.
+         */
+        const_iterator neighboursBegin(size_t x, size_t y) const;
         /** Returns the past-the-end NeighbourIterator object to iterate on the
          * neighbours of cells. See neighboursBegin.
          */
-        iterator neighboursEnd();
+        iterator neighboursEnd() const;
+
+        /** Returns the iterator pointing to the given neighbour of (x, y) */
+        NeighbourConstIterator getNeighbour(size_t x, size_t y, int neighbour) const;
     };
 
     class DStar
