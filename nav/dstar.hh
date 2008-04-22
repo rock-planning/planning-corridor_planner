@@ -4,14 +4,31 @@
 #include <vector>
 
 namespace Nav {
+    /** Basic tools for maps which are regular grids */
+    class GridMap
+    {
+    protected:
+        size_t m_xsize, m_ysize;
+
+    public:
+        GridMap(size_t xsize, size_t ysize)
+            : m_xsize(xsize), m_ysize(ysize) { }
+
+
+        /** The size, in cells, in the X direction */
+        size_t xSize() const { return m_xsize; }
+        /** The size, in cells, in the Y direction */
+        size_t ySize() const { return m_ysize; }
+        /** A numeric ID for the cell at (x, y) */
+        size_t getCellID(size_t x, size_t y) const { return y * m_xsize + x; }
+    };
+
     /** Objects of this class represent traversability maps. Traversability is
      * an integer value which can be represented on 4 bits (i.e. 16
      * traversability classes).
      */
-    class TraversabilityMap
+    class TraversabilityMap : public GridMap
     {
-        size_t m_xsize, m_ysize;
-
         /** The vector of values. Traversability is encoded on 4-bits fields, which
          * means that one uint8_t stores two cells. Moreover, values are stored
          * X-first, which means that the value for the cell (x, y) is at (y *
@@ -26,6 +43,10 @@ namespace Nav {
         /** Creates a new map with the given size in the X and Y axis */
         TraversabilityMap(size_t xsize, size_t ysize);
 
+        /** Returns the traversability value for the cell with the given ID */
+        uint8_t getValue(size_t id) const;
+        /** Changes the traversability value for the cell with the given ID */
+        void setValue(size_t id, uint8_t value);
         /** Returns the traversability value for the cell at (x, y) */
         uint8_t getValue(size_t x, size_t y) const;
         /** Changes the traversability value for the cell at (x, y) */
@@ -126,7 +147,7 @@ namespace Nav {
      *
      * Finally, one single floating-point value can be stored per node.
      */
-    class GridGraph
+    class GridGraph : public GridMap
     {
     public:
         typedef NeighbourIterator iterator;
@@ -145,9 +166,10 @@ namespace Nav {
             BOTTOM_RIGHT = 128
         };
 
-    private:
-        size_t m_xsize, m_ysize;
+        static const int DIR_STRAIGHT = RIGHT | TOP | LEFT | BOTTOM;
+        static const int DIR_DIAGONAL = TOP_RIGHT | TOP_LEFT | BOTTOM_LEFT | BOTTOM_RIGHT;
 
+    private:
         /** Array which encodes the parents of each node. The array is stored
          * row-first (i.e. the value for (x, y) is at (y * m_xsize + x).
          *
@@ -165,7 +187,11 @@ namespace Nav {
         std::vector<float> m_values;
 
     public:
-        GridGraph(size_t width, size_t height);
+        GridGraph(size_t width, size_t height, float value = 0);
+
+        /** Clears all edges in the graph, and initialize the floating-point
+         * value to the given \c new_value */
+        void clear(float new_value);
 
         /** Returns the floating point value stored for the (x, y) cell */
         float    getValue(size_t x, size_t y) const;

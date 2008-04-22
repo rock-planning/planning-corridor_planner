@@ -3,24 +3,26 @@
 using namespace Nav;
 
 TraversabilityMap::TraversabilityMap(size_t width, size_t height)
-    : m_xsize(width), m_ysize(height)
+    : GridMap(width, height)
     , m_values((width * height + 1) / 2, 0)
 { }
 
-uint8_t TraversabilityMap::getValue(size_t x, size_t y) const
+uint8_t TraversabilityMap::getValue(size_t id) const
 {
-    int base_idx = y * m_xsize + x;
-    int array_idx = base_idx / 2;
-    int shift = (base_idx & 1) * 4;
+    int array_idx = id / 2;
+    int shift = (id & 1) * 4;
     return (m_values[array_idx] & (0xF << shift)) >> shift;
 }
-void TraversabilityMap::setValue(size_t x, size_t y, uint8_t value)
+uint8_t TraversabilityMap::getValue(size_t x, size_t y) const
+{ return getValue(getCellID(x, y)); }
+void TraversabilityMap::setValue(size_t id, uint8_t value)
 {
-    int base_idx = y * m_xsize + x;
-    int array_idx = base_idx / 2;
-    int shift = (base_idx & 1) * 4;
+    int array_idx = id / 2;
+    int shift = (id & 1) * 4;
     m_values[array_idx] = (m_values[array_idx] & ~(0xF << shift)) | (value << shift);
 }
+void TraversabilityMap::setValue(size_t x, size_t y, uint8_t value)
+{ return setValue(getCellID(x, y), value); }
 
 const int NeighbourIterator::m_x_offsets[9] = { 0, 1, 1, 0, -1, -1, -1,  0,  1 };
 const int NeighbourIterator::m_y_offsets[9] = { 0, 0, 1, 1,  1,  0, -1, -1, -1 };
@@ -46,11 +48,17 @@ void NeighbourIterator::findNextNeighbour()
     }
 }
 
-GridGraph::GridGraph(size_t width, size_t height)
-    : m_xsize(width), m_ysize(height)
+GridGraph::GridGraph(size_t width, size_t height, float value)
+    : GridMap(width, height)
     , m_parents(width * height, 0)
-    , m_values(width * height, 0)
+    , m_values(width * height, value)
 { }
+
+void GridGraph::clear(float new_value)
+{ 
+    fill(m_parents.begin(), m_parents.end(), 0);
+    fill(m_values.begin(), m_values.end(), new_value);
+}
 
 float  GridGraph::getValue(size_t x, size_t y) const
 { return m_values[y * m_xsize + x]; }
