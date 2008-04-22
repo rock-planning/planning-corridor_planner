@@ -5,6 +5,7 @@
 #include "nav/dstar.hh"
 #include <iostream>
 #include <vector>
+#include <cmath>
 
 using namespace Nav;
 using std::vector;
@@ -87,13 +88,13 @@ BOOST_AUTO_TEST_CASE( test_grid_graph )
 
     /** Check iteration on parents */
     NeighbourIterator it = graph.parentsBegin(10, 10);
-    BOOST_REQUIRE_EQUAL(10, it.nodeX());
-    BOOST_REQUIRE_EQUAL(10, it.nodeY());
+    BOOST_REQUIRE_EQUAL(10, it.sourceX());
+    BOOST_REQUIRE_EQUAL(10, it.sourceY());
     BOOST_REQUIRE(graph.parentsEnd() == it);
 
     it = graph.parentsBegin(101, 101);
     BOOST_REQUIRE(graph.parentsEnd() != it);
-    BOOST_REQUIRE_EQUAL(2, it.getNeighbour());
+    BOOST_REQUIRE_EQUAL(GridGraph::TOP_RIGHT, it.getNeighbour());
     BOOST_REQUIRE_EQUAL(102, it.x());
     BOOST_REQUIRE_EQUAL(102, it.y());
     ++it;
@@ -128,5 +129,62 @@ BOOST_AUTO_TEST_CASE( test_grid_graph )
         const int expected_values[] = { -1, 0, -1, -1, 0, -1 };
         check_neighbour_iteration(199, 199, graph, expected_values, 3);
     }
+
+    /** Check convertion from non-const iterators to const iterators */
+    NeighbourConstIterator cv_it = graph.parentsBegin(101, 101);
+    BOOST_REQUIRE(cv_it == graph.parentsBegin(101, 101));
+}
+
+BOOST_AUTO_TEST_CASE( test_dstar_cost )
+{
+    TraversabilityMap map(100, 100);
+    DStar algo(map);
+
+    float min_cost = 1.0f;
+    float max_cost = std::pow(2, 1 / 0.01);
+
+    BOOST_REQUIRE_CLOSE(min_cost, DStar::costOfClass(TraversabilityMap::CLASSES_COUNT - 1), 0.01);
+    BOOST_REQUIRE_CLOSE(max_cost, DStar::costOfClass(0), 0.01);
+
+    map.setValue(10, 10, 0);
+    BOOST_REQUIRE_CLOSE(max_cost, algo.costOf(10, 10), 0.01);
+    map.setValue(10, 10, TraversabilityMap::CLASSES_COUNT - 1);
+    BOOST_REQUIRE_CLOSE(min_cost, algo.costOf(10, 10), 0.01);
+
+    /** From now, we assume that GridGraph::costOfClass(x) behaves properly and
+     * we extract the cost of each traversability classes
+     */
+    float basic_costs[TraversabilityMap::CLASSES_COUNT];
+    for (int i = 0; i < TraversabilityMap::CLASSES_COUNT; ++i)
+        basic_costs[i] = DStar::costOfClass(i);
+
+    GridGraph const& graph = algo.graph();
+
+    map.setValue(10, 10, 15);
+
+    map.setValue(11, 10, 9);
+    map.setValue(11, 11, 10);
+    map.setValue(10, 11, 11);
+    map.setValue(9,  11, 12);
+    map.setValue(9,  10, 13);
+    map.setValue(9,   9, 14);
+    map.setValue(10,  9, 13);
+    map.setValue(11,  9, 12);
+
+    float expected_costs[] = 
+    { 
+        basic_costs[9] + basic_costs[15],
+        (basic_costs[9] + basic_costs[10] + basic_costs[11] + basic_costs[15]) / 2 * sqrt(2) / 2,
+        basic_costs[11] + basic_costs[15],
+        (basic_costs[11] + basic_costs[12] + basic_costs[13] + basic_costs[15]) / 2 * sqrt(2) / 2,
+        basic_costs[13] + basic_costs[15],
+        (basic_costs[13] + basic_costs[14] + basic_costs[13] + basic_costs[15]) / 2 * sqrt(2) / 2,
+        basic_costs[13] + basic_costs[15],
+        (basic_costs[13] + basic_costs[12] + basic_costs[9] + basic_costs[15]) / 2 * sqrt(2) / 2
+    };
+
+    NeighbourConstIterator it = graph.neighboursBegin(10, 10);
+    for (int i = 0; it != graph.neighboursEnd(); ++it, ++i)
+        BOOST_REQUIRE_CLOSE(expected_costs[i], algo.costOf(it), 0.01);
 }
 

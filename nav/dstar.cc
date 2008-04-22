@@ -1,4 +1,6 @@
+#include <limits>
 #include "dstar.hh"
+#include <cmath>
 
 using namespace Nav;
 
@@ -95,4 +97,74 @@ NeighbourConstIterator GridGraph::neighboursBegin(size_t x, size_t y) const
 { return NeighbourConstIterator(*this, x, y, neighboursMask(x, y, m_xsize, m_ysize)); }
 NeighbourIterator GridGraph::neighboursEnd() const
 { return NeighbourIterator(); }
+
+NeighbourConstIterator GridGraph::getNeighbour(size_t x, size_t y, int neighbour) const
+{ return NeighbourConstIterator(*this, x, y, neighbour); }
+
+
+namespace Nav {
+    static const float COST_GROWTH_1 = 0.3;
+    static const float COST_GROWTH_0 = 0.01;
+    static const float DIAG_FACTOR = sqrt(2) / 2;
+}
+
+DStar::DStar(TraversabilityMap const& map)
+    : m_map(map)
+    , m_graph(map.xSize(), map.ySize()) {}
+
+GridGraph const& DStar::graph() const
+{ return m_graph; }
+
+void DStar::initialize(int goal_x, int goal_y, int pos_x, int pos_y)
+{
+    /** First, clear up everything */
+    m_graph.clear(std::numeric_limits<float>::max());
+    m_open_list.clear();
+    m_goal_x = goal_x;
+    m_goal_y = goal_y;
+
+    m_open_list.insert( std::make_pair(0, m_graph.getCellID(goal_x, goal_y)) );
+    update(pos_x, pos_y);
+}
+
+float DStar::costOfClass(int klass)
+{
+    float p = static_cast<float>(klass) / (TraversabilityMap::CLASSES_COUNT - 1);
+    float sigma = p * (COST_GROWTH_1 - COST_GROWTH_0) + COST_GROWTH_0;
+    return std::pow(2, (1 - p) / sigma);
+}
+float DStar::costOf(size_t x, size_t y) const
+{ return costOfClass(m_map.getValue(x, y)); }
+
+float DStar::costOf(NeighbourConstIterator it) const
+{
+    float a = costOf(it.sourceX(), it.sourceY());
+    float b = costOf(it.x(), it.y());
+
+    if (it.getNeighbour() & GridGraph::DIR_STRAIGHT)
+        return a + b;
+
+    uint8_t next_neighbour = it.getNeighbour() << 1;
+    uint8_t prev_neighbour = it.getNeighbour() >> 1;
+    if (! next_neighbour)
+        next_neighbour = GridGraph::RIGHT;
+    else if (! prev_neighbour)
+        prev_neighbour = GridGraph::BOTTOM_RIGHT;
+
+    NeighbourConstIterator next = m_graph.getNeighbour(it.sourceX(), it.sourceY(), next_neighbour);
+    NeighbourConstIterator prev = m_graph.getNeighbour(it.sourceX(), it.sourceY(), prev_neighbour);
+
+    float c = costOf(next.x(), next.y());
+    float d = costOf(prev.x(), prev.y());
+    return (a + b + c + d) / 2 * Nav::DIAG_FACTOR;
+}
+
+void DStar::updated(int x, int y)
+{ 
+}
+
+void DStar::update(int pos_x, int pos_y)
+{
+    throw;
+}
 

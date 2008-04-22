@@ -293,8 +293,74 @@ namespace Nav {
         NeighbourConstIterator getNeighbour(size_t x, size_t y, int neighbour) const;
     };
 
+    /** An implementation of the plain D* algorithm */
     class DStar
     {
+        /** The underlying map we are acting on */
+        TraversabilityMap const& m_map;
+
+        /** The GridGraph object we use to store the algorithm state */
+        GridGraph m_graph;
+
+        std::map<float, int> m_open_list;
+
+        /** The current goal */
+        int m_goal_x, m_goal_y;
+
+    public:
+        DStar(TraversabilityMap const& map);
+
+        /** The graph object which is used to store D*'s results */
+        GridGraph const& graph() const;
+
+        /** Initializes the algorithm for the given position and goal */
+        void initialize(int goal_x, int goal_y, int pos_x, int pos_y);
+
+        /** Announce that the given cell has been updated in the traversability
+         * map */
+        void updated(int x, int y);
+
+        /** Update the trajectories for the given position */
+        void update(int pos_x, int pos_y);
+
+        /** Computes the cost of traversing a cell of the given class
+         * If p is the probability of being able to traverse the cell,
+         * the cost is
+         *   
+         *   2**((1-p)/s(p))
+         *
+         * where 
+         *   s(p) = p * (COST_1 - COST_0) + COST_0
+         *
+         * The basic idea of this cost function is to base itself on the idea
+         * of 
+         *
+         *   2**((1-p)/s)
+         *
+         * i.e. having an exponential growth in term of probabilities. The growth
+         * rate \c s is then made function of p, so that the cost function grows
+         * rapidly for low probabilities (high-cost areas) and slowly for
+         * low cost areas.
+         *
+         * The values for COST_1 and COST_0 are defined in dstar.cc
+         */
+        static float costOfClass(int klass);
+
+        /** The cost of traversing the given cell */
+        float costOf(size_t x, size_t y) const;
+
+        /** Computes the cost of crossing the edge represented by \c it
+         *
+         * The strategy is the following:
+         * <ul>
+         *  <li>use (a + b) / 2, where a and b are the costs of the source and
+         *     target cells, if we are going straight
+         *  <li>use (a + b + c + d) / 2, where a and b are the costs of the source
+         *     and target cells and c and d are the costs of the two adjacent cells.
+         *     This is used if we are going in diagonal.
+         * </ul>
+         */
+        float costOf(NeighbourConstIterator it) const;
     };
 }
 
