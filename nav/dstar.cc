@@ -70,4 +70,15 @@ NeighbourIterator GridGraph::parentsBegin(size_t x, size_t y)
 { return NeighbourIterator(*this, x, y, getParents(x, y)); }
 NeighbourIterator GridGraph::parentsEnd()
 { return NeighbourIterator(); }
+NeighbourIterator GridGraph::neighboursBegin(size_t x, size_t y)
+{ 
+    int mask = 0xFF;
+    mask &= ~((x == 0) * (BOTTOM_LEFT | LEFT | TOP_LEFT));
+    mask &= ~((x == m_width - 1) * (BOTTOM_RIGHT | RIGHT | TOP_RIGHT));
+    mask &= ~((y == 0) * (BOTTOM_LEFT | BOTTOM | BOTTOM_RIGHT));
+    mask &= ~((y == m_height - 1) * (TOP_LEFT | TOP | TOP_RIGHT));
+    return NeighbourIterator(*this, x, y, mask); 
+}
+NeighbourIterator GridGraph::neighboursEnd()
+{ return NeighbourIterator(); }
 

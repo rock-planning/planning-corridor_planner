@@ -4,8 +4,10 @@
 #include "test/testsuite.hh"
 #include "nav/dstar.hh"
 #include <iostream>
+#include <vector>
 
 using namespace Nav;
+using std::vector;
 
 /* This test checks the access and change of values in traversability maps.  It
  * generates RANDOM_TEST_COUNT position at which the traversability value
@@ -52,6 +54,19 @@ BOOST_AUTO_TEST_CASE( test_traversability_map )
             BOOST_REQUIRE_EQUAL(expected_values[x][y], map.getValue(x, y));
 }
 
+void check_neighbour_iteration(int x, int y, GridGraph& graph, const int* offsets, int count)
+{
+    NeighbourIterator it = graph.neighboursBegin(x, y);
+    for (int i = 0; i < count; ++i)
+    {
+        BOOST_REQUIRE(graph.neighboursEnd() != it);
+        BOOST_REQUIRE_EQUAL(x + offsets[i * 2], it.x());
+        BOOST_REQUIRE_EQUAL(y + offsets[i * 2 + 1], it.y());
+        ++it;
+    }
+    BOOST_REQUIRE(graph.neighboursEnd() == it);
+}
+
 BOOST_AUTO_TEST_CASE( test_grid_graph )
 {
     GridGraph graph(200, 200);
@@ -70,7 +85,7 @@ BOOST_AUTO_TEST_CASE( test_grid_graph )
     graph.getValue(100, 100) = 0.214970;
     BOOST_CHECK_CLOSE(0.214970F, graph.getValue(100, 100), 0.0001);
 
-    /** Now, check iteration */
+    /** Check iteration on parents */
     NeighbourIterator it = graph.parentsBegin(10, 10);
     BOOST_REQUIRE_EQUAL(10, it.nodeX());
     BOOST_REQUIRE_EQUAL(10, it.nodeY());
@@ -83,5 +98,35 @@ BOOST_AUTO_TEST_CASE( test_grid_graph )
     BOOST_REQUIRE_EQUAL(102, it.y());
     ++it;
     BOOST_REQUIRE(graph.parentsEnd() == it);
+
+    /** Check iteration on neighbours */
+    {
+        const int expected_values[] = { 1, 0, 1, 1, 0, 1, -1, 1, -1, 0, -1, -1, 0, -1, 1, -1 };
+        check_neighbour_iteration(10, 10, graph, expected_values, 8);
+    }
+    {
+        const int expected_values[] = { 1, 0, 1, 1, 0, 1 };
+        check_neighbour_iteration(0, 0, graph, expected_values, 3);
+    }
+    {
+        const int expected_values[] = { 1, 0, 1, 1, 0, 1, 0, -1, 1, -1 };
+        check_neighbour_iteration(0, 100, graph, expected_values, 5);
+    }
+    {
+        const int expected_values[] = { 1, 0, 0, -1, 1, -1 };
+        check_neighbour_iteration(0, 199, graph, expected_values, 3);
+    }
+    {
+        const int expected_values[] = { 0, 1, -1, 1, -1, 0 };
+        check_neighbour_iteration(199, 0, graph, expected_values, 3);
+    }
+    {
+        const int expected_values[] = { 0, 1, -1, 1, -1, 0, -1, -1, 0, -1 };
+        check_neighbour_iteration(199, 100, graph, expected_values, 5);
+    }
+    {
+        const int expected_values[] = { -1, 0, -1, -1, 0, -1 };
+        check_neighbour_iteration(199, 199, graph, expected_values, 3);
+    }
 }
 

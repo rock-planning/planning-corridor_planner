@@ -146,6 +146,8 @@ namespace Nav {
 
         iterator parentsBegin(size_t x, size_t y);
         iterator parentsEnd();
+        iterator neighboursBegin(size_t x, size_t y);
+        iterator neighboursEnd();
     };
 
     class DStar
