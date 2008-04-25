@@ -43,7 +43,10 @@ namespace Nav {
         static const int CLASSES_COUNT = 16;
 
         /** Creates a new map with the given size in the X and Y axis */
-        TraversabilityMap(size_t xsize, size_t ysize);
+        TraversabilityMap(size_t xsize, size_t ysize, uint8_t fill = 0);
+
+        /** Fills the map with the given traversability */
+        void fill(uint8_t value);
 
         /** Returns the traversability value for the cell with the given ID */
         uint8_t getValue(size_t id) const;
@@ -91,8 +94,8 @@ namespace Nav {
         int m_neighbour;
 
         static const int END_NEIGHBOUR = 9;
-        static const int m_x_offsets[9];
-        static const int m_y_offsets[9];
+        static const int s_x_offsets[9];
+        static const int s_y_offsets[9];
 
         /** Updates m_neighbour and m_mask to advance the iterator to the next
          * cell which should be visited, or to the end of iteration if no
@@ -124,8 +127,15 @@ namespace Nav {
         int sourceY() const { return m_y; }
 
         /** The position of the currently-iterated neighbour */
-        int x() const { return m_x + m_x_offsets[m_neighbour]; }
-        int y() const { return m_y + m_y_offsets[m_neighbour]; }
+        int x() const { return m_x + s_x_offsets[m_neighbour]; }
+        int y() const { return m_y + s_y_offsets[m_neighbour]; }
+
+        /** The value of the currently-iterated neighbour */
+        float getValue() const;
+        /** True if the source of this iterator is the parent of the currently
+         * pointed-to cell
+         */
+        bool sourceIsParent() const;
 
         /** Advance the iteration one step */
         NeighbourGenericIterator<GraphClass>& operator++()
@@ -154,9 +164,9 @@ namespace Nav {
     };
 
     template<typename GraphClass>
-    const int NeighbourGenericIterator<GraphClass>::m_x_offsets[9] = { 0, 1, 1, 0, -1, -1, -1,  0,  1 };
+    const int NeighbourGenericIterator<GraphClass>::s_x_offsets[9] = { 0, 1, 1, 0, -1, -1, -1,  0,  1 };
     template<typename GraphClass>
-    const int NeighbourGenericIterator<GraphClass>::m_y_offsets[9] = { 0, 0, 1, 1,  1,  0, -1, -1, -1 };
+    const int NeighbourGenericIterator<GraphClass>::s_y_offsets[9] = { 0, 0, 1, 1,  1,  0, -1, -1, -1 };
 
     class NeighbourIterator : public NeighbourGenericIterator<GridGraph>
     {
@@ -168,9 +178,14 @@ namespace Nav {
         NeighbourIterator(NeighbourGenericIterator<GridGraph> const& source)
             : NeighbourGenericIterator<GridGraph>(source) {}
 
-        /** The value of the currently-iterated neighbour */
-        float& value();
-        float value() const;
+        /* Changes the value of the currently pointed-to cell */
+        void setValue(float value);
+        /* Make the source of this iteration the parent of the currently
+         * pointed-to cell */
+        void setSourceAsParent();
+        /* Make pointed-to cell the parent of the source of this iteration
+         */
+        void setTargetAsParent();
     };
 
     class NeighbourConstIterator : public NeighbourGenericIterator<GridGraph const>
@@ -182,9 +197,6 @@ namespace Nav {
             : NeighbourGenericIterator<GridGraph const>(graph, x, y, mask) {}
         NeighbourConstIterator(NeighbourIterator const& source)
             : NeighbourGenericIterator<GridGraph const>(source) {}
-
-        /** The value of the currently-iterated neighbour */
-        float value() const;
     };
 
     /** Objects of this class represent a DAG based on regular grids. Each node
@@ -243,7 +255,7 @@ namespace Nav {
         /** Returns the floating point value stored for the (x, y) cell */
         float    getValue(size_t x, size_t y) const;
         /** Returns the floating point value stored for the (x, y) cell */
-        float&   getValue(size_t x, size_t y);
+        void     setValue(size_t x, size_t y, float value);
 
         /** Returns the bit-mask describing what are the parents of the cell
          * at (x, y). See RELATIONS.
@@ -257,6 +269,8 @@ namespace Nav {
          * set of possible values.
          */
         void     setParent(size_t x, size_t y, uint8_t new_parent);
+        /** Sets the set of parents to the given bitfield */
+        void     setParents(size_t x, size_t y, uint8_t mask);
         /** Removes a parent for the cell at (x, y). See RELATIONS for the set
          * of possible values.
          */
@@ -293,22 +307,57 @@ namespace Nav {
         NeighbourConstIterator getNeighbour(size_t x, size_t y, int neighbour) const;
     };
 
-    /** An implementation of the plain D* algorithm */
+    /** An implementation of the plain D* algorithm. DStar::costOfClass is the
+     * method which transforms traversability value into a floating-point cost
+     * value
+     */
     class DStar
     {
+        struct internal_error : public std::exception {};
+    public:
         /** The underlying map we are acting on */
         TraversabilityMap const& m_map;
 
-        /** The GridGraph object we use to store the algorithm state */
+        /** The GridGraph object we use to store the algorithm state. The float
+         * value of a node in this graph stores the cost of the path from that
+         * cell to the goal
+         */
         GridGraph m_graph;
-
-        std::map<float, int> m_open_list;
 
         /** The current goal */
         int m_goal_x, m_goal_y;
 
+        struct PointID { 
+            int x; 
+            int y; 
+
+            bool operator == (PointID const& other) const
+            { return x == other.x && y == other.y; }
+            bool operator != (PointID const& other) const
+            { return !(*this == other); }
+            bool operator < (PointID const& other) const
+            { return x < other.x || (x == other.x && y < other.y); }
+        };
+
+
+        typedef std::multimap<float, PointID> OpenFromCost;
+        OpenFromCost m_open_from_cost;
+        typedef std::map<PointID, float> OpenFromNode;
+        OpenFromNode m_open_from_node;
+
+        /* Insert the following point in the open list, using the given value
+         * as ordering value
+         */
+        float insert(int x, int y, float value);
+
     public:
         DStar(TraversabilityMap const& map);
+
+        /** The graph object which is used to store D*'s results */
+        GridGraph& graph();
+
+        int getGoalX() const { return m_goal_x; }
+        int getGoalY() const { return m_goal_y; }
 
         /** The graph object which is used to store D*'s results */
         GridGraph const& graph() const;
@@ -318,7 +367,7 @@ namespace Nav {
 
         /** Announce that the given cell has been updated in the traversability
          * map */
-        void updated(int x, int y);
+        float updated(int x, int y);
 
         /** Update the trajectories for the given position */
         void update(int pos_x, int pos_y);
@@ -361,6 +410,16 @@ namespace Nav {
          * </ul>
          */
         float costOf(NeighbourConstIterator it) const;
+
+        /** Returns the cost of (x, y) as stored in the open list. If the node
+         * is not in the open list, the boolean returned is false. Otherwise,
+         * the boolean is true and the float value is the new cost of the node
+         *
+         * If \c check_consistency is true, then the method performs a
+         * consistency check on the open list. It is quite costly and should
+         * be used only for testing purposes
+         */
+        std::pair<float, bool> updatedCostOf(int x, int y, bool check_consistency = false) const;
     };
 }
 

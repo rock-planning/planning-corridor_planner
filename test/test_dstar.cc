@@ -9,6 +9,7 @@
 
 using namespace Nav;
 using std::vector;
+using std::make_pair;
 
 /* This test checks the access and change of values in traversability maps.  It
  * generates RANDOM_TEST_COUNT position at which the traversability value
@@ -83,7 +84,7 @@ BOOST_AUTO_TEST_CASE( test_grid_graph )
     graph.clearParent(101, 101, GridGraph::BOTTOM_LEFT);
     BOOST_REQUIRE_EQUAL(GridGraph::TOP_RIGHT, graph.getParents(101, 101));
     BOOST_REQUIRE_EQUAL(0, graph.getValue(100, 100));
-    graph.getValue(100, 100) = 0.214970;
+    graph.setValue(100, 100, 0.214970);
     BOOST_CHECK_CLOSE(0.214970F, graph.getValue(100, 100), 0.0001);
 
     /** Check iteration on parents */
@@ -133,6 +134,41 @@ BOOST_AUTO_TEST_CASE( test_grid_graph )
     /** Check convertion from non-const iterators to const iterators */
     NeighbourConstIterator cv_it = graph.parentsBegin(101, 101);
     BOOST_REQUIRE(cv_it == graph.parentsBegin(101, 101));
+
+    /** Check set(Source|Target)AsParent */
+    graph.setParents(30, 30, GridGraph::LEFT);
+    it = graph.neighboursBegin(30, 30);
+    for (; it != graph.neighboursEnd(); ++it)
+    {
+        it.setSourceAsParent();
+        NeighbourIterator parent_it = graph.parentsBegin(it.x(), it.y());
+        BOOST_CHECK_EQUAL(30, parent_it.x());
+        BOOST_CHECK_EQUAL(30, parent_it.y());
+        BOOST_CHECK(++parent_it == graph.parentsEnd());
+    }
+    BOOST_REQUIRE_EQUAL(0, graph.getParents(30, 30));
+
+    graph.setParents(31, 31, GridGraph::LEFT);
+    graph.setParents(31, 30, GridGraph::LEFT);
+    it = graph.neighboursBegin(30, 30);
+    for (; it != graph.neighboursEnd(); ++it)
+    {
+        it.setTargetAsParent();
+        NeighbourIterator parent_it = graph.parentsBegin(30, 30);
+        BOOST_CHECK_EQUAL(it.x(), parent_it.x());
+        BOOST_CHECK_EQUAL(it.y(), parent_it.y());
+        BOOST_CHECK(++parent_it == graph.parentsEnd());
+    }
+    BOOST_REQUIRE_EQUAL(GridGraph::LEFT, graph.getParents(31, 31));
+    BOOST_REQUIRE_EQUAL(0, graph.getParents(31, 30));
+}
+
+std::vector<float> dstarCosts()
+{
+    vector<float> basic_costs;
+    for (int i = 0; i < TraversabilityMap::CLASSES_COUNT; ++i)
+        basic_costs.push_back( DStar::costOfClass(i) );
+    return basic_costs;
 }
 
 BOOST_AUTO_TEST_CASE( test_dstar_cost )
@@ -154,9 +190,7 @@ BOOST_AUTO_TEST_CASE( test_dstar_cost )
     /** From now, we assume that GridGraph::costOfClass(x) behaves properly and
      * we extract the cost of each traversability classes
      */
-    float basic_costs[TraversabilityMap::CLASSES_COUNT];
-    for (int i = 0; i < TraversabilityMap::CLASSES_COUNT; ++i)
-        basic_costs[i] = DStar::costOfClass(i);
+    vector<float> basic_costs = dstarCosts();
 
     GridGraph const& graph = algo.graph();
 
@@ -174,17 +208,94 @@ BOOST_AUTO_TEST_CASE( test_dstar_cost )
     float expected_costs[] = 
     { 
         basic_costs[9] + basic_costs[15],
-        (basic_costs[9] + basic_costs[10] + basic_costs[11] + basic_costs[15]) / 2 * sqrt(2) / 2,
+        (basic_costs[9] + basic_costs[10] + basic_costs[11] + basic_costs[15]) / 2 * sqrt(2),
         basic_costs[11] + basic_costs[15],
-        (basic_costs[11] + basic_costs[12] + basic_costs[13] + basic_costs[15]) / 2 * sqrt(2) / 2,
+        (basic_costs[11] + basic_costs[12] + basic_costs[13] + basic_costs[15]) / 2 * sqrt(2),
         basic_costs[13] + basic_costs[15],
-        (basic_costs[13] + basic_costs[14] + basic_costs[13] + basic_costs[15]) / 2 * sqrt(2) / 2,
+        (basic_costs[13] + basic_costs[14] + basic_costs[13] + basic_costs[15]) / 2 * sqrt(2),
         basic_costs[13] + basic_costs[15],
-        (basic_costs[13] + basic_costs[12] + basic_costs[9] + basic_costs[15]) / 2 * sqrt(2) / 2
+        (basic_costs[13] + basic_costs[12] + basic_costs[9] + basic_costs[15]) / 2 * sqrt(2)
     };
 
     NeighbourConstIterator it = graph.neighboursBegin(10, 10);
     for (int i = 0; it != graph.neighboursEnd(); ++it, ++i)
         BOOST_REQUIRE_CLOSE(expected_costs[i], algo.costOf(it), 0.01);
+}
+
+BOOST_AUTO_TEST_CASE( test_dstar_updated )
+{
+    TraversabilityMap map(100, 100);
+    DStar algo(map);
+    GridGraph& graph = algo.graph();
+
+    vector<float> basic_costs = dstarCosts();
+
+    /** First, basic tests without parents */
+    map.setValue(10, 10, 5);
+    BOOST_REQUIRE_EQUAL(false, algo.updatedCostOf(10, 10, true).second);
+
+    BOOST_REQUIRE_EQUAL(basic_costs[5], algo.updated(10, 10));
+    BOOST_REQUIRE(make_pair(basic_costs[5], true) == algo.updatedCostOf(10, 10, true));
+    BOOST_REQUIRE_EQUAL(basic_costs[5], algo.updated(10, 10));
+    BOOST_REQUIRE(make_pair(basic_costs[5], true) == algo.updatedCostOf(10, 10, true));
+    BOOST_REQUIRE_EQUAL(0, graph.getValue(10, 10));
+
+    map.setValue(10, 10, 10);
+    BOOST_REQUIRE_EQUAL(basic_costs[10], algo.updated(10, 10));
+    BOOST_REQUIRE(make_pair(basic_costs[10], true) == algo.updatedCostOf(10, 10, true));
+    BOOST_REQUIRE_EQUAL(0, graph.getValue(10, 10));
+
+    map.setValue(10, 10, 5);
+    BOOST_REQUIRE_EQUAL(basic_costs[10], algo.updated(10, 10));
+    BOOST_REQUIRE(make_pair(basic_costs[10], true) == algo.updatedCostOf(10, 10, true));
+    BOOST_REQUIRE_EQUAL(0, graph.getValue(10, 10));
+
+    /** Now, do the same but consider the presence of a parent */
+    graph.setParent(10, 10, GridGraph::TOP);
+    map.setValue(10, 11, 15);
+    map.setValue(10, 10, 15);
+    graph.setValue(10, 11, 1);
+    float expected_cost = 1 + basic_costs[15] + basic_costs[15];
+    BOOST_REQUIRE_EQUAL(expected_cost, algo.updated(10, 10));
+    BOOST_REQUIRE(make_pair(expected_cost, true) == algo.updatedCostOf(10, 10, true));
+}
+
+void checkDStarConsistency(DStar const& algo)
+{
+    GridGraph const& graph = algo.graph();
+
+    for (int x = 0; x < (int)graph.xSize(); ++x)
+        for (int y = 0; y < (int)graph.ySize(); ++y)
+            if (x != algo.getGoalX() || y != algo.getGoalY())
+            {
+                NeighbourConstIterator parent = graph.parentsBegin(x, y);
+                BOOST_CHECK(parent != graph.parentsEnd());
+                BOOST_CHECK_CLOSE(graph.getValue(x, y), algo.costOf(parent) + parent.getValue(), 0.01);
+            }
+}
+
+/** Checks the behaviour of D* on an empty map with constant traversability */
+BOOST_AUTO_TEST_CASE( test_dstar_initialize_empty )
+{
+    TraversabilityMap map(11, 11);
+    map.fill(10);
+    DStar algo(map);
+    algo.initialize(5, 5, 1, 1);
+
+    checkDStarConsistency(algo);
+    GridGraph const& graph = algo.graph();
+
+    /* Hopefully,we know the result :-) */
+    for (int i = 0; i < 5; ++i)
+    {
+        BOOST_REQUIRE_EQUAL(GridGraph::RIGHT, graph.getParents(i, 5));
+        BOOST_REQUIRE_EQUAL(GridGraph::TOP_RIGHT, graph.getParents(i, i));
+        BOOST_REQUIRE_EQUAL(GridGraph::TOP, graph.getParents(5, i));
+        BOOST_REQUIRE_EQUAL(GridGraph::TOP_LEFT,  graph.getParents(10 - i, i));
+        BOOST_REQUIRE_EQUAL(GridGraph::LEFT,  graph.getParents(10 - i, 5));
+        BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM_LEFT,  graph.getParents(10 - i, 10 - i));
+        BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM, graph.getParents(5, 10 - i));
+        BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM_RIGHT, graph.getParents(i, 10 - i));
+    }
 }
 

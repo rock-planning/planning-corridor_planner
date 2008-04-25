@@ -1,13 +1,38 @@
 #include <limits>
 #include "dstar.hh"
 #include <cmath>
+#include <boost/tuple/tuple.hpp>
+#include <cassert>
+#include <algorithm>
+
+#include <iostream>
 
 using namespace Nav;
+using std::make_pair;
+using boost::tie;
 
-TraversabilityMap::TraversabilityMap(size_t width, size_t height)
+namespace Nav {
+    static const int OPPOSITE_RELATIONS[] = 
+        { 0,
+        GridGraph::LEFT,
+        GridGraph::BOTTOM_LEFT,
+        GridGraph::BOTTOM,
+        GridGraph::BOTTOM_RIGHT,
+        GridGraph::RIGHT,
+        GridGraph::TOP_RIGHT,
+        GridGraph::TOP,
+        GridGraph::TOP_LEFT };
+}
+
+TraversabilityMap::TraversabilityMap(size_t width, size_t height, uint8_t init)
     : GridMap(width, height)
-    , m_values((width * height + 1) / 2, 0)
-{ }
+    , m_values((width * height + 1) / 2, init) { }
+
+void TraversabilityMap::fill(uint8_t value)
+{ 
+    value &= 0xF;
+    std::fill(m_values.begin(), m_values.end(), (value | value << 4));
+}
 
 uint8_t TraversabilityMap::getValue(size_t id) const
 {
@@ -35,7 +60,11 @@ NeighbourGenericIterator<GC>::NeighbourGenericIterator(GC& graph, int x, int y, 
     m_neighbour = 1;
     findNextNeighbour();
 }
-float& NeighbourIterator::value() { return m_graph->getValue(x(), y()); }
+template<typename GC>
+float NeighbourGenericIterator<GC>::getValue() const { return m_graph->getValue(x(), y()); }
+template<typename GC>
+bool NeighbourGenericIterator<GC>::sourceIsParent() const 
+{ return m_graph->getParents(x(), y()) & Nav::OPPOSITE_RELATIONS[m_neighbour]; }
 
 template<typename GC>
 void NeighbourGenericIterator<GC>::findNextNeighbour()
@@ -49,6 +78,23 @@ void NeighbourGenericIterator<GC>::findNextNeighbour()
         m_neighbour++;
     }
 }
+
+template class NeighbourGenericIterator<Nav::GridGraph const>;
+template class NeighbourGenericIterator<Nav::GridGraph>;
+
+void NeighbourIterator::setValue(float value)
+{ m_graph->setValue(x(), y(), value); }
+void NeighbourIterator::setSourceAsParent()
+{ 
+    m_graph->setParents(x(), y(), Nav::OPPOSITE_RELATIONS[m_neighbour]);
+    m_graph->clearParent(sourceX(), sourceY(), getNeighbour());
+}
+void NeighbourIterator::setTargetAsParent()
+{ 
+    m_graph->clearParent(x(), y(), Nav::OPPOSITE_RELATIONS[m_neighbour]);
+    m_graph->setParents(sourceX(), sourceY(), getNeighbour());
+}
+
 
 GridGraph::GridGraph(size_t width, size_t height, float value)
     : GridMap(width, height)
@@ -64,8 +110,8 @@ void GridGraph::clear(float new_value)
 
 float  GridGraph::getValue(size_t x, size_t y) const
 { return m_values[y * m_xsize + x]; }
-float& GridGraph::getValue(size_t x, size_t y)
-{ return m_values[y * m_xsize + x]; }
+void GridGraph::setValue(size_t x, size_t y, float value)
+{ m_values[y * m_xsize + x] = value; }
 
 uint8_t  GridGraph::getParents(size_t x, size_t y) const
 { return m_parents[y * m_xsize + x]; }
@@ -73,6 +119,8 @@ uint8_t& GridGraph::getParents(size_t x, size_t y)
 { return m_parents[y * m_xsize + x]; }
 void GridGraph::setParent(size_t x, size_t y, uint8_t new_parent)
 { getParents(x, y) |= new_parent; }
+void GridGraph::setParents(size_t x, size_t y, uint8_t mask)
+{ getParents(x, y) = mask; }
 void GridGraph::clearParent(size_t x, size_t y, uint8_t old_parent)
 { getParents(x, y) &= ~old_parent; }
 
@@ -105,13 +153,15 @@ NeighbourConstIterator GridGraph::getNeighbour(size_t x, size_t y, int neighbour
 namespace Nav {
     static const float COST_GROWTH_1 = 0.3;
     static const float COST_GROWTH_0 = 0.01;
-    static const float DIAG_FACTOR = sqrt(2) / 2;
+    static const float DIAG_FACTOR = sqrt(2);
 }
 
 DStar::DStar(TraversabilityMap const& map)
     : m_map(map)
     , m_graph(map.xSize(), map.ySize()) {}
 
+GridGraph& DStar::graph()
+{ return m_graph; }
 GridGraph const& DStar::graph() const
 { return m_graph; }
 
@@ -119,11 +169,13 @@ void DStar::initialize(int goal_x, int goal_y, int pos_x, int pos_y)
 {
     /** First, clear up everything */
     m_graph.clear(std::numeric_limits<float>::max());
-    m_open_list.clear();
+    m_open_from_node.clear();
+    m_open_from_cost.clear();
     m_goal_x = goal_x;
     m_goal_y = goal_y;
 
-    m_open_list.insert( std::make_pair(0, m_graph.getCellID(goal_x, goal_y)) );
+    m_graph.setValue(goal_x, goal_y, 0);
+    updated(goal_x, goal_y);
     update(pos_x, pos_y);
 }
 
@@ -159,12 +211,142 @@ float DStar::costOf(NeighbourConstIterator it) const
     return (a + b + c + d) / 2 * Nav::DIAG_FACTOR;
 }
 
-void DStar::updated(int x, int y)
+float DStar::updated(int x, int y)
 { 
+    // Compute the new cost of the cell, based on its currently known parent
+    // (or 0 if there is no parent yet), and add it to the open list.
+    NeighbourConstIterator parent = m_graph.parentsBegin(x, y);
+    float new_cost;
+    if (parent == m_graph.parentsEnd())
+        new_cost = costOf(x, y);
+    else
+        new_cost = m_graph.getValue(parent.x(), parent.y()) + costOf(parent);
+
+    return insert(x, y, new_cost);
+}
+
+float DStar::insert(int x, int y, float cost)
+{
+    PointID point_id = { x, y };
+    OpenFromNode::iterator it = m_open_from_node.find(point_id);
+    if (it != m_open_from_node.end())
+    {
+        // The cell is already in the open list. Update it.
+        float old_cost = it->second;
+        if (cost >= old_cost) return old_cost;
+        OpenFromCost::iterator it_cost, end;
+        boost::tie(it_cost, end) = m_open_from_cost.equal_range(old_cost);
+        while (it_cost->second != point_id && it_cost != end)
+            ++it_cost;
+
+        assert(it_cost != end);
+
+        m_open_from_cost.erase(it_cost);
+        it->second = cost;
+    }
+    else
+        m_open_from_node.insert( make_pair(point_id, cost) );
+
+    m_open_from_cost.insert( make_pair(cost, point_id) );
+    return cost;
+}
+
+std::pair<float, bool> DStar::updatedCostOf(int x, int y, bool check_consistency) const
+{
+    PointID point_id = { x, y };
+    OpenFromNode::const_iterator it_node = m_open_from_node.find(point_id);
+    if (it_node == m_open_from_node.end())
+        return make_pair(0, false);
+
+    if (check_consistency)
+    {
+        if (m_open_from_node.size() != m_open_from_cost.size())
+            throw internal_error();
+
+        float cost = it_node->second;
+        OpenFromCost::const_iterator it_cost, end_cost;
+        bool already_seen;
+        for (it_cost = m_open_from_cost.begin(); it_cost != m_open_from_cost.end(); ++it_cost)
+        {
+            if (it_cost->second == point_id)
+            {
+                if (already_seen || it_cost->first != cost)
+                    throw internal_error();
+                else
+                    already_seen = true;
+            }
+        }
+    }
+    return make_pair(it_node->second, true);
 }
 
 void DStar::update(int pos_x, int pos_y)
 {
-    throw;
+    NeighbourIterator const end = m_graph.neighboursEnd();
+    static const float tolerance = 0.001;
+    while (!m_open_from_cost.empty())
+    {
+        /* Remove the top item of the open list */
+        OpenFromCost::iterator it_cost = m_open_from_cost.begin();
+        float new_cost   = it_cost->first;
+        PointID point_id = it_cost->second;
+        float old_cost   = m_graph.getValue(point_id.x, point_id.y);
+        m_open_from_cost.erase(it_cost);
+        m_open_from_node.erase(point_id);
+
+        if ((new_cost - old_cost) < -tolerance)
+        {
+            for (NeighbourIterator it = m_graph.neighboursBegin(point_id.x, point_id.y); it != end; ++it)
+            {
+                float neighbour_cost = it.getValue() + costOf(it);
+                if (it.getValue() < new_cost && old_cost > neighbour_cost)
+                {
+                    it.setTargetAsParent();
+                    m_graph.setValue(it.sourceX(), it.sourceY(), neighbour_cost);
+                    old_cost = neighbour_cost;
+                }
+            }
+        }
+
+        if (fabs(new_cost - old_cost) < tolerance)
+        {
+            for (NeighbourIterator it = m_graph.neighboursBegin(point_id.x, point_id.y); it != end; ++it)
+            {
+                float neighbour_cost = old_cost + costOf(it);
+                if (it.getValue() == std::numeric_limits<float>::max() ||
+                        it.sourceIsParent() && fabs(it.getValue() - neighbour_cost) < tolerance ||
+                        !it.sourceIsParent() && it.getValue() > neighbour_cost)
+                {
+                    it.setSourceAsParent();
+                    insert(it.x(), it.y(), neighbour_cost);
+                }
+            }
+        }
+        else
+        {
+            for (NeighbourIterator it = m_graph.neighboursBegin(point_id.x, point_id.y); it != end; ++it)
+            {
+                float edge_cost = costOf(it);
+                PointID target = {it.x(), it.y()};
+                if (it.getValue() == std::numeric_limits<float>::max() ||
+                        it.sourceIsParent() && fabs(it.getValue() - old_cost - edge_cost) < tolerance)
+                {
+                    it.setSourceAsParent();
+                    insert(it.x(), it.y(), old_cost + edge_cost);
+                }
+                else if (!it.sourceIsParent() && it.getValue() > old_cost + edge_cost)
+                {
+                    insert(it.sourceX(), it.sourceY(), old_cost);
+                }
+                else if (!it.sourceIsParent() && 
+                        old_cost > it.getValue() + edge_cost &&
+                        !m_open_from_node.count(target) &&
+                        it.getValue() > new_cost)
+                {
+                    insert(it.x(), it.y(), it.getValue());
+                }
+            }
+        }
+    }
 }
 
