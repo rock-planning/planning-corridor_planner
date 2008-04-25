@@ -365,7 +365,10 @@ namespace Nav {
 
         /** True if \c it points to a cell which has never been considered by
          * the algorithm */
-        static bool isNew(NeighbourConstIterator it);
+        bool isNew(NeighbourConstIterator it) const;
+
+        /** True if the pointed-to cell of \c it is currently in the open set */
+        bool isOpened(NeighbourConstIterator it) const;
 
         /** Changes the data structures so that the source of \c it becomes
          * the parent of the currently pointed-to cell */

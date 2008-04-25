@@ -238,23 +238,6 @@ BOOST_AUTO_TEST_CASE( test_dstar_insert )
     BOOST_REQUIRE(make_pair(4.0f, true) == algo.updatedCostOf(10, 10, true));
 }
 
-BOOST_AUTO_TEST_CASE( test_dstar_updated )
-{
-    TraversabilityMap map(100, 100);
-    DStar algo(map);
-    GridGraph& graph = algo.graph();
-
-    vector<float> basic_costs = dstarCosts();
-
-    graph.setValue(10, 10, 10);
-
-    /** First, basic tests without parents */
-    map.setValue(10, 10, 5);
-    BOOST_REQUIRE_EQUAL(false, algo.updatedCostOf(10, 10, true).second);
-    BOOST_REQUIRE_EQUAL(10, algo.updated(10, 10));
-    BOOST_REQUIRE_EQUAL(10, graph.getValue(10, 10));
-}
-
 void checkDStarConsistency(DStar const& algo)
 {
     GridGraph const& graph = algo.graph();
@@ -269,33 +252,46 @@ void checkDStarConsistency(DStar const& algo)
             }
 }
 
+void checkDStarEmptyStructure(DStar const& algo)
+{
+    GridGraph const& graph = algo.graph();
+    int size = graph.xSize();
+    for (int i = 0; i < size / 2; ++i)
+    {
+        BOOST_REQUIRE_EQUAL(GridGraph::RIGHT, graph.getParents(i, size / 2));
+        BOOST_REQUIRE_EQUAL(GridGraph::TOP_RIGHT, graph.getParents(i, i));
+        BOOST_REQUIRE_EQUAL(GridGraph::TOP, graph.getParents(size / 2, i));
+        BOOST_REQUIRE_EQUAL(GridGraph::TOP_LEFT,  graph.getParents(size - 1 - i, i));
+        BOOST_REQUIRE_EQUAL(GridGraph::LEFT,  graph.getParents(size - 1 - i, size / 2));
+        BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM_LEFT,  graph.getParents(size - 1 - i, size - 1 - i));
+        BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM, graph.getParents(size / 2, size - 1 - i));
+        BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM_RIGHT, graph.getParents(i, size - 1 - i));
+    }
+}
+
 /** Checks the behaviour of D* on an empty map with constant traversability */
 BOOST_AUTO_TEST_CASE( test_dstar_initialize_empty )
 {
     TraversabilityMap map(11, 11);
     map.fill(10);
     DStar algo(map);
-    GridGraph const& graph = algo.graph();
-
 
     /* Run on a problem whose result we know */
     algo.initialize(5, 5, 1, 1);
     checkDStarConsistency(algo);
-    for (int i = 0; i < 5; ++i)
-    {
-        BOOST_REQUIRE_EQUAL(GridGraph::RIGHT, graph.getParents(i, 5));
-        BOOST_REQUIRE_EQUAL(GridGraph::TOP_RIGHT, graph.getParents(i, i));
-        BOOST_REQUIRE_EQUAL(GridGraph::TOP, graph.getParents(5, i));
-        BOOST_REQUIRE_EQUAL(GridGraph::TOP_LEFT,  graph.getParents(10 - i, i));
-        BOOST_REQUIRE_EQUAL(GridGraph::LEFT,  graph.getParents(10 - i, 5));
-        BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM_LEFT,  graph.getParents(10 - i, 10 - i));
-        BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM, graph.getParents(5, 10 - i));
-        BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM_RIGHT, graph.getParents(i, 10 - i));
-    }
+    checkDStarEmptyStructure(algo);
+}
 
-    /* Then, try the update process. We first get a trajectory which goes
-     * straight, and then add an obstacle in the middle, forcing the
-     * trajectories to avoid it */
+/* Then, try the update process. We first get a trajectory which goes straight,
+ * and then add an obstacle in the middle, forcing the trajectories to avoid it
+ */
+BOOST_AUTO_TEST_CASE( test_dstar_update )
+{
+    TraversabilityMap map(11, 11);
+    map.fill(10);
+    DStar algo(map);
+    GridGraph const& graph = algo.graph();
+
     algo.initialize(10, 5, 1, 5);
     checkDStarConsistency(algo);
     for (int i = 0; i < 10; ++i)
@@ -307,5 +303,68 @@ BOOST_AUTO_TEST_CASE( test_dstar_initialize_empty )
         BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM, graph.getParents(10, 10 - i));
         BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM_RIGHT, graph.getParents(5 + i, 10 - i));
     }
+
+    for (int i = 1; i < 11; ++i)
+        algo.setTraversability(5, i, 0);
+    algo.update(1, 5);
+    checkDStarConsistency(algo);
+
+    /* Now, all the trajectories which come from the left of the obstacle must
+     * go through the only passage */
+    for (int i = 1; i < 11; ++i)
+    {
+        NeighbourConstIterator parent_it = graph.parentsBegin(4, i);
+        BOOST_REQUIRE(parent_it != graph.parentsEnd());
+        BOOST_CHECK_EQUAL(4, parent_it.x());
+        BOOST_CHECK_EQUAL(i - 1, parent_it.y());
+    }
+
+    NeighbourConstIterator parent_it = graph.parentsBegin(4, 0);
+    BOOST_REQUIRE(parent_it != graph.parentsEnd());
+    BOOST_CHECK_EQUAL(5, parent_it.x());
+    BOOST_CHECK_EQUAL(0, parent_it.y());
+}
+
+/** We now initialize DStar on an empty map, and then we repeat a cycle where
+ * we do a number of random modifications to the map and update the trajectories.
+ * After a given number of cycles, we restore the empty map and run D* again.
+ *
+ * We then check the result
+ */
+BOOST_AUTO_TEST_CASE( test_dstar_random_updates )
+{
+    static const int Size = 101;
+    TraversabilityMap map(Size, Size);
+    map.fill(10);
+    DStar algo(map);
+    GridGraph const& graph = algo.graph();
+
+    algo.initialize(Size / 2, Size / 2, 1, 1);
+    checkDStarConsistency(algo);
+
+    for (int cycle = 0; cycle < 10; ++cycle)
+    {
+        for (int random_changes = 0; random_changes < 10; ++random_changes)
+        {
+            int x = rand() * Size / RAND_MAX;
+            int y = rand() * Size / RAND_MAX;
+            int new_class = rand() * TraversabilityMap::CLASSES_COUNT / RAND_MAX;
+            BOOST_REQUIRE(x >= 0 && x < Size);
+            BOOST_REQUIRE(y >= 0 && y < Size);
+            BOOST_REQUIRE(new_class >= 0 && new_class < TraversabilityMap::CLASSES_COUNT);
+
+            algo.setTraversability(x, y, new_class);
+        }
+        algo.update(1, 1);
+        checkDStarConsistency(algo);
+    }
+
+    for (int x = 0; x < Size; ++x)
+        for (int y = 0; y < Size; ++y)
+            if (map.getValue(x, y) != 10)
+                algo.setTraversability(x, y, 10);
+    algo.update(1, 1);
+    checkDStarConsistency(algo);
+    checkDStarEmptyStructure(algo);
 }
 

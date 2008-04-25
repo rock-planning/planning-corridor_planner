@@ -175,7 +175,7 @@ void DStar::initialize(int goal_x, int goal_y, int pos_x, int pos_y)
     m_goal_y = goal_y;
 
     m_graph.setValue(goal_x, goal_y, 0);
-    updated(goal_x, goal_y);
+    insert(goal_x, goal_y, 0);
     update(pos_x, pos_y);
 }
 
@@ -213,11 +213,14 @@ float DStar::costOf(NeighbourConstIterator it) const
 
 float DStar::updated(int x, int y)
 { 
-    PointID id = { x, y };
-    OpenFromNode::const_iterator it = m_open_from_node.find(id);
-    if (it == m_open_from_node.end())
-        return insert(x, y, m_graph.getValue(x, y)).value;
-    return it->second.value;
+    NeighbourConstIterator it = m_graph.neighboursBegin(x, y);
+    NeighbourConstIterator const end = m_graph.neighboursEnd();
+    for (; it != end; ++it)
+    {
+        if (!isOpened(it) && !isNew(it))
+            insert(it.x(), it.y(), it.getValue());
+    }
+    return m_open_from_cost.begin()->first.value;
 }
 
 DStar::Cost DStar::insert(int x, int y, Cost cost)
@@ -279,10 +282,14 @@ std::pair<float, bool> DStar::updatedCostOf(int x, int y, bool check_consistency
 void DStar::setTraversability(int x, int y, int klass)
 {
     m_map.setValue(x, y, klass);
-    update(x, y);
+    updated(x, y);
 }
 
-bool DStar::isNew(NeighbourConstIterator it) { return it.getValue() == std::numeric_limits<float>::max(); }
+bool DStar::isNew(NeighbourConstIterator it) const { return it.getValue() == std::numeric_limits<float>::max(); }
+bool DStar::isOpened(NeighbourConstIterator it) const {
+    PointID id = { it.x(), it.y() };
+    return m_open_from_node.find(id) != m_open_from_node.end();
+}
 
 void DStar::setSourceAsParent(NeighbourIterator it)
 {
@@ -323,13 +330,13 @@ void DStar::update(int pos_x, int pos_y)
             }
         }
 
-        if (new_cost < old_cost)
+        if (new_cost == old_cost)
         {
             for (NeighbourIterator it = m_graph.neighboursBegin(point_id.x, point_id.y); it != end; ++it)
             {
                 Cost neighbour_cost = old_cost + costOf(it);
                 if (isNew(it) ||
-                        it.sourceIsParent() && Cost(it.getValue()) < neighbour_cost ||
+                        it.sourceIsParent()  && Cost(it.getValue()) != neighbour_cost ||
                         !it.sourceIsParent() && Cost(it.getValue()) > neighbour_cost)
                 {
                     setSourceAsParent(it);
