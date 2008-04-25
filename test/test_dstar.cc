@@ -222,6 +222,22 @@ BOOST_AUTO_TEST_CASE( test_dstar_cost )
         BOOST_REQUIRE_CLOSE(expected_costs[i], algo.costOf(it), 0.01);
 }
 
+BOOST_AUTO_TEST_CASE( test_dstar_insert )
+{
+    TraversabilityMap map(100, 100);
+    DStar algo(map);
+
+    vector<float> basic_costs = dstarCosts();
+
+    BOOST_REQUIRE_EQUAL(false, algo.updatedCostOf(10, 10, true).second);
+    algo.insert(10, 10, 5);
+    BOOST_REQUIRE(make_pair(5.0f, true) == algo.updatedCostOf(10, 10, true));
+    algo.insert(10, 10, 4);
+    BOOST_REQUIRE(make_pair(4.0f, true) == algo.updatedCostOf(10, 10, true));
+    algo.insert(10, 10, 5);
+    BOOST_REQUIRE(make_pair(4.0f, true) == algo.updatedCostOf(10, 10, true));
+}
+
 BOOST_AUTO_TEST_CASE( test_dstar_updated )
 {
     TraversabilityMap map(100, 100);
@@ -230,34 +246,13 @@ BOOST_AUTO_TEST_CASE( test_dstar_updated )
 
     vector<float> basic_costs = dstarCosts();
 
+    graph.setValue(10, 10, 10);
+
     /** First, basic tests without parents */
     map.setValue(10, 10, 5);
     BOOST_REQUIRE_EQUAL(false, algo.updatedCostOf(10, 10, true).second);
-
-    BOOST_REQUIRE_EQUAL(basic_costs[5], algo.updated(10, 10));
-    BOOST_REQUIRE(make_pair(basic_costs[5], true) == algo.updatedCostOf(10, 10, true));
-    BOOST_REQUIRE_EQUAL(basic_costs[5], algo.updated(10, 10));
-    BOOST_REQUIRE(make_pair(basic_costs[5], true) == algo.updatedCostOf(10, 10, true));
-    BOOST_REQUIRE_EQUAL(0, graph.getValue(10, 10));
-
-    map.setValue(10, 10, 10);
-    BOOST_REQUIRE_EQUAL(basic_costs[10], algo.updated(10, 10));
-    BOOST_REQUIRE(make_pair(basic_costs[10], true) == algo.updatedCostOf(10, 10, true));
-    BOOST_REQUIRE_EQUAL(0, graph.getValue(10, 10));
-
-    map.setValue(10, 10, 5);
-    BOOST_REQUIRE_EQUAL(basic_costs[10], algo.updated(10, 10));
-    BOOST_REQUIRE(make_pair(basic_costs[10], true) == algo.updatedCostOf(10, 10, true));
-    BOOST_REQUIRE_EQUAL(0, graph.getValue(10, 10));
-
-    /** Now, do the same but consider the presence of a parent */
-    graph.setParent(10, 10, GridGraph::TOP);
-    map.setValue(10, 11, 15);
-    map.setValue(10, 10, 15);
-    graph.setValue(10, 11, 1);
-    float expected_cost = 1 + basic_costs[15] + basic_costs[15];
-    BOOST_REQUIRE_EQUAL(expected_cost, algo.updated(10, 10));
-    BOOST_REQUIRE(make_pair(expected_cost, true) == algo.updatedCostOf(10, 10, true));
+    BOOST_REQUIRE_EQUAL(10, algo.updated(10, 10));
+    BOOST_REQUIRE_EQUAL(10, graph.getValue(10, 10));
 }
 
 void checkDStarConsistency(DStar const& algo)
@@ -280,12 +275,12 @@ BOOST_AUTO_TEST_CASE( test_dstar_initialize_empty )
     TraversabilityMap map(11, 11);
     map.fill(10);
     DStar algo(map);
-    algo.initialize(5, 5, 1, 1);
-
-    checkDStarConsistency(algo);
     GridGraph const& graph = algo.graph();
 
-    /* Hopefully,we know the result :-) */
+
+    /* Run on a problem whose result we know */
+    algo.initialize(5, 5, 1, 1);
+    checkDStarConsistency(algo);
     for (int i = 0; i < 5; ++i)
     {
         BOOST_REQUIRE_EQUAL(GridGraph::RIGHT, graph.getParents(i, 5));
@@ -296,6 +291,21 @@ BOOST_AUTO_TEST_CASE( test_dstar_initialize_empty )
         BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM_LEFT,  graph.getParents(10 - i, 10 - i));
         BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM, graph.getParents(5, 10 - i));
         BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM_RIGHT, graph.getParents(i, 10 - i));
+    }
+
+    /* Then, try the update process. We first get a trajectory which goes
+     * straight, and then add an obstacle in the middle, forcing the
+     * trajectories to avoid it */
+    algo.initialize(10, 5, 1, 5);
+    checkDStarConsistency(algo);
+    for (int i = 0; i < 10; ++i)
+        BOOST_REQUIRE_EQUAL(GridGraph::RIGHT, graph.getParents(i, 5));
+    for (int i = 0; i < 5; ++i)
+    {
+        BOOST_REQUIRE_EQUAL(GridGraph::TOP_RIGHT, graph.getParents(5 + i, i));
+        BOOST_REQUIRE_EQUAL(GridGraph::TOP, graph.getParents(10, i));
+        BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM, graph.getParents(10, 10 - i));
+        BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM_RIGHT, graph.getParents(5 + i, 10 - i));
     }
 }
 

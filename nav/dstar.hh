@@ -4,6 +4,7 @@
 #include <vector>
 #include <map>
 #include <boost/type_traits.hpp>
+#include <cmath>
 
 namespace Nav {
     /** Basic tools for maps which are regular grids */
@@ -314,9 +315,10 @@ namespace Nav {
     class DStar
     {
         struct internal_error : public std::exception {};
-    public:
+
+    private:
         /** The underlying map we are acting on */
-        TraversabilityMap const& m_map;
+        TraversabilityMap& m_map;
 
         /** The GridGraph object we use to store the algorithm state. The float
          * value of a node in this graph stores the cost of the path from that
@@ -339,19 +341,47 @@ namespace Nav {
             { return x < other.x || (x == other.x && y < other.y); }
         };
 
+        struct Cost {
+            float value;
 
-        typedef std::multimap<float, PointID> OpenFromCost;
+            Cost(float value) : value(value) {}
+
+            bool operator < (Cost const& other) const  { return value - other.value < -0.01; }
+            bool operator > (Cost const& other) const  { return value - other.value > 0.01; }
+            bool operator >= (Cost const& other) const { return !(*this < other); }
+            bool operator == (Cost const& other) const { return std::fabs(value - other.value) <= 0.01; }
+            bool operator != (Cost const& other) const { return !(*this == other); }
+            Cost operator - (Cost const& other) const
+            { return Cost(value - other.value); }
+            Cost operator + (Cost const& other) const
+            { return Cost(value + other.value); }
+        };
+
+
+        typedef std::multimap<Cost, PointID> OpenFromCost;
         OpenFromCost m_open_from_cost;
-        typedef std::map<PointID, float> OpenFromNode;
+        typedef std::map<PointID, Cost> OpenFromNode;
         OpenFromNode m_open_from_node;
+
+        /** True if \c it points to a cell which has never been considered by
+         * the algorithm */
+        static bool isNew(NeighbourConstIterator it);
+
+        /** Changes the data structures so that the source of \c it becomes
+         * the parent of the currently pointed-to cell */
+        void setSourceAsParent(NeighbourIterator it);
+
+        /** Changes the data structures so that the source of \c it becomes
+         * the parent of the currently pointed-to cell */
+        void setTargetAsParent(NeighbourIterator it);
+
+    public:
+        DStar(TraversabilityMap& map);
 
         /* Insert the following point in the open list, using the given value
          * as ordering value
          */
-        float insert(int x, int y, float value);
-
-    public:
-        DStar(TraversabilityMap const& map);
+        Cost insert(int x, int y, Cost value);
 
         /** The graph object which is used to store D*'s results */
         GridGraph& graph();
@@ -420,6 +450,9 @@ namespace Nav {
          * be used only for testing purposes
          */
         std::pair<float, bool> updatedCostOf(int x, int y, bool check_consistency = false) const;
+
+        /** Sets the traversability class to \c klass for the given cell */
+        void setTraversability(int x, int y, int klass);
     };
 }
 
