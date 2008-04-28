@@ -337,7 +337,6 @@ BOOST_AUTO_TEST_CASE( test_dstar_random_updates )
     TraversabilityMap map(Size, Size);
     map.fill(10);
     DStar algo(map);
-    GridGraph const& graph = algo.graph();
 
     algo.initialize(Size / 2, Size / 2, 1, 1);
     checkDStarConsistency(algo);
