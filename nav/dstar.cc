@@ -1,14 +1,18 @@
 #include <limits>
 #include "dstar.hh"
 #include <cmath>
-#include <boost/tuple/tuple.hpp>
 #include <cassert>
 #include <algorithm>
+#include <boost/tuple/tuple.hpp>
+#include <boost/lambda/lambda.hpp>
+#include <gdal.h>
+#include <gdal_priv.h>
 
 #include <iostream>
 
+using namespace std;
 using namespace Nav;
-using std::make_pair;
+using namespace boost::lambda;
 using boost::tie;
 
 namespace Nav {
@@ -24,10 +28,36 @@ namespace Nav {
         GridGraph::TOP_LEFT };
 }
 
+TraversabilityMap* TraversabilityMap::load(std::string const& path)
+{
+    auto_ptr<GDALDataset> set((GDALDataset*) GDALOpen(path.c_str(), GA_ReadOnly));
+    GDALRasterBand* band = set->GetRasterBand(1);
+
+    int width  = band->GetXSize();
+    int height = band->GetYSize();
+
+    vector<float> data(width * height);
+    band->RasterIO(GF_Read, 0, 0, width, height,
+	    &data[0], width, height, GDT_Float32, 0, 0);
+
+    auto_ptr<TraversabilityMap> map(new TraversabilityMap(width, height, 0));
+    map->fill(data);
+    return map.release();
+}
+
 TraversabilityMap::TraversabilityMap(size_t width, size_t height, uint8_t init)
     : GridMap(width, height)
     , m_values((width * height + 1) / 2, init) { }
 
+void TraversabilityMap::fill(vector<float> const& values)
+{
+    for (int i = 0; i < m_values.size(); ++i)
+    {
+        m_values[i] = 
+            static_cast<int>(values[i] * (CLASSES_COUNT - 1)) |
+            (static_cast<int>(values[2 * i + 1] * (CLASSES_COUNT - 1)) << 4);
+    }
+}
 void TraversabilityMap::fill(uint8_t value)
 { 
     value &= 0xF;

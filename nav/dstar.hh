@@ -48,6 +48,11 @@ namespace Nav {
 
         /** Fills the map with the given traversability */
         void fill(uint8_t value);
+        /** Fills the map with the values in the given data
+         * vector. The floating point values are supposed to be
+         * stored in [0:1], and are converted in the map's internal
+         * format. */
+        void fill(std::vector<float> const& value);
 
         /** Returns the traversability value for the cell with the given ID */
         uint8_t getValue(size_t id) const;
@@ -57,6 +62,25 @@ namespace Nav {
         uint8_t getValue(size_t x, size_t y) const;
         /** Changes the traversability value for the cell at (x, y) */
         void setValue(size_t x, size_t y, uint8_t value);
+        /** Creates a new map whose data is loaded from a GDAL-compatible file.
+         * The values in the file are supposed to be floating-point values
+         * in-between 0 and 1
+         *
+         * You MUST have called GDALAllRegister() yourself (for instance in
+         * main()) before using that method. For instance, do
+         *
+         * <code>
+         * #include <gdal.h>
+         *
+         * int main()
+         * {
+         *    GDALAllRegister();
+         *    <blablabla do whatever you want, including using load()
+         *    return 0;
+         * }
+         * </code>
+         */
+        static TraversabilityMap* load(std::string const& path);
     };
 
     class GridGraph;
