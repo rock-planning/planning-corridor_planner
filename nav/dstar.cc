@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cassert>
 #include <algorithm>
+#include <memory>
 #include <boost/tuple/tuple.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <gdal.h>
@@ -14,6 +15,7 @@ using namespace std;
 using namespace Nav;
 using namespace boost::lambda;
 using boost::tie;
+using boost::uint8_t;
 
 namespace Nav {
     static const int OPPOSITE_RELATIONS[] = 
@@ -51,7 +53,7 @@ TraversabilityMap::TraversabilityMap(size_t width, size_t height, uint8_t init)
 
 void TraversabilityMap::fill(vector<float> const& values)
 {
-    for (int i = 0; i < m_values.size(); ++i)
+    for (int i = 0; i < (int)m_values.size(); ++i)
     {
         m_values[i] = 
             static_cast<int>(values[i] * (CLASSES_COUNT - 1)) |
@@ -366,8 +368,8 @@ void DStar::update(int pos_x, int pos_y)
             {
                 Cost neighbour_cost = old_cost + costOf(it);
                 if (isNew(it) ||
-                        it.sourceIsParent()  && Cost(it.getValue()) != neighbour_cost ||
-                        !it.sourceIsParent() && Cost(it.getValue()) > neighbour_cost)
+                        (it.sourceIsParent()  && Cost(it.getValue()) != neighbour_cost) ||
+                        (!it.sourceIsParent() && Cost(it.getValue()) > neighbour_cost))
                 {
                     setSourceAsParent(it);
                     insert(it.x(), it.y(), neighbour_cost);
@@ -381,7 +383,7 @@ void DStar::update(int pos_x, int pos_y)
                 float edge_cost = costOf(it);
                 PointID target = {it.x(), it.y()};
                 if (isNew(it) ||
-                        it.sourceIsParent() && Cost(it.getValue()) < old_cost + edge_cost)
+                        (it.sourceIsParent() && Cost(it.getValue()) < old_cost + edge_cost))
                 {
                     setSourceAsParent(it);
                     insert(it.x(), it.y(), old_cost + edge_cost);

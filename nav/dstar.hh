@@ -3,7 +3,9 @@
 
 #include <vector>
 #include <map>
+#include <string>
 #include <boost/type_traits.hpp>
+#include <boost/cstdint.hpp>
 #include <cmath>
 
 namespace Nav {
@@ -37,17 +39,17 @@ namespace Nav {
          * X-first, which means that the value for the cell (x, y) is at (y *
          * xsize + x).
          */
-        std::vector<uint8_t> m_values;
+        std::vector<boost::uint8_t> m_values;
 
     public:
         /** How much classes can be stored in this map */
         static const int CLASSES_COUNT = 16;
 
         /** Creates a new map with the given size in the X and Y axis */
-        TraversabilityMap(size_t xsize, size_t ysize, uint8_t fill = 0);
+        TraversabilityMap(size_t xsize, size_t ysize, boost::uint8_t fill = 0);
 
         /** Fills the map with the given traversability */
-        void fill(uint8_t value);
+        void fill(boost::uint8_t value);
         /** Fills the map with the values in the given data
          * vector. The floating point values are supposed to be
          * stored in [0:1], and are converted in the map's internal
@@ -55,13 +57,13 @@ namespace Nav {
         void fill(std::vector<float> const& value);
 
         /** Returns the traversability value for the cell with the given ID */
-        uint8_t getValue(size_t id) const;
+        boost::uint8_t getValue(size_t id) const;
         /** Changes the traversability value for the cell with the given ID */
-        void setValue(size_t id, uint8_t value);
+        void setValue(size_t id, boost::uint8_t value);
         /** Returns the traversability value for the cell at (x, y) */
-        uint8_t getValue(size_t x, size_t y) const;
+        boost::uint8_t getValue(size_t x, size_t y) const;
         /** Changes the traversability value for the cell at (x, y) */
-        void setValue(size_t x, size_t y, uint8_t value);
+        void setValue(size_t x, size_t y, boost::uint8_t value);
         /** Creates a new map whose data is loaded from a GDAL-compatible file.
          * The values in the file are supposed to be floating-point values
          * in-between 0 and 1
@@ -177,11 +179,11 @@ namespace Nav {
          */
         bool operator == (NeighbourGenericIterator const& other) const
         {
-            return (m_neighbour == other.m_neighbour
-                    || (m_neighbour >= END_NEIGHBOUR && other.m_neighbour >= END_NEIGHBOUR)
+            return ((m_neighbour >= END_NEIGHBOUR && other.m_neighbour >= END_NEIGHBOUR)
+                    || (m_neighbour == other.m_neighbour
                 && m_graph == other.m_graph
                 && m_x == other.m_x
-                && m_y == other.m_y);
+                && m_y == other.m_y));
         }
         /** The inverse of ==
          */
@@ -262,7 +264,7 @@ namespace Nav {
          * counter-clockwise. See the RELATIONS enum.
          *
          */
-        std::vector<uint8_t> m_parents;
+        std::vector<boost::uint8_t> m_parents;
 
 
         /** Array which encodes the parents of each node. The array is stored
@@ -285,21 +287,21 @@ namespace Nav {
         /** Returns the bit-mask describing what are the parents of the cell
          * at (x, y). See RELATIONS.
          */
-        uint8_t  getParents(size_t x, size_t y) const;
+        boost::uint8_t  getParents(size_t x, size_t y) const;
         /** Returns the bit-mask describing what are the parents of the cell
          * at (x, y). See RELATIONS.
          */
-        uint8_t& getParents(size_t x, size_t y);
+        boost::uint8_t& getParents(size_t x, size_t y);
         /** Adds a new parent for the cell at (x, y). See RELATIONS for the
          * set of possible values.
          */
-        void     setParent(size_t x, size_t y, uint8_t new_parent);
+        void     setParent(size_t x, size_t y, boost::uint8_t new_parent);
         /** Sets the set of parents to the given bitfield */
-        void     setParents(size_t x, size_t y, uint8_t mask);
+        void     setParents(size_t x, size_t y, boost::uint8_t mask);
         /** Removes a parent for the cell at (x, y). See RELATIONS for the set
          * of possible values.
          */
-        void     clearParent(size_t x, size_t y, uint8_t old_parent);
+        void     clearParent(size_t x, size_t y, boost::uint8_t old_parent);
 
         /** Returns a NeighbourIterator object which allows to iterate on the
          * parents of (x, y). See also getParents.

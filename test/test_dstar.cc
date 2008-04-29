@@ -6,10 +6,10 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <string.h>
 
 using namespace Nav;
-using std::vector;
-using std::make_pair;
+using namespace std;
 
 /* This test checks the access and change of values in traversability maps.  It
  * generates RANDOM_TEST_COUNT position at which the traversability value
