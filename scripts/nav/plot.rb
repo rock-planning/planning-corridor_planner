@@ -33,7 +33,12 @@ class Plotter
                 'marker' => Bullet, 'scale' => 0.5
         t.show_marker 'at' => [x_goal / x_size, y_goal / y_size],
                 'marker' => Bullet, 'scale' => 0.5
+
         file.each_line do |line|
+            if line == "\n"
+                break
+            end
+
             values = line.split " "
             x0, y0 = Float(values[0]), Float(values[1])
             x1, y1 = Float(values[3]), Float(values[4])
@@ -56,10 +61,20 @@ class Plotter
         x_size, y_size, x_start, y_start, x_goal, y_goal = read_header file
 
         costs = Dtable.new(x_size, y_size)
+        contour_mode = false
+        contour = []
         file.each_line do |line|
+            if line == "\n"
+                contour_mode = true
+            end
+
             values = line.split " "
             x, y = Integer(values[0]), Integer(values[1])
-            costs[y, x] = Float(values[2])
+            if contour_mode
+                contour << [x, y]
+            else
+                costs[y_size - 1 - y, x] = Float(values[2])
+            end
         end
         max = costs.max
         image = t.create_image_data(costs, 'min_value' => 0, 'max_value' => max)
@@ -74,8 +89,14 @@ class Plotter
                 'data' => image,
                 'w' => x_size, 'h' => y_size)
 
+        contour.each do |x, y|
+            t.show_marker 'at' => [Float(x) / x_size, Float(y) / y_size],
+                    'marker' => Bullet, 'scale' => 0.1
+        end
+        t.show_marker 'at' => [Float(x_start) / x_size, Float(y_start) / y_size],
+                'marker' => Bullet, 'scale' => 0.5, 'color' => Green
         t.show_marker 'at' => [x_goal / x_size, y_goal / y_size],
-                'marker' => Bullet, 'scale' => 0.5
+                'marker' => Bullet, 'scale' => 0.5, 'color' => Green
         max
     end
 

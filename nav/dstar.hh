@@ -7,6 +7,7 @@
 #include <boost/type_traits.hpp>
 #include <boost/cstdint.hpp>
 #include <cmath>
+#include <set>
 
 namespace Nav {
     /** Basic tools for maps which are regular grids */
@@ -362,6 +363,9 @@ namespace Nav {
             int x; 
             int y; 
 
+            PointID() {}
+            PointID(int x, int y)
+                : x(x), y(y) {}
             bool operator == (PointID const& other) const
             { return x == other.x && y == other.y; }
             bool operator != (PointID const& other) const
@@ -489,6 +493,8 @@ namespace Nav {
         /** Checks that the current solution is consistent. It raises internal_error
          * if it is not the case */
         void checkSolutionConsistency();
+
+        std::set< std::pair<int, int> > solutionBorder(int x, int y, float expand) const;
     };
 }
 

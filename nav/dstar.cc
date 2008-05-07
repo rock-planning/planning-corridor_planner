@@ -127,7 +127,6 @@ void NeighbourIterator::setTargetAsParent()
     m_graph->setParents(sourceX(), sourceY(), getNeighbour());
 }
 
-
 GridGraph::GridGraph(size_t width, size_t height, float value)
     : GridMap(width, height)
     , m_parents(width * height, 0)
@@ -252,7 +251,7 @@ float DStar::updated(int x, int y)
 
 DStar::Cost DStar::insert(int x, int y, Cost cost)
 {
-    PointID point_id = { x, y };
+    PointID point_id(x, y);
     OpenFromNode::iterator it = m_open_from_node.find(point_id);
     if (it != m_open_from_node.end())
     {
@@ -301,7 +300,7 @@ void DStar::checkSolutionConsistency()
 
 std::pair<float, bool> DStar::updatedCostOf(int x, int y, bool check_consistency) const
 {
-    PointID point_id = { x, y };
+    PointID point_id(x, y);
     OpenFromNode::const_iterator it_node = m_open_from_node.find(point_id);
     if (it_node == m_open_from_node.end())
         return make_pair(0, false);
@@ -339,7 +338,7 @@ void DStar::setTraversability(int x, int y, int klass)
 
 bool DStar::isNew(NeighbourConstIterator it) const { return it.getValue() == std::numeric_limits<float>::max(); }
 bool DStar::isOpened(NeighbourConstIterator it) const {
-    PointID id = { it.x(), it.y() };
+    PointID id(it.x(), it.y());
     return m_open_from_node.find(id) != m_open_from_node.end();
 }
 
@@ -400,7 +399,7 @@ void DStar::update(int pos_x, int pos_y)
             for (NeighbourIterator it = m_graph.neighboursBegin(point_id.x, point_id.y); !it.isEnd(); ++it)
             {
                 float edge_cost = costOf(it);
-                PointID target = {it.x(), it.y()};
+                PointID target(it.x(), it.y());
                 if (isNew(it) ||
                         (it.sourceIsParent() && Cost(it.getValue()) < old_cost + edge_cost))
                 {
@@ -421,5 +420,109 @@ void DStar::update(int pos_x, int pos_y)
             }
         }
     }
+}
+
+std::set< std::pair<int, int> > DStar::solutionBorder(int x, int y, float expand) const
+{
+    typedef multimap<float, PointID> Border;
+    typedef set<PointID> Inside;
+    Border border;
+    Inside inside;
+
+    float min_limit = m_graph.getValue(x, y), max_limit = expand * min_limit;
+    PointID start_id(x, y);
+    border.insert(make_pair(max_limit, start_id));
+
+    Border new_border;
+    while(true)
+    {
+        // expand +solution+ until all elements in it have their cost greater
+        // than cost*expand
+        Border::iterator it = border.begin(), 
+            end = border.upper_bound(max_limit);
+        new_border.clear();
+
+        // Nothing to expand further, go to the next element of the reference
+        // path and start again
+        if (it == end)
+        {
+            NeighbourConstIterator next_element = m_graph.parentsBegin(x, y);
+            if (next_element.isEnd())
+            {
+                // Cannot go further than the goal, so stop here
+                break;
+            }
+            max_limit = min_limit;
+            x = next_element.x();
+            y = next_element.y();
+            min_limit = m_graph.getValue(x, y);
+            border.insert(make_pair(min_limit, PointID(x, y)));
+        }
+        else
+        {
+            for (; it != end; ++it)
+            {
+                PointID p = it->second;
+                inside.insert(p);
+                for (NeighbourConstIterator n = m_graph.neighboursBegin(p.x, p.y); !n.isEnd(); ++n)
+                {
+                    PointID n_id = PointID(n.x(), n.y());
+                    float   n_v  = n.getValue();
+                    if (!inside.count(n_id) && n_v >= min_limit)
+                    {
+                        inside.insert(n_id);
+                        new_border.insert(make_pair(n.getValue(), n_id));
+                    }
+                }
+            }
+            border.erase(border.begin(), end);
+            border.insert(new_border.begin(), new_border.end());
+        }
+    }
+
+    Inside border_set;
+    for (Border::const_iterator it = border.begin(); it != border.end(); ++it)
+    {
+        PointID p(it->second);
+        border_set.insert(p);
+    }
+
+    Inside shrink_set;
+    do
+    {
+        for (Inside::const_iterator erase_it = shrink_set.begin();
+                erase_it != shrink_set.end();
+                ++erase_it)
+        {
+            inside.erase(*erase_it);
+        }
+        shrink_set.clear();
+
+        for (Inside::iterator it = inside.begin(); it != inside.end(); ++it)
+        {
+            NeighbourConstIterator p_it = m_graph.parentsBegin(it->x, it->y);
+            if (!p_it.isEnd())
+            {
+                PointID p_id = PointID(p_it.x(), p_it.y());
+                if (!inside.count(p_id) || shrink_set.count(p_id))
+                    shrink_set.insert(PointID(it->x, it->y));
+            }
+        }
+    }
+    while (!shrink_set.empty());
+
+    set< pair<int, int> > ret;
+    for (Inside::const_iterator it = inside.begin(); it != inside.end(); ++it)
+    {
+        PointID p(*it);
+        if (!border_set.count(p))
+            ret.insert(make_pair(p.x, p.y));
+    }
+    //for (Border::const_iterator it = border.begin(); it != border.end(); ++it)
+    //{
+    //    PointID p(it->second);
+    //    ret.insert(make_pair(p.x, p.y));
+    //}
+    return ret;
 }
 
