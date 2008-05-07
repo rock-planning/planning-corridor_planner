@@ -63,17 +63,21 @@ class Plotter
         costs = Dtable.new(x_size, y_size)
         contour_mode = false
         contour = []
+        parents = Hash.new
         file.each_line do |line|
             if line == "\n"
                 contour_mode = true
+                next
             end
 
             values = line.split " "
-            x, y = Integer(values[0]), Integer(values[1])
+            x0, y0 = Integer(values[0]), Integer(values[1])
             if contour_mode
-                contour << [x, y]
+                contour << [x0, y0]
             else
-                costs[y_size - 1 - y, x] = Float(values[2])
+                x1, y1 = Integer(values[3]), Integer(values[4])
+                costs[y_size - 1 - y0, x0] = Float(values[2])
+                parents[[x0, y0]] = [x1, y1]
             end
         end
         max = costs.max
@@ -90,8 +94,10 @@ class Plotter
                 'w' => x_size, 'h' => y_size)
 
         contour.each do |x, y|
-            t.show_marker 'at' => [Float(x) / x_size, Float(y) / y_size],
-                    'marker' => Bullet, 'scale' => 0.1
+            p = parents[[x, y]]
+            if p
+                t.stroke_line Float(x)/x_size, Float(y)/y_size, Float(p[0])/x_size, Float(p[1])/y_size
+            end
         end
         t.show_marker 'at' => [Float(x_start) / x_size, Float(y_start) / y_size],
                 'marker' => Bullet, 'scale' => 0.5, 'color' => Green
