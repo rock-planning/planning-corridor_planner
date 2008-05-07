@@ -160,8 +160,6 @@ NeighbourIterator GridGraph::parentsBegin(size_t x, size_t y)
 { return NeighbourIterator(*this, x, y, getParents(x, y)); }
 NeighbourConstIterator GridGraph::parentsBegin(size_t x, size_t y) const
 { return NeighbourConstIterator(*this, x, y, getParents(x, y)); }
-NeighbourIterator GridGraph::parentsEnd() const
-{ return NeighbourIterator(); }
 static int neighboursMask(int x, int y, int xsize, int ysize)
 {
     int mask = 0xFF;
@@ -175,9 +173,6 @@ NeighbourIterator GridGraph::neighboursBegin(size_t x, size_t y)
 { return NeighbourIterator(*this, x, y, neighboursMask(x, y, m_xsize, m_ysize)); }
 NeighbourConstIterator GridGraph::neighboursBegin(size_t x, size_t y) const
 { return NeighbourConstIterator(*this, x, y, neighboursMask(x, y, m_xsize, m_ysize)); }
-NeighbourIterator GridGraph::neighboursEnd() const
-{ return NeighbourIterator(); }
-
 NeighbourConstIterator GridGraph::getNeighbour(size_t x, size_t y, int neighbour) const
 { return NeighbourConstIterator(*this, x, y, neighbour); }
 
@@ -245,9 +240,8 @@ float DStar::costOf(NeighbourConstIterator it) const
 
 float DStar::updated(int x, int y)
 { 
-    NeighbourConstIterator it = m_graph.neighboursBegin(x, y);
-    NeighbourConstIterator const end = m_graph.neighboursEnd();
-    for (; it != end; ++it)
+    
+    for (NeighbourConstIterator it = m_graph.neighboursBegin(x, y); !it.isEnd(); ++it)
     {
         if (!isOpened(it) && !isNew(it))
             insert(it.x(), it.y(), it.getValue());
@@ -340,7 +334,6 @@ void DStar::setTargetAsParent(NeighbourIterator it)
 
 void DStar::update(int pos_x, int pos_y)
 {
-    NeighbourIterator const end = m_graph.neighboursEnd();
     while (!m_open_from_cost.empty())
     {
         /* Remove the top item of the open list */
@@ -353,7 +346,7 @@ void DStar::update(int pos_x, int pos_y)
 
         if (new_cost < old_cost)
         {
-            for (NeighbourIterator it = m_graph.neighboursBegin(point_id.x, point_id.y); it != end; ++it)
+            for (NeighbourIterator it = m_graph.neighboursBegin(point_id.x, point_id.y); !it.isEnd(); ++it)
             {
                 Cost neighbour_cost = it.getValue() + costOf(it);
                 if (Cost(it.getValue()) < new_cost && old_cost > neighbour_cost)
@@ -366,7 +359,7 @@ void DStar::update(int pos_x, int pos_y)
 
         if (new_cost == old_cost)
         {
-            for (NeighbourIterator it = m_graph.neighboursBegin(point_id.x, point_id.y); it != end; ++it)
+            for (NeighbourIterator it = m_graph.neighboursBegin(point_id.x, point_id.y); !it.isEnd(); ++it)
             {
                 Cost neighbour_cost = old_cost + costOf(it);
                 if (isNew(it) ||
@@ -380,7 +373,7 @@ void DStar::update(int pos_x, int pos_y)
         }
         else
         {
-            for (NeighbourIterator it = m_graph.neighboursBegin(point_id.x, point_id.y); it != end; ++it)
+            for (NeighbourIterator it = m_graph.neighboursBegin(point_id.x, point_id.y); !it.isEnd(); ++it)
             {
                 float edge_cost = costOf(it);
                 PointID target = {it.x(), it.y()};

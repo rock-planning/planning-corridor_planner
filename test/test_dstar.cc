@@ -61,12 +61,12 @@ void check_neighbour_iteration(int x, int y, GridGraph& graph, const int* offset
     NeighbourIterator it = graph.neighboursBegin(x, y);
     for (int i = 0; i < count; ++i)
     {
-        BOOST_REQUIRE(graph.neighboursEnd() != it);
+        BOOST_REQUIRE(!it.isEnd());
         BOOST_REQUIRE_EQUAL(x + offsets[i * 2], it.x());
         BOOST_REQUIRE_EQUAL(y + offsets[i * 2 + 1], it.y());
         ++it;
     }
-    BOOST_REQUIRE(graph.neighboursEnd() == it);
+    BOOST_REQUIRE(it.isEnd());
 }
 
 BOOST_AUTO_TEST_CASE( test_grid_graph )
@@ -91,15 +91,15 @@ BOOST_AUTO_TEST_CASE( test_grid_graph )
     NeighbourIterator it = graph.parentsBegin(10, 10);
     BOOST_REQUIRE_EQUAL(10, it.sourceX());
     BOOST_REQUIRE_EQUAL(10, it.sourceY());
-    BOOST_REQUIRE(graph.parentsEnd() == it);
+    BOOST_REQUIRE(it.isEnd());
 
     it = graph.parentsBegin(101, 101);
-    BOOST_REQUIRE(graph.parentsEnd() != it);
+    BOOST_REQUIRE(!it.isEnd());
     BOOST_REQUIRE_EQUAL(GridGraph::TOP_RIGHT, it.getNeighbour());
     BOOST_REQUIRE_EQUAL(102, it.x());
     BOOST_REQUIRE_EQUAL(102, it.y());
     ++it;
-    BOOST_REQUIRE(graph.parentsEnd() == it);
+    BOOST_REQUIRE(it.isEnd());
 
     /** Check iteration on neighbours */
     {
@@ -138,26 +138,26 @@ BOOST_AUTO_TEST_CASE( test_grid_graph )
     /** Check set(Source|Target)AsParent */
     graph.setParents(30, 30, GridGraph::LEFT);
     it = graph.neighboursBegin(30, 30);
-    for (; it != graph.neighboursEnd(); ++it)
+    for (; !it.isEnd(); ++it)
     {
         it.setSourceAsParent();
         NeighbourIterator parent_it = graph.parentsBegin(it.x(), it.y());
         BOOST_CHECK_EQUAL(30, parent_it.x());
         BOOST_CHECK_EQUAL(30, parent_it.y());
-        BOOST_CHECK(++parent_it == graph.parentsEnd());
+        BOOST_CHECK((++parent_it).isEnd());
     }
     BOOST_REQUIRE_EQUAL(0, graph.getParents(30, 30));
 
     graph.setParents(31, 31, GridGraph::LEFT);
     graph.setParents(31, 30, GridGraph::LEFT);
     it = graph.neighboursBegin(30, 30);
-    for (; it != graph.neighboursEnd(); ++it)
+    for (; !it.isEnd(); ++it)
     {
         it.setTargetAsParent();
         NeighbourIterator parent_it = graph.parentsBegin(30, 30);
         BOOST_CHECK_EQUAL(it.x(), parent_it.x());
         BOOST_CHECK_EQUAL(it.y(), parent_it.y());
-        BOOST_CHECK(++parent_it == graph.parentsEnd());
+        BOOST_CHECK((++parent_it).isEnd());
     }
     BOOST_REQUIRE_EQUAL(GridGraph::LEFT, graph.getParents(31, 31));
     BOOST_REQUIRE_EQUAL(0, graph.getParents(31, 30));
@@ -218,7 +218,7 @@ BOOST_AUTO_TEST_CASE( test_dstar_cost )
     };
 
     NeighbourConstIterator it = graph.neighboursBegin(10, 10);
-    for (int i = 0; it != graph.neighboursEnd(); ++it, ++i)
+    for (int i = 0; !it.isEnd(); ++it, ++i)
         BOOST_REQUIRE_CLOSE(expected_costs[i], algo.costOf(it), 0.01);
 }
 
@@ -314,13 +314,13 @@ BOOST_AUTO_TEST_CASE( test_dstar_update )
     for (int i = 1; i < 11; ++i)
     {
         NeighbourConstIterator parent_it = graph.parentsBegin(4, i);
-        BOOST_REQUIRE(parent_it != graph.parentsEnd());
+        BOOST_REQUIRE(!parent_it.isEnd());
         BOOST_CHECK_EQUAL(4, parent_it.x());
         BOOST_CHECK_EQUAL(i - 1, parent_it.y());
     }
 
     NeighbourConstIterator parent_it = graph.parentsBegin(4, 0);
-    BOOST_REQUIRE(parent_it != graph.parentsEnd());
+    BOOST_REQUIRE(!parent_it.isEnd());
     BOOST_CHECK_EQUAL(5, parent_it.x());
     BOOST_CHECK_EQUAL(0, parent_it.y());
 }

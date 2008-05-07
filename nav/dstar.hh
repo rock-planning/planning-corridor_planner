@@ -179,7 +179,7 @@ namespace Nav {
          */
         bool operator == (NeighbourGenericIterator const& other) const
         {
-            return ((m_neighbour >= END_NEIGHBOUR && other.m_neighbour >= END_NEIGHBOUR)
+            return ((isEnd() && other.isEnd())
                     || (m_neighbour == other.m_neighbour
                 && m_graph == other.m_graph
                 && m_x == other.m_x
@@ -188,6 +188,9 @@ namespace Nav {
         /** The inverse of ==
          */
         bool operator != (NeighbourGenericIterator const& other) const { return !(*this == other); }
+
+        /** True if this iterator is a past-the-end iterator */
+        bool isEnd() const { return m_neighbour >= END_NEIGHBOUR; }
     };
 
     template<typename GraphClass>
@@ -311,10 +314,6 @@ namespace Nav {
          * parents of (x, y). See also getParents.
          */
         const_iterator parentsBegin(size_t x, size_t y) const;
-        /** Returns the past-the-end NeighbourIterator object to iterate on the
-         * parents of cells.
-         */
-        iterator parentsEnd() const;
         /** Returns a NeighbourIterator object which allows to iterate on the
          * neighbours of (x, y). Neighbours are the cells directly adjacent to
          * the considered cell.
@@ -325,10 +324,6 @@ namespace Nav {
          * the considered cell.
          */
         const_iterator neighboursBegin(size_t x, size_t y) const;
-        /** Returns the past-the-end NeighbourIterator object to iterate on the
-         * neighbours of cells. See neighboursBegin.
-         */
-        iterator neighboursEnd() const;
 
         /** Returns the iterator pointing to the given neighbour of (x, y) */
         NeighbourConstIterator getNeighbour(size_t x, size_t y, int neighbour) const;

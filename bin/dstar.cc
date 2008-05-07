@@ -56,7 +56,10 @@ int main(int argc, char** argv)
         for (int x = 0; x < (int)graph.xSize(); ++x)
         {
             NeighbourConstIterator parent = graph.parentsBegin(x, y);
-            std::cout << x << " " << y << " " << graph.getValue(x, y) << " " << parent.x() << " " << parent.y() << " " << (int)graph.getParents(x, y) << "\n";
+            if (parent.isEnd())
+                std::cout << x << " " << y << " " << graph.getValue(x, y) << " " << 0 << " " << 0 << " " << 0 << "\n";
+            else
+                std::cout << x << " " << y << " " << graph.getValue(x, y) << " " << parent.x() << " " << parent.y() << " " << (int)graph.getParents(x, y) << "\n";
         }
     }
     std::cout << std::flush;
