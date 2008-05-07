@@ -275,6 +275,29 @@ DStar::Cost DStar::insert(int x, int y, Cost cost)
     return cost;
 }
 
+void DStar::checkSolutionConsistency()
+{
+    for (int x = 0; x < (int)m_graph.xSize(); ++x)
+        for (int y = 0; y < (int)m_graph.ySize(); ++y)
+            if (x != getGoalX() || y != getGoalY())
+            {
+                NeighbourConstIterator parent = m_graph.parentsBegin(x, y);
+                if (parent.isEnd())
+                    throw internal_error("a node has no parent");
+                if (m_graph.getValue(x, y) <= 0)
+                    throw internal_error("cost not strictly positive");
+                if (Cost(m_graph.getValue(x, y)) != Cost(costOf(parent) + parent.getValue()))
+                    throw internal_error("saved cost and computed cost mismatch");
+            }
+            else
+            {
+                NeighbourConstIterator parent = m_graph.parentsBegin(x, y);
+                if (!parent.isEnd())
+                    throw internal_error("goal has a parent");
+            }
+
+}
+
 std::pair<float, bool> DStar::updatedCostOf(int x, int y, bool check_consistency) const
 {
     PointID point_id = { x, y };

@@ -238,20 +238,6 @@ BOOST_AUTO_TEST_CASE( test_dstar_insert )
     BOOST_REQUIRE(make_pair(4.0f, true) == algo.updatedCostOf(10, 10, true));
 }
 
-void checkDStarConsistency(DStar const& algo)
-{
-    GridGraph const& graph = algo.graph();
-
-    for (int x = 0; x < (int)graph.xSize(); ++x)
-        for (int y = 0; y < (int)graph.ySize(); ++y)
-            if (x != algo.getGoalX() || y != algo.getGoalY())
-            {
-                NeighbourConstIterator parent = graph.parentsBegin(x, y);
-                BOOST_CHECK(parent != graph.parentsEnd());
-                BOOST_CHECK_CLOSE(graph.getValue(x, y), algo.costOf(parent) + parent.getValue(), 0.01);
-            }
-}
-
 void checkDStarEmptyStructure(DStar const& algo)
 {
     GridGraph const& graph = algo.graph();
@@ -278,7 +264,7 @@ BOOST_AUTO_TEST_CASE( test_dstar_initialize_empty )
 
     /* Run on a problem whose result we know */
     algo.initialize(5, 5, 1, 1);
-    checkDStarConsistency(algo);
+    algo.checkSolutionConsistency();
     checkDStarEmptyStructure(algo);
 }
 
@@ -293,7 +279,7 @@ BOOST_AUTO_TEST_CASE( test_dstar_update )
     GridGraph const& graph = algo.graph();
 
     algo.initialize(10, 5, 1, 5);
-    checkDStarConsistency(algo);
+    algo.checkSolutionConsistency();
     for (int i = 0; i < 10; ++i)
         BOOST_REQUIRE_EQUAL(GridGraph::RIGHT, graph.getParents(i, 5));
     for (int i = 0; i < 5; ++i)
@@ -307,7 +293,7 @@ BOOST_AUTO_TEST_CASE( test_dstar_update )
     for (int i = 1; i < 11; ++i)
         algo.setTraversability(5, i, 0);
     algo.update(1, 5);
-    checkDStarConsistency(algo);
+    algo.checkSolutionConsistency();
 
     /* Now, all the trajectories which come from the left of the obstacle must
      * go through the only passage */
@@ -339,7 +325,7 @@ BOOST_AUTO_TEST_CASE( test_dstar_random_updates )
     DStar algo(map);
 
     algo.initialize(Size / 2, Size / 2, 1, 1);
-    checkDStarConsistency(algo);
+    algo.checkSolutionConsistency();
 
     for (int cycle = 0; cycle < 10; ++cycle)
     {
@@ -355,7 +341,7 @@ BOOST_AUTO_TEST_CASE( test_dstar_random_updates )
             algo.setTraversability(x, y, new_class);
         }
         algo.update(1, 1);
-        checkDStarConsistency(algo);
+        algo.checkSolutionConsistency();
     }
 
     for (int x = 0; x < Size; ++x)
@@ -363,7 +349,7 @@ BOOST_AUTO_TEST_CASE( test_dstar_random_updates )
             if (map.getValue(x, y) != 10)
                 algo.setTraversability(x, y, 10);
     algo.update(1, 1);
-    checkDStarConsistency(algo);
+    algo.checkSolutionConsistency();
     checkDStarEmptyStructure(algo);
 }
 

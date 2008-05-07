@@ -485,6 +485,10 @@ namespace Nav {
 
         /** Sets the traversability class to \c klass for the given cell */
         void setTraversability(int x, int y, int klass);
+
+        /** Checks that the current solution is consistent. It raises internal_error
+         * if it is not the case */
+        void checkSolutionConsistency();
     };
 }
 
