@@ -340,7 +340,15 @@ namespace Nav {
      */
     class DStar
     {
-        struct internal_error : public std::exception {};
+        struct internal_error : public std::exception
+        {
+            char const* m_message;
+            internal_error(char const* msg)
+                : m_message(msg) {}
+            ~internal_error() throw() { };
+
+            char const* what() const throw() { return m_message; }
+        };
 
     private:
         /** The underlying map we are acting on */

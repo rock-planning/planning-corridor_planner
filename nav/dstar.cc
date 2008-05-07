@@ -291,17 +291,19 @@ std::pair<float, bool> DStar::updatedCostOf(int x, int y, bool check_consistency
     if (check_consistency)
     {
         if (m_open_from_node.size() != m_open_from_cost.size())
-            throw internal_error();
+            throw internal_error("size of the two maps differ");
 
         Cost cost = it_node->second;
         OpenFromCost::const_iterator it_cost, end_cost;
-        bool already_seen;
+        bool already_seen = false;
         for (it_cost = m_open_from_cost.begin(); it_cost != m_open_from_cost.end(); ++it_cost)
         {
             if (it_cost->second == point_id)
             {
-                if (already_seen || it_cost->first != cost)
-                    throw internal_error();
+                if (already_seen)
+                    throw internal_error("duplicated node in open_from_cost");
+                else if (it_cost->first != cost)
+                    throw internal_error("mismatching cost between the two maps");
                 else
                     already_seen = true;
             }
