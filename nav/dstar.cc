@@ -207,7 +207,7 @@ void DStar::initialize(int goal_x, int goal_y, int pos_x, int pos_y)
 
 float DStar::costOfClass(int klass)
 {
-    return klass;
+    return TraversabilityMap::CLASSES_COUNT + 1 - klass;
     // float p = static_cast<float>(klass) / (TraversabilityMap::CLASSES_COUNT - 1);
     // float sigma = p * (COST_GROWTH_1 - COST_GROWTH_0) + COST_GROWTH_0;
     // return std::pow(2, (1 - p) / sigma);
