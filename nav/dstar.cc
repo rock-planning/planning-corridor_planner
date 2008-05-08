@@ -462,15 +462,15 @@ std::set< std::pair<int, int> > DStar::solutionBorder(int x, int y, float expand
 
     float min_limit = m_graph.getValue(x, y), max_limit = expand * min_limit;
     PointID start_id(x, y);
-    border.insert(make_pair(max_limit, start_id));
+    border.insert(make_pair(min_limit, start_id));
 
     Border new_border;
     while(true)
     {
         // expand +solution+ until all elements in it have their cost greater
         // than cost*expand
-        Border::iterator it = border.begin(), 
-            end = border.upper_bound(max_limit);
+        Border::iterator it = border.begin();
+        Border::iterator const end = border.upper_bound(max_limit);
         new_border.clear();
 
         // Nothing to expand further, go to the next element of the reference
@@ -494,15 +494,18 @@ std::set< std::pair<int, int> > DStar::solutionBorder(int x, int y, float expand
             for (; it != end; ++it)
             {
                 PointID p = it->second;
+                if (inside.count(p))
+                    continue;
+
                 inside.insert(p);
                 for (NeighbourConstIterator n = m_graph.neighboursBegin(p.x, p.y); !n.isEnd(); ++n)
                 {
                     PointID n_id = PointID(n.x(), n.y());
-                    float   n_v  = n.getValue();
-                    if (!inside.count(n_id) && n_v >= min_limit)
+                    float   n_v  = it->first + costOf(n);
+                    if (n_v >= min_limit)
                     {
                         inside.insert(n_id);
-                        new_border.insert(make_pair(n.getValue(), n_id));
+                        new_border.insert(make_pair(n_v, n_id));
                     }
                 }
             }
@@ -518,30 +521,6 @@ std::set< std::pair<int, int> > DStar::solutionBorder(int x, int y, float expand
         border_set.insert(p);
     }
 
-    Inside shrink_set;
-    do
-    {
-        for (Inside::const_iterator erase_it = shrink_set.begin();
-                erase_it != shrink_set.end();
-                ++erase_it)
-        {
-            inside.erase(*erase_it);
-        }
-        shrink_set.clear();
-
-        for (Inside::iterator it = inside.begin(); it != inside.end(); ++it)
-        {
-            NeighbourConstIterator p_it = m_graph.parentsBegin(it->x, it->y);
-            if (!p_it.isEnd())
-            {
-                PointID p_id = PointID(p_it.x(), p_it.y());
-                if (!inside.count(p_id) || shrink_set.count(p_id))
-                    shrink_set.insert(PointID(it->x, it->y));
-            }
-        }
-    }
-    while (!shrink_set.empty());
-
     set< pair<int, int> > ret;
     for (Inside::const_iterator it = inside.begin(); it != inside.end(); ++it)
     {
@@ -549,11 +528,6 @@ std::set< std::pair<int, int> > DStar::solutionBorder(int x, int y, float expand
         if (!border_set.count(p))
             ret.insert(make_pair(p.x, p.y));
     }
-    //for (Border::const_iterator it = border.begin(); it != border.end(); ++it)
-    //{
-    //    PointID p(it->second);
-    //    ret.insert(make_pair(p.x, p.y));
-    //}
     return ret;
 }
 
