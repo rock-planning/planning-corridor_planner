@@ -534,14 +534,21 @@ std::set< std::pair<int, int> > DStar::solutionBorder(int x, int y, float expand
 
                 // Append the path to goal which comes from +p+ to the border
                 {
-                    PointSet path_set;
-                    appendPathFrom(path_set, p, inside);
                     float cost_offset = it->first - m_graph.getValue(p.x, p.y);
-                    for (PointSet::const_iterator path_it = path_set.begin(); path_it != path_set.end(); ++path_it)
+                    NeighbourConstIterator next_it = m_graph.parentsBegin(p.x, p.y);
+                    while(!next_it.isEnd())
                     {
-                        inside.insert(*path_it);
-                        float new_cost = m_graph.getValue(path_it->x, path_it->y) + cost_offset;
-                        new_border.insert(make_pair(new_cost, *path_it));
+                        PointID next_id = PointID(next_it.x(), next_it.y());
+                        if (inside.count(next_id))
+                            break;
+
+                        float new_cost = next_it.getValue() + cost_offset;
+                        if (new_cost < min_limit)
+                            break;
+
+                        inside.insert(next_id);
+                        new_border.insert(make_pair(next_it.getValue() + cost_offset, next_id));
+                        next_it = m_graph.parentsBegin(next_id.x, next_id.y);
                     }
                 }
 
