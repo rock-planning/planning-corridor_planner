@@ -10,12 +10,25 @@
 #include <gdal_priv.h>
 
 #include <iostream>
+#include <fstream>
 
 using namespace std;
 using namespace Nav;
 using namespace boost::lambda;
 using boost::tie;
 using boost::uint8_t;
+
+ostream& operator << (ostream& io, DStar::PointID const& p)
+{ 
+    io << "[" << p.x << ", " << p.y << "]";
+    return io;
+}
+ostream& operator << (ostream& io, DStar::Cost const& v)
+{ 
+    io << v.value;
+    return io;
+}
+
 
 namespace Nav {
     static const int OPPOSITE_RELATIONS[] = 
@@ -154,6 +167,24 @@ void GridGraph::setParents(size_t x, size_t y, uint8_t mask)
 { getParents(x, y) = mask; }
 void GridGraph::clearParent(size_t x, size_t y, uint8_t old_parent)
 { getParents(x, y) &= ~old_parent; }
+void GridGraph::save(std::ostream& io) const
+{
+    io << xSize() << " " << ySize() << std::endl;
+    for (int y = 0; y < (int)ySize(); ++y)
+    {
+        for (int x = 0; x < (int)xSize(); ++x)
+        {
+            NeighbourConstIterator parent = parentsBegin(x, y);
+            io << x << " " << y << " " << getValue(x, y);
+            if (!parent.isEnd())
+                io << " " << parent.x() << " " << parent.y();
+            io << "\n";
+        }
+    }
+}
+
+
+
 
 NeighbourIterator GridGraph::parentsBegin(size_t x, size_t y)
 { return NeighbourIterator(*this, x, y, getParents(x, y)); }

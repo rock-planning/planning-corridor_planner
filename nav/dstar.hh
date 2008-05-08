@@ -8,6 +8,7 @@
 #include <boost/cstdint.hpp>
 #include <cmath>
 #include <set>
+#include <iosfwd>
 
 namespace Nav {
     /** Basic tools for maps which are regular grids */
@@ -328,6 +329,18 @@ namespace Nav {
 
         /** Returns the iterator pointing to the given neighbour of (x, y) */
         NeighbourConstIterator getNeighbour(size_t x, size_t y, int neighbour) const;
+
+        /** Save the graph in +io+ in the following format:
+         * <pre>
+         *  xSize ySize
+         *  x y value parent_x parent_y
+         *  ...
+         * </pre>
+         *
+         * The parent_x and parent_y values are not present if the node
+         * has no parent
+         */
+        void save(std::ostream& io) const;
     };
 
     /** An implementation of the plain D* algorithm. DStar::costOfClass is the
@@ -336,6 +349,7 @@ namespace Nav {
      */
     class DStar
     {
+    public:
         struct internal_error : public std::exception
         {
             char const* m_message;
@@ -345,19 +359,6 @@ namespace Nav {
 
             char const* what() const throw() { return m_message; }
         };
-
-    private:
-        /** The underlying map we are acting on */
-        TraversabilityMap& m_map;
-
-        /** The GridGraph object we use to store the algorithm state. The float
-         * value of a node in this graph stores the cost of the path from that
-         * cell to the goal
-         */
-        GridGraph m_graph;
-
-        /** The current goal */
-        int m_goal_x, m_goal_y;
 
         struct PointID { 
             int x; 
@@ -389,6 +390,19 @@ namespace Nav {
             Cost operator + (Cost const& other) const
             { return Cost(value + other.value); }
         };
+
+    private:
+        /** The underlying map we are acting on */
+        TraversabilityMap& m_map;
+
+        /** The GridGraph object we use to store the algorithm state. The float
+         * value of a node in this graph stores the cost of the path from that
+         * cell to the goal
+         */
+        GridGraph m_graph;
+
+        /** The current goal */
+        int m_goal_x, m_goal_y;
 
 
         typedef std::multimap<Cost, PointID> OpenFromCost;

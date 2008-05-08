@@ -63,19 +63,8 @@ int main(int argc, char** argv)
     // Then display the result
     std::cerr << "saving result in " << out_basename << ".txt" << std::endl;
     ofstream dstar_output((out_basename + ".txt").c_str());
-    dstar_output << graph.xSize() << " " << graph.ySize() << std::endl;
     dstar_output << x0 << " " << y0 << " " << x1 << " " << y1 << std::endl;
-    for (int y = 0; y < (int)graph.ySize(); ++y)
-    {
-        for (int x = 0; x < (int)graph.xSize(); ++x)
-        {
-            NeighbourConstIterator parent = graph.parentsBegin(x, y);
-            if (parent.isEnd())
-                dstar_output << x << " " << y << " " << graph.getValue(x, y) << " " << 0 << " " << 0 << " " << 0 << "\n";
-            else
-                dstar_output << x << " " << y << " " << graph.getValue(x, y) << " " << parent.x() << " " << parent.y() << " " << (int)graph.getParents(x, y) << "\n";
-        }
-    }
+    graph.save(dstar_output);
     dstar_output << std::endl;
 
     if (argc == 8)

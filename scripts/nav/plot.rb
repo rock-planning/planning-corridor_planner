@@ -17,9 +17,11 @@ class Plotter
 
     def read_header(io)
         values = io.readline.split(" ")
+        if values.size == 4
+            x_start, y_start, x_goal, y_goal = Float(values[0]), Float(values[1]), Float(values[2]), Float(values[3])
+            values = io.readline.split(" ")
+        end
         x_size, y_size = Float(values[0]), Float(values[1])
-        values = io.readline.split(" ")
-        x_start, y_start, x_goal, y_goal = Float(values[0]), Float(values[1]), Float(values[2]), Float(values[3])
         return x_size, y_size, x_start, y_start, x_goal, y_goal
     end
 
@@ -29,20 +31,26 @@ class Plotter
         file = StringIO.new data
         x_size, y_size, x_start, y_start, x_goal, y_goal = read_header file
 
-        t.show_marker 'at' => [x_start / x_size, y_start / y_size],
-                'marker' => Bullet, 'scale' => 0.5
-        t.show_marker 'at' => [x_goal / x_size, y_goal / y_size],
-                'marker' => Bullet, 'scale' => 0.5
-
         file.each_line do |line|
             if line == "\n"
                 break
             end
 
             values = line.split " "
-            x0, y0 = Float(values[0]), Float(values[1])
-            x1, y1 = Float(values[3]), Float(values[4])
-            t.stroke_line x0/x_size, y0/y_size, x1/x_size, y1/y_size
+            if values.size == 5
+                x0, y0 = Float(values[0]), Float(values[1])
+                x1, y1 = Float(values[3]), Float(values[4])
+                t.stroke_line x0/x_size, y0/y_size, x1/x_size, y1/y_size
+            end
+        end
+
+        if x_start
+            t.show_marker 'at' => [x_start / x_size, y_start / y_size],
+                'marker' => Bullet, 'scale' => 0.5, 'color' => Red
+        end
+        if x_goal
+            t.show_marker 'at' => [x_goal / x_size, y_goal / y_size],
+                'marker' => Bullet, 'scale' => 0.5, 'color' => Red
         end
     end
 
@@ -128,6 +136,4 @@ class Plotter
         end
     end
 end
-
-plotter = Plotter.new STDIN
 
