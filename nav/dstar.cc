@@ -516,7 +516,7 @@ std::set< std::pair<int, int> > DStar::solutionBorder(int x, int y, float expand
                 // Cannot go further than the goal, so stop here
                 break;
             }
-            max_limit = m_graph.getValue(x, y) + (1.0 + expand);
+            max_limit = std::max(min_limit, m_graph.getValue(x, y) * (1.0f + expand));
             x = next_element.x();
             y = next_element.y();
             min_limit = m_graph.getValue(x, y);

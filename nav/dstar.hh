@@ -374,6 +374,7 @@ namespace Nav {
             bool operator < (PointID const& other) const
             { return x < other.x || (x == other.x && y < other.y); }
         };
+        typedef std::set<PointID> PointSet;
 
         struct Cost {
             float value;
