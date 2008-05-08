@@ -381,10 +381,10 @@ namespace Nav {
 
             Cost(float value) : value(value) {}
 
-            bool operator < (Cost const& other) const  { return value - other.value < -0.01; }
-            bool operator > (Cost const& other) const  { return value - other.value > 0.01; }
+            bool operator < (Cost const& other) const  { return value - other.value < -0.0001; }
+            bool operator > (Cost const& other) const  { return value - other.value > 0.0001; }
             bool operator >= (Cost const& other) const { return !(*this < other); }
-            bool operator == (Cost const& other) const { return std::fabs(value - other.value) <= 0.01; }
+            bool operator == (Cost const& other) const { return std::fabs(value - other.value) <= 0.0001; }
             bool operator != (Cost const& other) const { return !(*this == other); }
             Cost operator - (Cost const& other) const
             { return Cost(value - other.value); }
