@@ -40,16 +40,16 @@ class Plotter
             if values.size == 5
                 x0, y0 = Float(values[0]), Float(values[1])
                 x1, y1 = Float(values[3]), Float(values[4])
-                t.stroke_line x0/x_size, y0/y_size, x1/x_size, y1/y_size
+                t.stroke_line((0.5+x0)/x_size, (0.5+y0)/y_size, (0.5+x1)/x_size, (0.5+y1)/y_size)
             end
         end
 
         if x_start
-            t.show_marker 'at' => [x_start / x_size, y_start / y_size],
+            t.show_marker 'at' => [(0.5+x_start) / x_size, (0.5+y_start) / y_size],
                 'marker' => Bullet, 'scale' => 0.5, 'color' => Red
         end
         if x_goal
-            t.show_marker 'at' => [x_goal / x_size, y_goal / y_size],
+            t.show_marker 'at' => [(0.5+x_goal) / x_size, (0.5+y_goal) / y_size],
                 'marker' => Bullet, 'scale' => 0.5, 'color' => Red
         end
     end
@@ -104,12 +104,12 @@ class Plotter
         contour.each do |x, y|
             p = parents[[x, y]]
             if p
-                t.stroke_line Float(x)/x_size, Float(y)/y_size, Float(p[0])/x_size, Float(p[1])/y_size
+                t.stroke_line((x+0.5)/x_size, (y+0.5)/y_size, (p[0]+0.5)/x_size, (p[1]+0.5)/y_size)
             end
         end
-        t.show_marker 'at' => [Float(x_start) / x_size, Float(y_start) / y_size],
+        t.show_marker 'at' => [(x_start+0.5) / x_size, (y_start+0.5) / y_size],
                 'marker' => Bullet, 'scale' => 0.5, 'color' => Green
-        t.show_marker 'at' => [x_goal / x_size, y_goal / y_size],
+        t.show_marker 'at' => [(x_goal+0.5) / x_size, (y_goal+0.5) / y_size],
                 'marker' => Bullet, 'scale' => 0.5, 'color' => Green
         max
     end
