@@ -107,10 +107,12 @@ class Plotter
                 t.stroke_line((x+0.5)/x_size, (y+0.5)/y_size, (p[0]+0.5)/x_size, (p[1]+0.5)/y_size)
             end
         end
-        t.show_marker 'at' => [(x_start+0.5) / x_size, (y_start+0.5) / y_size],
+        if x_start
+            t.show_marker 'at' => [(x_start+0.5) / x_size, (y_start+0.5) / y_size],
                 'marker' => Bullet, 'scale' => 0.5, 'color' => Green
-        t.show_marker 'at' => [(x_goal+0.5) / x_size, (y_goal+0.5) / y_size],
+            t.show_marker 'at' => [(x_goal+0.5) / x_size, (y_goal+0.5) / y_size],
                 'marker' => Bullet, 'scale' => 0.5, 'color' => Green
+        end
         max
     end
 
