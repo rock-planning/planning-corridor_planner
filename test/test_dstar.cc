@@ -361,7 +361,7 @@ BOOST_AUTO_TEST_CASE( test_dstar_two_paths )
                  y0 = 5,
                  x1 = 50,
                  y1 = 95;
-    static const float expand = 1.2;
+    static const float expand = 0.1;
 
     TraversabilityMap map(Size, Size);
     map.fill(15);
