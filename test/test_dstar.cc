@@ -365,8 +365,8 @@ BOOST_AUTO_TEST_CASE( test_dstar_two_paths )
 
     TraversabilityMap map(Size, Size);
     map.fill(15);
-    for (int x = 20; x < 80; ++x)
-        for (int y = 40; y < 60; ++y)
+    for (int x = 20; x < 81; ++x)
+        for (int y = 40; y < 61; ++y)
             map.setValue(x, y, 8);
 
     DStar algo(map);
