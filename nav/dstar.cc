@@ -547,7 +547,7 @@ std::set< std::pair<int, int> > DStar::solutionBorder(int x, int y, float expand
                             break;
 
                         inside.insert(next_id);
-                        new_border.insert(make_pair(next_it.getValue() + cost_offset, next_id));
+                        new_border.insert(make_pair(new_cost, next_id));
                         next_it = m_graph.parentsBegin(next_id.x, next_id.y);
                     }
                 }
