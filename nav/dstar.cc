@@ -470,23 +470,6 @@ void DStar::appendPathFrom(PointSet& result, DStar::PointID const& start_id, Poi
 
 std::set< std::pair<int, int> > DStar::solutionBorder(int x, int y, float expand) const
 {
-    // Build a representation of the optimal path
-    // typedef list<PointID> Path;
-    // Path optimal_path;
-    // {
-    //     PointID start_id(x, y);
-    //     optimal_path.push_front(start_id);
-    //     NeighbourConstIterator next_it = m_graph.parentsBegin(x, y);
-    //     while(!next_it.isEnd())
-    //     {
-    //         optimal_path.push_front(PointID(next_it.x, next_it.y));
-    //         next_it = m_graph.parentsBegin(x, y);
-    //     }
-    // }
-
-    // Grow that representation, starting from the goal
-
-    
     typedef multimap<float, PointID> Border;
     typedef set<PointID> Inside;
     Border border;
@@ -577,12 +560,6 @@ std::set< std::pair<int, int> > DStar::solutionBorder(int x, int y, float expand
             border.swap(new_border);
         }
     }
-
-    // Grow the inside part by following the new elements
-    // PointSet grown_set;
-    // for (Inside::const_iterator it = inside.begin(); it != inside.end(); ++it)
-    //     appendPathFrom(grown_set, *it, inside);
-    // inside.insert(grown_set.begin(), grown_set.end());
 
     Inside border_set;
     for (Border::const_iterator it = border.begin(); it != border.end(); ++it)
