@@ -522,7 +522,6 @@ std::set< std::pair<int, int> > DStar::solutionBorder(int x, int y, float expand
             min_limit = m_graph.getValue(x, y);
             max_limit = std::max(old_cost, min_limit * (1.0f + expand));
             border.insert(make_pair(m_graph.getValue(x, y), PointID(x, y)));
-            inside.erase(PointID(x, y));
             // std::cerr << "\nN [" << min_limit << ", " << max_limit << "]" << std::endl;
             // std::cerr << border.size() << std::endl;
         }
