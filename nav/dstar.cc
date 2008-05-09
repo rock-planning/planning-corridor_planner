@@ -584,18 +584,18 @@ std::set< std::pair<int, int> > DStar::solutionBorder(int x, int y, float expand
     //     appendPathFrom(grown_set, *it, inside);
     // inside.insert(grown_set.begin(), grown_set.end());
 
-    // Inside border_set;
-    // for (Border::const_iterator it = border.begin(); it != border.end(); ++it)
-    // {
-    //     PointID p(it->second);
-    //     border_set.insert(p);
-    // }
+    Inside border_set;
+    for (Border::const_iterator it = border.begin(); it != border.end(); ++it)
+    {
+        PointID p(it->second);
+        border_set.insert(p);
+    }
 
     set< pair<int, int> > ret;
     for (Inside::const_iterator it = inside.begin(); it != inside.end(); ++it)
     {
         PointID p(*it);
-        //if (!border_set.count(p))
+        if (!border_set.count(p))
             ret.insert(make_pair(p.x, p.y));
     }
     return ret;
