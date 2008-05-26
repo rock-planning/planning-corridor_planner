@@ -274,7 +274,7 @@ BOOST_AUTO_TEST_CASE( test_dstar_initialize_empty )
 
     /* Run on a problem whose result we know */
     algo.initialize(5, 5, 1, 1);
-    algo.checkSolutionConsistency();
+    BOOST_REQUIRE(algo.checkSolutionConsistency());
     checkDStarEmptyStructure(algo);
 }
 
@@ -289,7 +289,7 @@ BOOST_AUTO_TEST_CASE( test_dstar_update )
     GridGraph const& graph = algo.graph();
 
     algo.initialize(10, 5, 1, 5);
-    algo.checkSolutionConsistency();
+    BOOST_REQUIRE(algo.checkSolutionConsistency());
     for (int i = 0; i < 10; ++i)
         BOOST_REQUIRE_EQUAL(GridGraph::RIGHT, graph.getParents(i, 5));
     for (int i = 0; i < 5; ++i)
@@ -339,7 +339,7 @@ BOOST_AUTO_TEST_CASE( test_dstar_random_updates )
     DStar algo(map);
 
     algo.initialize(Size / 2, Size / 2, 1, 1);
-    algo.checkSolutionConsistency();
+    BOOST_REQUIRE(algo.checkSolutionConsistency());
 
     for (int cycle = 0; cycle < 50; ++cycle)
     {
@@ -356,7 +356,7 @@ BOOST_AUTO_TEST_CASE( test_dstar_random_updates )
             BOOST_REQUIRE_EQUAL(map.getValue(x, y), new_class);
         }
         algo.update(1, 1);
-        algo.checkSolutionConsistency();
+        BOOST_REQUIRE(algo.checkSolutionConsistency());
     }
 
     int reset_count = 0;
@@ -369,7 +369,7 @@ BOOST_AUTO_TEST_CASE( test_dstar_random_updates )
             }
 
     algo.update(1, 1);
-    algo.checkSolutionConsistency();
+    BOOST_REQUIRE(algo.checkSolutionConsistency());
     checkDStarEmptyStructure(algo);
 }
 

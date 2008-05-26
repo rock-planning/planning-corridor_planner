@@ -316,27 +316,47 @@ DStar::Cost DStar::insert(int x, int y, Cost new_cost)
     return new_cost;
 }
 
-void DStar::checkSolutionConsistency()
+bool DStar::checkSolutionConsistency() const
 {
+    bool has_error = false;
     for (int x = 0; x < (int)m_graph.xSize(); ++x)
         for (int y = 0; y < (int)m_graph.ySize(); ++y)
             if (x != getGoalX() || y != getGoalY())
             {
                 NeighbourConstIterator parent = m_graph.parentsBegin(x, y);
                 if (parent.isEnd())
-                    throw internal_error("a node has no parent");
+                {
+                    has_error = true;
+                    fprintf(stderr, "node (%i, %i) has no parent\n", 
+                            x, y);
+                }
                 if (m_graph.getValue(x, y) <= 0)
-                    throw internal_error("cost not strictly positive");
+                {
+                    has_error = true;
+                    fprintf(stderr, "node (%i, %i) has negative cost: %e\n", 
+                            x, y, m_graph.getValue(x, y));
+                }
                 if (Cost(m_graph.getValue(x, y)) != Cost(costOf(parent) + parent.getValue()))
-                    throw internal_error("saved cost and computed cost mismatch");
+                {
+                    has_error = true;
+                    fprintf(stderr, "saved cost and computed cost mismatch: %e != %e (parent == %e)\n", 
+                            m_graph.getValue(x, y),
+                            costOf(parent) + parent.getValue(),
+                            parent.getValue());
+                }
             }
             else
             {
                 NeighbourConstIterator parent = m_graph.parentsBegin(x, y);
                 if (!parent.isEnd())
-                    throw internal_error("goal has a parent");
+                {
+                    has_error = true;
+                    fprintf(stderr, "the goal has a parent (%i, %i)\n",
+                            parent.x(), parent.y());
+                }
             }
 
+    return !has_error;
 }
 
 std::pair<float, bool> DStar::updatedCostOf(int x, int y, bool check_consistency) const

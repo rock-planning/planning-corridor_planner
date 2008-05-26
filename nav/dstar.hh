@@ -511,7 +511,7 @@ namespace Nav {
 
         /** Checks that the current solution is consistent. It raises internal_error
          * if it is not the case */
-        void checkSolutionConsistency();
+        bool checkSolutionConsistency() const;
 
         std::set< std::pair<int, int> > solutionBorder(int x, int y, float expand) const;
 
