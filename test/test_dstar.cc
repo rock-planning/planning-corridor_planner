@@ -8,9 +8,17 @@
 #include <cmath>
 #include <string.h>
 #include <fstream>
+#include <boost/tuple/tuple.hpp>
+using boost::tie;
 
 using namespace Nav;
 using namespace std;
+
+static int useful_rand(int max)
+{
+    return max * (static_cast<float>(rand()) / RAND_MAX);
+}
+
 
 /* This test checks the access and change of values in traversability maps.  It
  * generates RANDOM_TEST_COUNT position at which the traversability value
@@ -41,10 +49,10 @@ BOOST_AUTO_TEST_CASE( test_traversability_map )
     expected_values[100][100] = 0xF;
     for (int i = 0; i < RANDOM_TEST_COUNT; ++i)
     {
-        uint8_t value = rand() * TraversabilityMap::CLASSES_COUNT / RAND_MAX;
+        uint8_t value = useful_rand(TraversabilityMap::CLASSES_COUNT);
         BOOST_REQUIRE(value < TraversabilityMap::CLASSES_COUNT);
-        size_t  x = rand() * 200 / RAND_MAX;
-        size_t  y = rand() * 200 / RAND_MAX;
+        size_t  x = useful_rand(200);
+        size_t  y = useful_rand(200);
 
         map.setValue(x, y, value);
         expected_values[x][y] = value;
@@ -216,12 +224,24 @@ BOOST_AUTO_TEST_CASE( test_dstar_insert )
 {
     TraversabilityMap map(100, 100);
     DStar algo(map);
+    GridGraph& graph = algo.graph();
 
     vector<float> basic_costs = dstarCosts();
 
+    BOOST_REQUIRE(algo.isNew(10, 10));
+
     BOOST_REQUIRE_EQUAL(false, algo.updatedCostOf(10, 10, true).second);
+    float cost;
+    bool  is_updated;
+
     algo.insert(10, 10, 5);
+    BOOST_REQUIRE_EQUAL(5, graph.getValue(10, 10));
+    
+    boost::tie(cost, is_updated) = algo.updatedCostOf(10, 10, true);
+    BOOST_REQUIRE(is_updated);
+    BOOST_REQUIRE_EQUAL(5.0f, cost);
     BOOST_REQUIRE(make_pair(5.0f, true) == algo.updatedCostOf(10, 10, true));
+
     algo.insert(10, 10, 4);
     BOOST_REQUIRE(make_pair(4.0f, true) == algo.updatedCostOf(10, 10, true));
     algo.insert(10, 10, 5);
@@ -264,7 +284,7 @@ BOOST_AUTO_TEST_CASE( test_dstar_initialize_empty )
 BOOST_AUTO_TEST_CASE( test_dstar_update )
 {
     TraversabilityMap map(11, 11);
-    map.fill(10);
+    map.fill(15);
     DStar algo(map);
     GridGraph const& graph = algo.graph();
 
@@ -280,18 +300,22 @@ BOOST_AUTO_TEST_CASE( test_dstar_update )
         BOOST_REQUIRE_EQUAL(GridGraph::BOTTOM_RIGHT, graph.getParents(5 + i, 10 - i));
     }
 
-    for (int i = 1; i < 11; ++i)
-        algo.setTraversability(5, i, 0);
+    for (int x = 3; x < 8; ++x)
+        for (int y = 1; y < 11; ++y)
+            algo.setTraversability(x, y, 0);
     algo.update(1, 5);
-    algo.checkSolutionConsistency();
+    BOOST_REQUIRE(algo.checkSolutionConsistency());
+
+    ofstream out("dstar_update.txt");
+    algo.graph().save(out);
 
     /* Now, all the trajectories which come from the left of the obstacle must
      * go through the only passage */
     for (int i = 1; i < 11; ++i)
     {
-        NeighbourConstIterator parent_it = graph.parentsBegin(4, i);
+        NeighbourConstIterator parent_it = graph.parentsBegin(2, i);
         BOOST_REQUIRE(!parent_it.isEnd());
-        BOOST_CHECK_EQUAL(4, parent_it.x());
+        BOOST_CHECK_EQUAL(2, parent_it.x());
         BOOST_CHECK_EQUAL(i - 1, parent_it.y());
     }
 
@@ -317,27 +341,33 @@ BOOST_AUTO_TEST_CASE( test_dstar_random_updates )
     algo.initialize(Size / 2, Size / 2, 1, 1);
     algo.checkSolutionConsistency();
 
-    for (int cycle = 0; cycle < 10; ++cycle)
+    for (int cycle = 0; cycle < 50; ++cycle)
     {
         for (int random_changes = 0; random_changes < 10; ++random_changes)
         {
-            int x = rand() * Size / RAND_MAX;
-            int y = rand() * Size / RAND_MAX;
-            int new_class = rand() * TraversabilityMap::CLASSES_COUNT / RAND_MAX;
+            int x = useful_rand(Size);
+            int y = useful_rand(Size);
+            int new_class = useful_rand(TraversabilityMap::CLASSES_COUNT);
             BOOST_REQUIRE(x >= 0 && x < Size);
             BOOST_REQUIRE(y >= 0 && y < Size);
             BOOST_REQUIRE(new_class >= 0 && new_class < TraversabilityMap::CLASSES_COUNT);
 
             algo.setTraversability(x, y, new_class);
+            BOOST_REQUIRE_EQUAL(map.getValue(x, y), new_class);
         }
         algo.update(1, 1);
         algo.checkSolutionConsistency();
     }
 
+    int reset_count = 0;
     for (int x = 0; x < Size; ++x)
         for (int y = 0; y < Size; ++y)
             if (map.getValue(x, y) != 10)
+            {
                 algo.setTraversability(x, y, 10);
+                reset_count++;
+            }
+
     algo.update(1, 1);
     algo.checkSolutionConsistency();
     checkDStarEmptyStructure(algo);

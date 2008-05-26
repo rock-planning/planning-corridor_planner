@@ -382,6 +382,7 @@ namespace Nav {
             Cost(float value) : value(value) {}
 
             bool operator < (Cost const& other) const  { return value - other.value < -0.0001; }
+            bool operator <= (Cost const& other) const { return !(*this > other); }
             bool operator > (Cost const& other) const  { return value - other.value > 0.0001; }
             bool operator >= (Cost const& other) const { return !(*this < other); }
             bool operator == (Cost const& other) const { return std::fabs(value - other.value) <= 0.0001; }
@@ -411,21 +412,6 @@ namespace Nav {
         typedef std::map<PointID, Cost> OpenFromNode;
         OpenFromNode m_open_from_node;
 
-        /** True if \c it points to a cell which has never been considered by
-         * the algorithm */
-        bool isNew(NeighbourConstIterator it) const;
-
-        /** True if the pointed-to cell of \c it is currently in the open set */
-        bool isOpened(NeighbourConstIterator it) const;
-
-        /** Changes the data structures so that the source of \c it becomes
-         * the parent of the currently pointed-to cell */
-        void setSourceAsParent(NeighbourIterator it);
-
-        /** Changes the data structures so that the source of \c it becomes
-         * the parent of the currently pointed-to cell */
-        void setTargetAsParent(NeighbourIterator it);
-
     public:
         DStar(TraversabilityMap& map);
 
@@ -452,6 +438,27 @@ namespace Nav {
 
         /** Update the trajectories for the given position */
         void update(int pos_x, int pos_y);
+
+        /** True if \c it points to a cell which has never been considered by
+         * the algorithm */
+        bool isNew(NeighbourConstIterator it) const;
+
+        /** True if the pointed-to cell of \c it is currently in the open set */
+        bool isOpened(NeighbourConstIterator it) const;
+
+        /** True if \c x and \c y define a cell which has never been considered
+         * by the algorithm */
+        bool isNew(int x, int y) const;
+
+        /** True if (\c x, \c y) is currently in the open set */
+        bool isOpened(int x, int y) const;
+
+        /** True if the pointed-to cell of \c it is neither new nor opened */
+        bool isClosed(NeighbourConstIterator it) const
+        { return isClosed(it.x(), it.y()); }
+
+        /** True if (\c x, \c y) is neither new nor opened */
+        bool isClosed(int x, int y) const { return !isNew(x, y) && !isOpened(x, y); }
 
         /** Computes the cost of traversing a cell of the given class
          * If p is the probability of being able to traverse the cell,

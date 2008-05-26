@@ -269,24 +269,32 @@ float DStar::costOf(NeighbourConstIterator it) const
 
 float DStar::updated(int x, int y)
 { 
-    
+    if (isClosed(x, y))
+        insert(x, y, m_graph.getValue(x, y));
+
     for (NeighbourConstIterator it = m_graph.neighboursBegin(x, y); !it.isEnd(); ++it)
     {
-        if (!isOpened(it) && !isNew(it))
+        if (isClosed(it))
             insert(it.x(), it.y(), it.getValue());
     }
     return m_open_from_cost.begin()->first.value;
 }
 
-DStar::Cost DStar::insert(int x, int y, Cost cost)
+DStar::Cost DStar::insert(int x, int y, Cost new_cost)
 {
+    Cost old_cost = m_graph.getValue(x, y);
+    m_graph.setValue(x, y, new_cost.value);
+
     PointID point_id(x, y);
+
     OpenFromNode::iterator it = m_open_from_node.find(point_id);
     if (it != m_open_from_node.end())
     {
         // The cell is already in the open list. Update it.
         Cost old_cost = it->second;
-        if (cost >= old_cost) return old_cost;
+        if (new_cost >= old_cost)
+            return old_cost;
+
         OpenFromCost::iterator it_cost, end;
         boost::tie(it_cost, end) = m_open_from_cost.equal_range(old_cost);
         while (it_cost->second != point_id && it_cost != end)
@@ -295,13 +303,17 @@ DStar::Cost DStar::insert(int x, int y, Cost cost)
         assert(it_cost != end);
 
         m_open_from_cost.erase(it_cost);
-        it->second = cost;
+        it->second = new_cost;
     }
     else
-        m_open_from_node.insert( make_pair(point_id, cost) );
+    {
+        if (new_cost > old_cost)
+            new_cost = old_cost;
+        m_open_from_node.insert( make_pair(point_id, new_cost) );
+    }
 
-    m_open_from_cost.insert( make_pair(cost, point_id) );
-    return cost;
+    m_open_from_cost.insert( make_pair(new_cost, point_id) );
+    return new_cost;
 }
 
 void DStar::checkSolutionConsistency()
@@ -365,24 +377,17 @@ void DStar::setTraversability(int x, int y, int klass)
     updated(x, y);
 }
 
-bool DStar::isNew(NeighbourConstIterator it) const { return it.getValue() == std::numeric_limits<float>::max(); }
-bool DStar::isOpened(NeighbourConstIterator it) const {
-    PointID id(it.x(), it.y());
+bool DStar::isNew(NeighbourConstIterator it) const 
+{ return isNew(it.x(), it.y()); }
+bool DStar::isNew(int x, int y) const 
+{ return m_graph.getValue(x, y) == std::numeric_limits<float>::max(); }
+bool DStar::isOpened(NeighbourConstIterator it) const
+{ return isOpened(it.x(), it.y()); }
+bool DStar::isOpened(int x, int y) const
+{
+    PointID id(x, y);
     return m_open_from_node.find(id) != m_open_from_node.end();
 }
-
-void DStar::setSourceAsParent(NeighbourIterator it)
-{
-    it.setSourceAsParent();
-    it.setValue(m_graph.getValue(it.sourceX(), it.sourceY()) + costOf(it));
-}
-
-void DStar::setTargetAsParent(NeighbourIterator it)
-{
-    it.setTargetAsParent();
-    m_graph.setValue(it.sourceX(), it.sourceY(), it.getValue() + costOf(it));
-}
-
 
 void DStar::update(int pos_x, int pos_y)
 {
@@ -390,9 +395,9 @@ void DStar::update(int pos_x, int pos_y)
     {
         /* Remove the top item of the open list */
         OpenFromCost::iterator it_cost = m_open_from_cost.begin();
-        Cost new_cost   = it_cost->first;
-        PointID point_id = it_cost->second;
-        Cost old_cost   = m_graph.getValue(point_id.x, point_id.y);
+        PointID point_id  = it_cost->second;
+        Cost new_cost     = it_cost->first;
+        Cost old_cost     = m_graph.getValue(point_id.x, point_id.y);
         m_open_from_cost.erase(it_cost);
         m_open_from_node.erase(point_id);
 
@@ -403,12 +408,12 @@ void DStar::update(int pos_x, int pos_y)
                 Cost neighbour_cost = it.getValue() + costOf(it);
                 if (Cost(it.getValue()) < new_cost && old_cost > neighbour_cost)
                 {
-                    setTargetAsParent(it);
+                    it.setTargetAsParent();
+                    m_graph.setValue(it.sourceX(), it.sourceY(), neighbour_cost.value);
                     old_cost = neighbour_cost;
                 }
             }
         }
-
         if (new_cost == old_cost)
         {
             for (NeighbourIterator it = m_graph.neighboursBegin(point_id.x, point_id.y); !it.isEnd(); ++it)
@@ -418,7 +423,7 @@ void DStar::update(int pos_x, int pos_y)
                         (it.sourceIsParent()  && Cost(it.getValue()) != neighbour_cost) ||
                         (!it.sourceIsParent() && Cost(it.getValue()) > neighbour_cost))
                 {
-                    setSourceAsParent(it);
+                    it.setSourceAsParent();
                     insert(it.x(), it.y(), neighbour_cost);
                 }
             }
@@ -430,21 +435,22 @@ void DStar::update(int pos_x, int pos_y)
                 float edge_cost = costOf(it);
                 PointID target(it.x(), it.y());
                 if (isNew(it) ||
-                        (it.sourceIsParent() && Cost(it.getValue()) < old_cost + edge_cost))
+                        (it.sourceIsParent() && Cost(it.getValue()) != old_cost + edge_cost))
                 {
-                    setSourceAsParent(it);
+                    it.setSourceAsParent();
                     insert(it.x(), it.y(), old_cost + edge_cost);
                 }
-                else if (!it.sourceIsParent() && Cost(it.getValue()) > old_cost + edge_cost)
+                else if (!it.sourceIsParent())
                 {
-                    insert(it.sourceX(), it.sourceY(), old_cost);
-                }
-                else if (!it.sourceIsParent() && 
-                        old_cost > it.getValue() + edge_cost &&
-                        !m_open_from_node.count(target) &&
-                        Cost(it.getValue()) > new_cost)
-                {
-                    insert(it.x(), it.y(), it.getValue());
+                    if (Cost(it.getValue()) > old_cost + edge_cost)
+                        insert(it.sourceX(), it.sourceY(), old_cost);
+                    else if (!it.sourceIsParent() && 
+                            old_cost > it.getValue() + edge_cost &&
+                            !m_open_from_node.count(target) &&
+                            Cost(it.getValue()) > new_cost)
+                    {
+                        insert(it.x(), it.y(), it.getValue());
+                    }
                 }
             }
         }
