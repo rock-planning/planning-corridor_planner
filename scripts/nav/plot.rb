@@ -83,9 +83,11 @@ class Plotter
             if contour_mode
                 contour << [x0, y0]
             else
-                x1, y1 = Integer(values[3]), Integer(values[4])
                 costs[y_size - 1 - y0, x0] = Float(values[2])
-                parents[[x0, y0]] = [x1, y1]
+                if values[3]
+                    x1, y1 = Integer(values[3]), Integer(values[4])
+                    parents[[x0, y0]] = [x1, y1]
+                end
             end
         end
         max = costs.max
