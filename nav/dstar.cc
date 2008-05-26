@@ -540,7 +540,6 @@ DStar::PointSet DStar::solutionBorder(int x, int y, float expand) const
             min_limit = m_graph.getValue(x, y);
             max_limit = std::max(old_cost, min_limit * (1.0f + expand));
             hi_border.insert(make_pair(m_graph.getValue(x, y), PointID(x, y)));
-            // std::cerr << "\nN [" << min_limit << ", " << max_limit << "]" << std::endl;
         }
         else
         {
@@ -551,7 +550,6 @@ DStar::PointSet DStar::solutionBorder(int x, int y, float expand) const
                 inside.insert(p);
                 float cost_offset = it->first - m_graph.getValue(p.x, p.y);
 
-                //std::cerr << "A " << p << std::endl;
                 for (NeighbourConstIterator n = m_graph.neighboursBegin(p.x, p.y); !n.isEnd(); ++n)
                 {
                     PointID n_id = PointID(n.x(), n.y());
@@ -559,17 +557,14 @@ DStar::PointSet DStar::solutionBorder(int x, int y, float expand) const
                         continue;
 
                     float n_v  = n.getValue() + cost_offset + costOf(n);
-                    // std::cerr << n_v << " " << n_id << std::endl;
                     if (n_v >= min_limit)
                     {
                         inside.insert(n_id);
                         hi_border.insert(make_pair(n_v, n_id));
-                        //std::cerr << "B " << n_id << " " << n_v << std::endl;
                     }
                     else
                     {
                         lo_border.insert(n_id);
-                        std::cerr << "! " << n_v << " " << n_id << std::endl;
                     }
                 }
             }
