@@ -215,7 +215,8 @@ namespace Nav {
 
 DStar::DStar(TraversabilityMap& map)
     : m_map(map)
-    , m_graph(map.xSize(), map.ySize()) {}
+    , m_graph(map.xSize(), map.ySize(), std::numeric_limits<float>::max())
+{ }
 
 GridGraph& DStar::graph()
 { return m_graph; }
