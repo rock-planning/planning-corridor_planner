@@ -476,9 +476,6 @@ namespace Nav {
          */
         static float costOfClass(int klass);
 
-        /** The cost of traversing the given cell */
-        float costOf(size_t x, size_t y) const;
-
         /** Computes the cost of crossing the edge represented by \c it
          *
          * The strategy is the following:

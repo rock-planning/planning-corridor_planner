@@ -177,17 +177,6 @@ BOOST_AUTO_TEST_CASE( test_dstar_cost )
     TraversabilityMap map(100, 100);
     DStar algo(map);
 
-    float min_cost = 1.0f;
-    float max_cost = std::pow(2, 1 / 0.01);
-
-    BOOST_REQUIRE_CLOSE(min_cost, DStar::costOfClass(TraversabilityMap::CLASSES_COUNT - 1), 0.01);
-    BOOST_REQUIRE_CLOSE(max_cost, DStar::costOfClass(0), 0.01);
-
-    map.setValue(10, 10, 0);
-    BOOST_REQUIRE_CLOSE(max_cost, algo.costOf(10, 10), 0.01);
-    map.setValue(10, 10, TraversabilityMap::CLASSES_COUNT - 1);
-    BOOST_REQUIRE_CLOSE(min_cost, algo.costOf(10, 10), 0.01);
-
     /** From now, we assume that GridGraph::costOfClass(x) behaves properly and
      * we extract the cost of each traversability classes
      */

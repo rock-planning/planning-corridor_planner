@@ -244,13 +244,10 @@ float DStar::costOfClass(int klass)
     // float sigma = p * (COST_GROWTH_1 - COST_GROWTH_0) + COST_GROWTH_0;
     // return std::pow(2, (1 - p) / sigma);
 }
-float DStar::costOf(size_t x, size_t y) const
-{ return costOfClass(m_map.getValue(x, y)); }
-
 float DStar::costOf(NeighbourConstIterator it) const
 {
-    float a = costOf(it.sourceX(), it.sourceY());
-    float b = costOf(it.x(), it.y());
+    float a = costOfClass(m_map.getValue(it.sourceX(), it.sourceY()));
+    float b = costOfClass(m_map.getValue(it.x(), it.y()));
 
     if (it.getNeighbour() & GridGraph::DIR_STRAIGHT)
         return a + b;
@@ -265,8 +262,8 @@ float DStar::costOf(NeighbourConstIterator it) const
     NeighbourConstIterator next = m_graph.getNeighbour(it.sourceX(), it.sourceY(), next_neighbour);
     NeighbourConstIterator prev = m_graph.getNeighbour(it.sourceX(), it.sourceY(), prev_neighbour);
 
-    float c = costOf(next.x(), next.y());
-    float d = costOf(prev.x(), prev.y());
+    float c = costOfClass(m_map.getValue(next.x(), next.y()));
+    float d = costOfClass(m_map.getValue(prev.x(), prev.y()));
     return (a + b + c + d) / 2 * Nav::DIAG_FACTOR;
 }
 
