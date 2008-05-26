@@ -492,72 +492,64 @@ void DStar::appendPathFrom(PointSet& result, DStar::PointID const& start_id, Poi
     }
 }
 
-std::set< std::pair<int, int> > DStar::solutionBorder(int x, int y, float expand) const
+DStar::PointSet DStar::solutionBorder(int x, int y, float expand) const
 {
     typedef multimap<float, PointID> Border;
-    typedef set<PointID> Inside;
-    Border border;
-    Inside inside;
+    typedef set<PointID> PointSet;
+    Border hi_border;
+    PointSet lo_border;
+    PointSet inside;
 
-    float min_limit = m_graph.getValue(x, y), max_limit = m_graph.getValue(x, y) * (1.0 + expand);
-    PointID start_id(x, y);
-    border.insert(make_pair(m_graph.getValue(x, y), start_id));
-
-    Border new_border;
+    // Initialization happens in the it == end condition of the loop
+    float min_limit = 0, max_limit = 0;
+    lo_border.insert(PointID(x, y));
+    Border temp_border;
     while(true)
     {
         // expand +solution+ until all elements in it have their cost greater
         // than cost*expand
-        Border::iterator it  = border.begin();
-        Border::iterator end = border.upper_bound(max_limit);
-
-        new_border.clear();
+        temp_border.clear();
+        temp_border.swap(hi_border);
+        Border::iterator it  = temp_border.begin();
+        Border::iterator end = temp_border.upper_bound(max_limit);
 
         // Nothing to expand further, go to the next element of the reference
         // path and start again
         if (it == end)
         {
             NeighbourConstIterator next_element = m_graph.parentsBegin(x, y);
-            if (next_element.isEnd())
+            float old_cost = min_limit;
+            if (!next_element.isEnd())
             {
-                // Cannot go further than the goal, so stop here
+                x = next_element.x();
+                y = next_element.y();
+            }
+            else if (!lo_border.empty())
+            {
+                PointSet::const_iterator new_path = lo_border.begin();
+                lo_border.erase(new_path);
+
+                x = new_path->x;
+                y = new_path->y;
+            }
+            else
+            {
                 break;
             }
-            float old_cost = min_limit;
-            x = next_element.x();
-            y = next_element.y();
+
             min_limit = m_graph.getValue(x, y);
             max_limit = std::max(old_cost, min_limit * (1.0f + expand));
-            border.insert(make_pair(m_graph.getValue(x, y), PointID(x, y)));
+            hi_border.insert(make_pair(m_graph.getValue(x, y), PointID(x, y)));
             // std::cerr << "\nN [" << min_limit << ", " << max_limit << "]" << std::endl;
-            // std::cerr << border.size() << std::endl;
         }
         else
         {
             for (; it != end; ++it)
             {
                 PointID p = it->second;
+                lo_border.erase(p);
                 inside.insert(p);
-
-                // Append the path to goal which comes from +p+ to the border
-                {
-                    float cost_offset = it->first - m_graph.getValue(p.x, p.y);
-                    NeighbourConstIterator next_it = m_graph.parentsBegin(p.x, p.y);
-                    while(!next_it.isEnd())
-                    {
-                        PointID next_id = PointID(next_it.x(), next_it.y());
-                        if (inside.count(next_id))
-                            break;
-
-                        float new_cost = next_it.getValue() + cost_offset;
-                        if (new_cost < min_limit)
-                            break;
-
-                        inside.insert(next_id);
-                        new_border.insert(make_pair(new_cost, next_id));
-                        next_it = m_graph.parentsBegin(next_id.x, next_id.y);
-                    }
-                }
+                float cost_offset = it->first - m_graph.getValue(p.x, p.y);
 
                 //std::cerr << "A " << p << std::endl;
                 for (NeighbourConstIterator n = m_graph.neighboursBegin(p.x, p.y); !n.isEnd(); ++n)
@@ -566,39 +558,24 @@ std::set< std::pair<int, int> > DStar::solutionBorder(int x, int y, float expand
                     if (inside.count(n_id))
                         continue;
 
-                    float   n_v  = it->first + costOf(n);
-                    //std::cerr << n_v << " " << min_limit << std::endl;
+                    float n_v  = n.getValue() + cost_offset + costOf(n);
+                    // std::cerr << n_v << " " << n_id << std::endl;
                     if (n_v >= min_limit)
                     {
                         inside.insert(n_id);
-                        new_border.insert(make_pair(n_v, n_id));
+                        hi_border.insert(make_pair(n_v, n_id));
                         //std::cerr << "B " << n_id << " " << n_v << std::endl;
                     }
                     else
                     {
-                        //std::cerr << "! " << n_id << std::endl;
+                        lo_border.insert(n_id);
+                        std::cerr << "! " << n_v << " " << n_id << std::endl;
                     }
                 }
             }
-            border.clear();
-            border.swap(new_border);
         }
     }
 
-    Inside border_set;
-    for (Border::const_iterator it = border.begin(); it != border.end(); ++it)
-    {
-        PointID p(it->second);
-        border_set.insert(p);
-    }
-
-    set< pair<int, int> > ret;
-    for (Inside::const_iterator it = inside.begin(); it != inside.end(); ++it)
-    {
-        PointID p(*it);
-        if (!border_set.count(p))
-            ret.insert(make_pair(p.x, p.y));
-    }
-    return ret;
+    return inside;
 }
 

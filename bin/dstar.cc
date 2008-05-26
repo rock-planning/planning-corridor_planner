@@ -70,13 +70,12 @@ int main(int argc, char** argv)
     if (argc == 8)
     {
         std::cerr << "computing filtered border" << std::endl;
-        typedef std::set< std::pair<int, int> > Border;
-        Border border = algo.solutionBorder(x0, y0, expand);
+        DStar::PointSet border = algo.solutionBorder(x0, y0, expand);
 
         std::cerr << "saving filtered border" << std::endl;
         dstar_output << x0 << " " << y0 << " " << x1 << " " << y1 << " " << expand << std::endl;
-        for (Border::iterator it = border.begin(); it != border.end(); ++it)
-            dstar_output << it->first << " " << it->second << "\n";
+        for (DStar::PointSet::iterator it = border.begin(); it != border.end(); ++it)
+            dstar_output << it->x << " " << it->y << "\n";
         dstar_output << std::flush;
     }
     return 0;

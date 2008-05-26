@@ -373,37 +373,3 @@ BOOST_AUTO_TEST_CASE( test_dstar_random_updates )
     checkDStarEmptyStructure(algo);
 }
 
-BOOST_AUTO_TEST_CASE( test_dstar_two_paths )
-{
-    static const int Size = 101;
-    static const int x0 = 50,
-                 y0 = 5,
-                 x1 = 50,
-                 y1 = 95;
-    static const float expand = 0.05;
-
-    TraversabilityMap map(Size, Size);
-    map.fill(15);
-    for (int x = 20; x < 81; ++x)
-        for (int y = 40; y < 61; ++y)
-            map.setValue(x, y, 8);
-
-    DStar algo(map);
-
-    algo.initialize(x1, y1, x0, y0);
-    algo.checkSolutionConsistency();
-
-    ofstream out("two_paths.txt");
-    algo.graph().save(out);
-
-    typedef std::set< std::pair<int, int> > Border;
-    Border border = algo.solutionBorder(x0, y0, expand);
-
-    out << std::endl;
-    out << x0 << " " << y0 << " " << x1 << " " << y1 << " " << expand << std::endl;
-    for (Border::iterator it = border.begin(); it != border.end(); ++it)
-        out << it->first << " " << it->second << "\n";
-    out << std::flush;
-}
-
-

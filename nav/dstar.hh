@@ -513,7 +513,7 @@ namespace Nav {
          * if it is not the case */
         bool checkSolutionConsistency() const;
 
-        std::set< std::pair<int, int> > solutionBorder(int x, int y, float expand) const;
+        PointSet solutionBorder(int x, int y, float expand) const;
 
         void appendPathFrom(PointSet& result, PointID const& start_id, PointSet const& into) const;
     };
