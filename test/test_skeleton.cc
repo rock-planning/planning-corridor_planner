@@ -20,7 +20,21 @@ BOOST_AUTO_TEST_CASE( test_simple_corridor )
     SkeletonExtraction skel(w, h);
     vector<int> result = skel.extract(&img[0]);
 
+    bool check[w];
+    memset(check, 0, sizeof(bool) * w);
     for (vector<int>::iterator it = result.begin(); it != result.end(); ++it)
-        cout << *it % w << " " << *it / w << endl;
+    {
+        int x = *it % w;
+        int y = *it / w;
+        BOOST_REQUIRE_EQUAL(y, 15);
+        check[x] = true;
+    }
+
+    for (int i = 2; i < w - 2; ++i)
+        BOOST_REQUIRE(check[i]);
+    BOOST_REQUIRE(!check[0]);
+    BOOST_REQUIRE(!check[1]);
+    BOOST_REQUIRE(!check[w - 2]);
+    BOOST_REQUIRE(!check[w - 1]);
 }
 
