@@ -89,13 +89,6 @@ void SkeletonExtraction::buildHeightMap(uint8_t const* edges, int threshold, int
         if (!*candidate_ptr) 
             candidate_ptr = &cList[0];
     }
-
-    for (size_t y = 0; y < height; ++y)
-    {
-        for (size_t x = 0; x < width; ++x)
-            std::cout << (int) heightmap[y * width + x] << " ";
-        std::cout << "\n";
-    }
 }
 
 std::vector<int> SkeletonExtraction::hillClimbing()
