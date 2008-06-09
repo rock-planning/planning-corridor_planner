@@ -570,10 +570,21 @@ PointSet DStar::solutionBorder(int x, int y, float expand) const
         }
     }
 
+    // This is slow and completely unscalable, but it works
     PointSet result;
-    for (Border::iterator it = hi_border.begin(); it != hi_border.end(); ++it)
-        result.insert(it->second);
-
+    for (PointSet::iterator it = inside.begin(); it != inside.end(); ++it)
+    {
+        PointID p = *it;
+        for (NeighbourConstIterator n = m_graph.neighboursBegin(p.x, p.y); !n.isEnd(); ++n)
+        {
+            PointID n_id = PointID(n.x(), n.y());
+            if (!inside.count(n_id))
+            {
+                result.insert(p);
+                break;
+            }
+        }
+    }
     return result;
 }
 
