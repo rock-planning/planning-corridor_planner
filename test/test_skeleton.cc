@@ -9,16 +9,14 @@
 using namespace std;
 using namespace Nav;
 
-void checkSimpleCorridorResult(vector<int> const& result, size_t w)
+void checkSimpleCorridorResult(PointSet const& result, size_t w)
 {
     bool check[w];
     memset(check, 0, sizeof(bool) * w);
-    for (vector<int>::const_iterator it = result.begin(); it != result.end(); ++it)
+    for (PointSet::const_iterator it = result.begin(); it != result.end(); ++it)
     {
-        int x = *it % w;
-        int y = *it / w;
-        BOOST_REQUIRE_EQUAL(y, 15);
-        check[x] = true;
+        BOOST_REQUIRE_EQUAL(it->y, 15);
+        check[it->x] = true;
     }
 
     for (size_t i = 2; i < w - 2; ++i)
@@ -39,7 +37,7 @@ BOOST_AUTO_TEST_CASE( test_simple_corridor_image )
     memset(&img[w * 20], 255, w);
 
     SkeletonExtraction skel(w, h);
-    vector<int> result = skel.processEdgeImage(&img[0]);
+    PointSet result = skel.processEdgeImage(&img[0]);
     checkSimpleCorridorResult(result, w);
 }
 
@@ -56,7 +54,7 @@ BOOST_AUTO_TEST_CASE( test_simple_corridor_set )
     }
 
     SkeletonExtraction skel(w, h);
-    vector<int> result = skel.processEdgeSet(border);
+    PointSet result = skel.processEdgeSet(border);
     checkSimpleCorridorResult(result, w);
 }
 
@@ -84,6 +82,6 @@ BOOST_AUTO_TEST_CASE( test_crossroad )
         img[ (mid_y + i) * w + (mid_x + size)] = 255;
 
     SkeletonExtraction skel(w, h);
-    vector<int> result = skel.processEdgeImage(&img[0]);
+    PointSet result = skel.processEdgeImage(&img[0]);
 }
 

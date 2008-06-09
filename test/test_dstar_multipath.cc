@@ -3,6 +3,7 @@
 
 #include "test/testsuite.hh"
 #include "nav/dstar.hh"
+#include "nav/skeleton.hh"
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -12,7 +13,7 @@
 using namespace Nav;
 using namespace std;
 
-static void outputGrownBorder(ostream& out, DStar const& algo, int x0, int y0, float expand)
+static PointSet outputGrownBorder(ostream& out, DStar const& algo, int x0, int y0, float expand)
 {
     PointSet border = algo.solutionBorder(x0, y0, expand);
 
@@ -21,6 +22,8 @@ static void outputGrownBorder(ostream& out, DStar const& algo, int x0, int y0, f
     for (PointSet::iterator it = border.begin(); it != border.end(); ++it)
         out << it->x << " " << it->y << "\n";
     out << std::flush;
+
+    return border;
 }
 
 // Simple case of a map with an obstacle in the middle. The algorithm must
@@ -125,10 +128,33 @@ BOOST_AUTO_TEST_CASE( test_multipath_forest )
     algo.initialize(x1, y1, x0, y0);
     BOOST_REQUIRE(algo.checkSolutionConsistency());
 
-    ofstream out("multipath_forest.txt");
-    algo.graph().save(out);
-    outputGrownBorder(out, algo, x0, y0, expand);
+    PointSet border;
+    {
+        ofstream out("multipath_forest.txt");
+        algo.graph().save(out);
+        border = outputGrownBorder(out, algo, x0, y0, expand);
+    }
 
+    {
+        ofstream out("multipath_forest_skeleton.txt");
+        SkeletonExtraction skeleton(Size, Size);
+        PointSet skeleton_points = skeleton.processEdgeSet(border);
+        vector<uint8_t> map = skeleton.getHeightmap();
+
+        out << Size << " " << Size << "\n";
+        for (int y = 0; y < Size; ++y)
+            for (int x = 0; x < Size; ++x)
+                out << x << " " << y << " " << static_cast<int>(map[y * Size + x]) << "\n";
+
+        out << "\n";
+        for (PointSet::iterator it = border.begin(); it != border.end(); ++it)
+            out << it->x << " " << it->y << "\n";
+
+        out << "\n";
+        for (PointSet::iterator it = skeleton_points.begin(); it != skeleton_points.end(); ++it)
+            out << it->x << " " << it->y << "\n";
+        out << std::flush;
+    }
 }
 
 

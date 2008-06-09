@@ -69,19 +69,26 @@ class Plotter
         x_size, y_size, x_start, y_start, x_goal, y_goal = read_header file
 
         costs = Dtable.new(x_size, y_size)
-        contour_mode = false
-        contour = []
+        mode  = nil
+        contour, skeleton = [], []
         parents = Hash.new
         file.each_line do |line|
             if line == "\n"
-                contour_mode = true
+                if mode == :contour
+                    mode = :skeleton
+                else
+                    mode = :contour
+                end
                 next
             end
 
             values = line.split " "
             x0, y0 = Integer(values[0]), Integer(values[1])
-            if contour_mode
+            case mode
+            when :contour
                 contour << [x0, y0]
+            when :skeleton
+                skeleton << [x0, y0]
             else
                 costs[y_size - 1 - y0, x0] = Float(values[2])
                 if values[3]
@@ -103,12 +110,13 @@ class Plotter
                 'data' => image,
                 'w' => x_size, 'h' => y_size)
 
-        contour.each do |x, y|
-            p = parents[[x, y]]
-            if p
-                t.stroke_line((x+0.5)/x_size, (y+0.5)/y_size, (p[0]+0.5)/x_size, (p[1]+0.5)/y_size)
+        [[contour, Green], [skeleton, Black]].each do |set, color|
+            set.each do |x, y|
+                t.show_marker 'at' => [(x+0.5) / x_size, (y+0.5) / y_size],
+                'marker' => Bullet, 'scale' => 0.2, 'color' => color
             end
         end
+
         if x_start
             t.show_marker 'at' => [(x_start+0.5) / x_size, (y_start+0.5) / y_size],
                 'marker' => Bullet, 'scale' => 0.5, 'color' => Green

@@ -72,7 +72,7 @@ void SkeletonExtraction::propagateHeightMap(uint8_t** free_cList)
     }
 }
 
-std::vector<int> SkeletonExtraction::hillClimbing()
+PointSet SkeletonExtraction::hillClimbing()
 {
     memset(&hcsList[0],   0, sizeof(BPListItem*)*width*height);
     HcMem* free_item = &hcsList[0];
@@ -96,24 +96,28 @@ std::vector<int> SkeletonExtraction::hillClimbing()
         -width, -width - 1, -width + 1, width,
         width - 1, width + 1, -1, +1 };
 
+    PointSet result;
     BPListItem* freeBorderPoint = &borderPoints[0];
     HcMem* hill_item = &hcsList[0];
-    vector<int> result;
     while ((*hill_item).actPos) {
         uint8_t* height_item = (*hill_item).actPos;
         uint32_t height_value = *height_item;
-        bool progressed = false;
         for (int i = 0; i < 8; ++i){
             uint8_t* neighbour = height_item + displacement[i];
             uint32_t neighbour_value = *neighbour;
             if (neighbour_value > height_value){
                 height_value = neighbour_value;
                 (*hill_item).actPos = neighbour;
-                progressed = true;
             }
         }
-        if (!progressed){
-            BPListItem** actSkelPoint = &skelPoints[0] + (height_item - &heightmap[0]);
+
+        if (height_item == hill_item->actPos){
+            int point_index = height_item - &heightmap[0];
+            int x = point_index % width;
+            int y = point_index / width;
+            result.insert( PointID(x, y) );
+
+            BPListItem** actSkelPoint = &skelPoints[point_index];
             (*freeBorderPoint).borderPoint = (*hill_item).origin;
             if (*actSkelPoint){
                 (*freeBorderPoint).nextItem    = *actSkelPoint;
@@ -123,38 +127,31 @@ std::vector<int> SkeletonExtraction::hillClimbing()
 
             *actSkelPoint = freeBorderPoint;
             freeBorderPoint++;
-            *hill_item = *free_item;
-            (*hill_item).actPos = 0;
+
             free_item--;
+            *hill_item = *free_item;
+            (*free_item).actPos = 0;
         }
         hill_item++;
         if (!hill_item->actPos) hill_item = &hcsList[0];
     }
 
-    for (size_t y = 2; y < height - 2; ++y)
-        for (size_t x = 2; x < width - 2; ++x)
-        {
-            size_t id = y * width + x;
-            if (skelPoints[id])
-                result.push_back(id);
-        }
-
     return result;
 }
 
-vector<int> SkeletonExtraction::processGrayImage(IplImage* bgraImage)
+PointSet SkeletonExtraction::processGrayImage(IplImage* bgraImage)
 {
     cvCanny(grayImg,edgeImg,70, 210, 3);
     return processEdgeImage(reinterpret_cast<uint8_t*>(edgeImg->imageData));
 }
 
-vector<int> SkeletonExtraction::processColorImage(IplImage* bgraImage)
+PointSet SkeletonExtraction::processColorImage(IplImage* bgraImage)
 {
     cvCvtColor(bgraImage,grayImg,CV_BGRA2GRAY);
     return processGrayImage(grayImg);
 }
 
-vector<int> SkeletonExtraction::processEdgeImage(uint8_t const* edges, int threshold)
+PointSet SkeletonExtraction::processEdgeImage(uint8_t const* edges, int threshold)
 {
     initializeHeightMap(128);
 
@@ -186,7 +183,7 @@ vector<int> SkeletonExtraction::processEdgeImage(uint8_t const* edges, int thres
     return hillClimbing();
 }
 
-vector<int> SkeletonExtraction::processEdgeSet(PointSet const& edges)
+PointSet SkeletonExtraction::processEdgeSet(PointSet const& edges)
 {
     initializeHeightMap(128);
 
