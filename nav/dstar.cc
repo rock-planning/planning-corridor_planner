@@ -527,10 +527,9 @@ DStar::PointSet DStar::solutionBorder(int x, int y, float expand) const
             else if (!lo_border.empty())
             {
                 PointSet::const_iterator new_path = lo_border.begin();
-                lo_border.erase(new_path);
-
                 x = new_path->x;
                 y = new_path->y;
+                lo_border.erase(new_path);
             }
             else
             {
