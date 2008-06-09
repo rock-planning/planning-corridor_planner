@@ -3,6 +3,7 @@
 #include <iostream>
 
 using std::vector;
+using namespace Nav;
 
 SkeletonExtraction::SkeletonExtraction(size_t width, size_t height)
     : width(width)
@@ -26,7 +27,7 @@ SkeletonExtraction::~SkeletonExtraction()
     cvReleaseImage(&edgeImg);
 }
 
-void SkeletonExtraction::buildHeightMap(uint8_t const* edges, int threshold, int maxDist)
+void SkeletonExtraction::initializeHeightMap(size_t maxDist)
 {
     /* All of the heightmap is set to +maxDist+, except the border
      * which is set to 0
@@ -39,30 +40,10 @@ void SkeletonExtraction::buildHeightMap(uint8_t const* edges, int threshold, int
         heightmap[width * y + width - 1] = 0;
     }
 
-    /* The set of points of +heightmap+ whose value in +edges+ is more than
-     * +threshold+ is saved into cList. In the meantime, their heightmap value
-     * is set to 0.
-     */
-    // free_cList ist always first free entry in cList
-    uint8_t ** free_cList = &cList[0]; 
-    {
-        uint8_t const *aem = &edges[width + 1];
-        uint8_t *ahm = &heightmap[width + 1];
-        for (size_t y = 1; y < height-1; ++y){
-            for (size_t x = 1; x < width-1; ++x){
-                if (*aem > threshold){
-                    *free_cList = ahm;
-                    *ahm = 0;
-                    free_cList++;
-                }
-                aem++;
-                ahm++;
-            }
-            aem += 2;
-            ahm += 2;
-        }
-    }
+}
 
+void SkeletonExtraction::propagateHeightMap(uint8_t** free_cList)
+{
     const int32_t addVal[8] = { 1, 2, 2, 1, 2, 2, 1, 1 };
     const int32_t displacement[8] = {
         -width, -width - 1, -width + 1, width,
@@ -161,21 +142,67 @@ std::vector<int> SkeletonExtraction::hillClimbing()
     return result;
 }
 
-vector<int> SkeletonExtraction::extractGray(IplImage* bgraImage)
+vector<int> SkeletonExtraction::processGrayImage(IplImage* bgraImage)
 {
     cvCanny(grayImg,edgeImg,70, 210, 3);
-    return extract(reinterpret_cast<uint8_t*>(edgeImg->imageData));
+    return processEdgeImage(reinterpret_cast<uint8_t*>(edgeImg->imageData));
 }
 
-vector<int> SkeletonExtraction::extractColor(IplImage* bgraImage)
+vector<int> SkeletonExtraction::processColorImage(IplImage* bgraImage)
 {
     cvCvtColor(bgraImage,grayImg,CV_BGRA2GRAY);
-    return extractGray(grayImg);
+    return processGrayImage(grayImg);
 }
 
-vector<int> SkeletonExtraction::extract(uint8_t const* edge_image)
+vector<int> SkeletonExtraction::processEdgeImage(uint8_t const* edges, int threshold)
 {
-    buildHeightMap(edge_image, 128, 127);
+    initializeHeightMap(128);
+
+    /* The set of points of +heightmap+ whose value in +edges+ is more than
+     * +threshold+ is saved into cList. In the meantime, their heightmap value
+     * is set to 0.
+     */
+    // free_cList ist always first free entry in cList
+    uint8_t ** free_cList = &cList[0]; 
+    {
+        uint8_t const *aem = &edges[width + 1];
+        uint8_t *ahm = &heightmap[width + 1];
+        for (size_t y = 1; y < height-1; ++y){
+            for (size_t x = 1; x < width-1; ++x){
+                if (*aem > threshold){
+                    *free_cList = ahm;
+                    *ahm = 0;
+                    free_cList++;
+                }
+                aem++;
+                ahm++;
+            }
+            aem += 2;
+            ahm += 2;
+        }
+    }
+
+    propagateHeightMap(free_cList);
+    return hillClimbing();
+}
+
+vector<int> SkeletonExtraction::processEdgeSet(PointSet const& edges)
+{
+    initializeHeightMap(128);
+
+    uint8_t ** free_cList = &cList[0]; 
+    for (PointSet::const_iterator it = edges.begin(); it != edges.end(); ++it)
+    {
+        if (it->x == 0 || it->x >= width - 1 ||
+                it->y == 0 || it->y >= height - 1)
+            continue;
+
+        *free_cList = &heightmap[it->y * width + it->x];
+        **free_cList = 0;
+        ++free_cList;
+    }
+
+    propagateHeightMap(free_cList);
     return hillClimbing();
 }
 

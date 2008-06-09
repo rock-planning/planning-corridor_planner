@@ -7,8 +7,29 @@
 #include <iostream>
 
 using namespace std;
+using namespace Nav;
 
-BOOST_AUTO_TEST_CASE( test_simple_corridor )
+void checkSimpleCorridorResult(vector<int> const& result, size_t w)
+{
+    bool check[w];
+    memset(check, 0, sizeof(bool) * w);
+    for (vector<int>::const_iterator it = result.begin(); it != result.end(); ++it)
+    {
+        int x = *it % w;
+        int y = *it / w;
+        BOOST_REQUIRE_EQUAL(y, 15);
+        check[x] = true;
+    }
+
+    for (size_t i = 2; i < w - 2; ++i)
+        BOOST_REQUIRE(check[i]);
+    BOOST_REQUIRE(!check[0]);
+    BOOST_REQUIRE(!check[1]);
+    BOOST_REQUIRE(!check[w - 2]);
+    BOOST_REQUIRE(!check[w - 1]);
+}
+
+BOOST_AUTO_TEST_CASE( test_simple_corridor_image )
 {
     const int w = 20;
     const int h = 30;
@@ -18,25 +39,27 @@ BOOST_AUTO_TEST_CASE( test_simple_corridor )
     memset(&img[w * 20], 255, w);
 
     SkeletonExtraction skel(w, h);
-    vector<int> result = skel.extract(&img[0]);
+    vector<int> result = skel.processEdgeImage(&img[0]);
+    checkSimpleCorridorResult(result, w);
+}
 
-    bool check[w];
-    memset(check, 0, sizeof(bool) * w);
-    for (vector<int>::iterator it = result.begin(); it != result.end(); ++it)
+BOOST_AUTO_TEST_CASE( test_simple_corridor_set )
+{
+    const int w = 20;
+    const int h = 30;
+
+    PointSet border;
+    for (int x = 0; x < w; ++x)
     {
-        int x = *it % w;
-        int y = *it / w;
-        BOOST_REQUIRE_EQUAL(y, 15);
-        check[x] = true;
+        border.insert( PointID(x, 10) );
+        border.insert( PointID(x, 20) );
     }
 
-    for (int i = 2; i < w - 2; ++i)
-        BOOST_REQUIRE(check[i]);
-    BOOST_REQUIRE(!check[0]);
-    BOOST_REQUIRE(!check[1]);
-    BOOST_REQUIRE(!check[w - 2]);
-    BOOST_REQUIRE(!check[w - 1]);
+    SkeletonExtraction skel(w, h);
+    vector<int> result = skel.processEdgeSet(border);
+    checkSimpleCorridorResult(result, w);
 }
+
 
 BOOST_AUTO_TEST_CASE( test_crossroad )
 {
@@ -61,7 +84,6 @@ BOOST_AUTO_TEST_CASE( test_crossroad )
         img[ (mid_y + i) * w + (mid_x + size)] = 255;
 
     SkeletonExtraction skel(w, h);
-    vector<int> result = skel.extract(&img[0]);
+    vector<int> result = skel.processEdgeImage(&img[0]);
 }
-
 

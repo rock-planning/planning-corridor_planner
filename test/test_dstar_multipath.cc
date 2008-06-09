@@ -14,11 +14,11 @@ using namespace std;
 
 static void outputGrownBorder(ostream& out, DStar const& algo, int x0, int y0, float expand)
 {
-    DStar::PointSet border = algo.solutionBorder(x0, y0, expand);
+    PointSet border = algo.solutionBorder(x0, y0, expand);
 
     out << std::endl;
     out << x0 << " " << y0 << " " << algo.getGoalX() << " " << algo.getGoalY() << " " << expand << std::endl;
-    for (DStar::PointSet::iterator it = border.begin(); it != border.end(); ++it)
+    for (PointSet::iterator it = border.begin(); it != border.end(); ++it)
         out << it->x << " " << it->y << "\n";
     out << std::flush;
 }

@@ -1,6 +1,7 @@
 #ifndef NAV_DSTAR_HPP
 #define NAV_DSTAR_HPP
 
+#include "point.hh"
 #include <vector>
 #include <map>
 #include <string>
@@ -359,22 +360,6 @@ namespace Nav {
 
             char const* what() const throw() { return m_message; }
         };
-
-        struct PointID { 
-            int x; 
-            int y; 
-
-            PointID() {}
-            PointID(int x, int y)
-                : x(x), y(y) {}
-            bool operator == (PointID const& other) const
-            { return x == other.x && y == other.y; }
-            bool operator != (PointID const& other) const
-            { return !(*this == other); }
-            bool operator < (PointID const& other) const
-            { return x < other.x || (x == other.x && y < other.y); }
-        };
-        typedef std::set<PointID> PointSet;
 
         struct Cost {
             float value;

@@ -18,7 +18,7 @@ using namespace boost::lambda;
 using boost::tie;
 using boost::uint8_t;
 
-ostream& operator << (ostream& io, DStar::PointID const& p)
+ostream& operator << (ostream& io, PointID const& p)
 { 
     io << "[" << p.x << ", " << p.y << "]";
     return io;
@@ -477,7 +477,7 @@ void DStar::update(int pos_x, int pos_y)
     }
 }
 
-void DStar::appendPathFrom(PointSet& result, DStar::PointID const& start_id, PointSet const& into) const
+void DStar::appendPathFrom(PointSet& result, PointID const& start_id, PointSet const& into) const
 {
     NeighbourConstIterator next_it = m_graph.parentsBegin(start_id.x, start_id.y);
 
@@ -492,7 +492,7 @@ void DStar::appendPathFrom(PointSet& result, DStar::PointID const& start_id, Poi
     }
 }
 
-DStar::PointSet DStar::solutionBorder(int x, int y, float expand) const
+PointSet DStar::solutionBorder(int x, int y, float expand) const
 {
     typedef multimap<float, PointID> Border;
     typedef set<PointID> PointSet;
@@ -570,6 +570,10 @@ DStar::PointSet DStar::solutionBorder(int x, int y, float expand) const
         }
     }
 
-    return inside;
+    PointSet result;
+    for (Border::iterator it = hi_border.begin(); it != hi_border.end(); ++it)
+        result.insert(it->second);
+
+    return result;
 }
 
