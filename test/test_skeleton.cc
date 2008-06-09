@@ -13,7 +13,7 @@ BOOST_AUTO_TEST_CASE( test_simple_corridor )
     const int w = 20;
     const int h = 30;
 
-    vector<uint8_t> img(w * h);
+    vector<uint8_t> img(w * h, 0);
     memset(&img[w * 10], 255, w);
     memset(&img[w * 20], 255, w);
 
@@ -37,4 +37,31 @@ BOOST_AUTO_TEST_CASE( test_simple_corridor )
     BOOST_REQUIRE(!check[w - 2]);
     BOOST_REQUIRE(!check[w - 1]);
 }
+
+BOOST_AUTO_TEST_CASE( test_crossroad )
+{
+    const int w = 20;
+    const int h = 30;
+
+    int mid_x = w / 2;
+    int mid_y = h / 2;
+    int size  = 3;
+
+    vector<uint8_t> img(w * h, 0);
+    for (size_t i = 0; i < 5; ++i)
+    {
+        img[ (mid_y + size) * w + (mid_x - size) - i] = 255;
+        img[ (mid_y - size) * w + (mid_x - size) - i] = 255;
+        img[ (mid_y - size - i) * w + (mid_x - size)] = 255;
+        img[ (mid_y + size + i) * w + (mid_x - size)] = 255;
+        img[ (mid_y - size - i) * w + (mid_x + size)] = 255;
+        img[ (mid_y + size + i) * w + (mid_x + size)] = 255;
+    }
+    for (int i = -size; i < size; ++i)
+        img[ (mid_y + i) * w + (mid_x + size)] = 255;
+
+    SkeletonExtraction skel(w, h);
+    vector<int> result = skel.extract(&img[0]);
+}
+
 
