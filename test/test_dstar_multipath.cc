@@ -13,9 +13,10 @@
 using namespace Nav;
 using namespace std;
 
-static PointSet outputGrownBorder(ostream& out, DStar const& algo, int x0, int y0, float expand)
+static pair<PointSet, PointSet> outputGrownBorder(ostream& out, DStar const& algo, int x0, int y0, float expand)
 {
-    PointSet border = algo.solutionBorder(x0, y0, expand);
+    pair<PointSet, PointSet> result = algo.solutionBorder(x0, y0, expand);
+    PointSet border = result.first;
 
     out << std::endl;
     out << x0 << " " << y0 << " " << algo.getGoalX() << " " << algo.getGoalY() << " " << expand << std::endl;
@@ -23,7 +24,7 @@ static PointSet outputGrownBorder(ostream& out, DStar const& algo, int x0, int y
         out << it->x << " " << it->y << "\n";
     out << std::flush;
 
-    return border;
+    return result;
 }
 
 // Simple case of a map with an obstacle in the middle. The algorithm must
@@ -128,17 +129,17 @@ BOOST_AUTO_TEST_CASE( test_multipath_forest )
     algo.initialize(x1, y1, x0, y0);
     BOOST_REQUIRE(algo.checkSolutionConsistency());
 
-    PointSet border;
+    pair<PointSet, PointSet> result;
     {
         ofstream out("multipath_forest.txt");
         algo.graph().save(out);
-        border = outputGrownBorder(out, algo, x0, y0, expand);
+        result = outputGrownBorder(out, algo, x0, y0, expand);
     }
 
     {
         ofstream out("multipath_forest_skeleton.txt");
         SkeletonExtraction skeleton(Size, Size);
-        PointSet skeleton_points = skeleton.processEdgeSet(border);
+        Skeleton skeleton_points = skeleton.processEdgeSet(result.first, result.second);
         vector<uint8_t> map = skeleton.getHeightmap();
 
         out << Size << " " << Size << "\n";
@@ -147,12 +148,13 @@ BOOST_AUTO_TEST_CASE( test_multipath_forest )
                 out << x << " " << y << " " << static_cast<int>(map[y * Size + x]) << "\n";
 
         out << "\n";
-        for (PointSet::iterator it = border.begin(); it != border.end(); ++it)
+        PointSet const& border = result.first;
+        for (PointSet::const_iterator it = border.begin(); it != border.end(); ++it)
             out << it->x << " " << it->y << "\n";
 
         out << "\n";
-        for (PointSet::iterator it = skeleton_points.begin(); it != skeleton_points.end(); ++it)
-            out << it->x << " " << it->y << "\n";
+        for (Skeleton::const_iterator it = skeleton_points.begin(); it != skeleton_points.end(); ++it)
+            out << it->first.x << " " << it->first.y << "\n";
         out << std::flush;
     }
 }

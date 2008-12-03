@@ -492,10 +492,9 @@ void DStar::appendPathFrom(PointSet& result, PointID const& start_id, PointSet c
     }
 }
 
-PointSet DStar::solutionBorder(int x, int y, float expand) const
+pair<PointSet, PointSet> DStar::solutionBorder(int x, int y, float expand) const
 {
     typedef multimap<float, PointID> Border;
-    typedef set<PointID> PointSet;
     Border hi_border;
     PointSet lo_border;
     PointSet inside;
@@ -585,6 +584,6 @@ PointSet DStar::solutionBorder(int x, int y, float expand) const
             }
         }
     }
-    return result;
+    return make_pair(result, inside);
 }
 

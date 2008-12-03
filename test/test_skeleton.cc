@@ -5,57 +5,77 @@
 #include "nav/skeleton.hh"
 #include <algorithm>
 #include <iostream>
+#include <iomanip>
 
 using namespace std;
 using namespace Nav;
 
-void checkSimpleCorridorResult(PointSet const& result, size_t w)
+void checkSimpleCorridorResult(Skeleton const& result, size_t xmin, size_t xmax, size_t w)
 {
-    bool check[w];
-    memset(check, 0, sizeof(bool) * w);
-    for (PointSet::const_iterator it = result.begin(); it != result.end(); ++it)
+    int check[w];
+    memset(check, 0, sizeof(int) * w);
+
+    for (Skeleton::const_iterator it = result.begin(); it != result.end(); ++it)
     {
-        BOOST_REQUIRE_EQUAL(it->y, 15);
-        check[it->x] = true;
+        PointID p = it->first;
+        BOOST_REQUIRE_EQUAL(p.y, 20);
+        check[p.x] += 1;
     }
 
-    for (size_t i = 2; i < w - 2; ++i)
-        BOOST_REQUIRE(check[i]);
-    BOOST_REQUIRE(!check[0]);
-    BOOST_REQUIRE(!check[1]);
-    BOOST_REQUIRE(!check[w - 2]);
-    BOOST_REQUIRE(!check[w - 1]);
-}
+    for (size_t i = xmin; i < xmax - 1; ++i)
+        BOOST_REQUIRE_MESSAGE(1 == check[i], "no median point for X == " << i);
 
-BOOST_AUTO_TEST_CASE( test_simple_corridor_image )
-{
-    const int w = 20;
-    const int h = 30;
-
-    vector<uint8_t> img(w * h, 0);
-    memset(&img[w * 10], 255, w);
-    memset(&img[w * 20], 255, w);
-
-    SkeletonExtraction skel(w, h);
-    PointSet result = skel.processEdgeImage(&img[0]);
-    checkSimpleCorridorResult(result, w);
+    for (size_t i = 0; i < xmin; ++i)
+        BOOST_REQUIRE_EQUAL(0, check[i]);
+    for (size_t i = xmax; i < w; ++i)
+        BOOST_REQUIRE_EQUAL(0, check[i]);
 }
 
 BOOST_AUTO_TEST_CASE( test_simple_corridor_set )
 {
-    const int w = 20;
-    const int h = 30;
+    const int w = 40;
+    const int h = 40;
 
-    PointSet border;
-    for (int x = 0; x < w; ++x)
+    PointSet border, inside;
+    for (int x = 5; x < 30; ++x)
     {
-        border.insert( PointID(x, 10) );
-        border.insert( PointID(x, 20) );
+        int ymin, ymax;
+        if (x < 10)
+        {
+            ymin = 5 + x;
+            ymax = 35 - x;
+        }
+        else if (x < 20)
+        {
+            ymin = 15;
+            ymax = 25;
+        }
+        else if (x < 30)
+        {
+            ymin = 15 - (x - 20);
+            ymax = 25 + (x - 20);
+        }
+
+
+        border.insert( PointID(x, ymin) );
+        border.insert( PointID(x, ymax) );
+        for (int y = ymin + 1; y < ymax; ++y)
+            inside.insert( PointID(x, y) );
     }
 
     SkeletonExtraction skel(w, h);
-    PointSet result = skel.processEdgeSet(border);
-    checkSimpleCorridorResult(result, w);
+    Skeleton result = skel.processEdgeSet(border, inside);
+
+    displaySkeleton(cerr, result, w, h);
+    // for (Skeleton::const_iterator it = result.begin(); it != result.end(); ++it)
+    // {
+    //     cerr << it->first << " [ ";
+    //     set<PointID> const& parents = it->second.parents;
+    //     for (set<PointID>::const_iterator it = parents.begin(); it != parents.end(); ++it)
+    //         cerr << *it << " ";
+    //     cerr << " ]" << endl;
+    // }
+    checkSimpleCorridorResult(result, 5, 30, w);
 }
 
 
@@ -82,6 +102,6 @@ BOOST_AUTO_TEST_CASE( test_crossroad )
         img[ (mid_y + i) * w + (mid_x + size)] = 255;
 
     SkeletonExtraction skel(w, h);
-    PointSet result = skel.processEdgeImage(&img[0]);
+    // PointSet result = skel.processEdgeImage(&img[0]);
 }
 

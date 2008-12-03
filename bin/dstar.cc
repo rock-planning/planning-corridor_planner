@@ -70,7 +70,7 @@ int main(int argc, char** argv)
     if (argc == 8)
     {
         std::cerr << "computing filtered border" << std::endl;
-        PointSet border = algo.solutionBorder(x0, y0, expand);
+        PointSet border = algo.solutionBorder(x0, y0, expand).first;
 
         std::cerr << "saving filtered border" << std::endl;
         dstar_output << x0 << " " << y0 << " " << x1 << " " << y1 << " " << expand << std::endl;
