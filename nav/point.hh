@@ -1,6 +1,7 @@
 #ifndef __NAV_POINT_HH
 #define __NAV_POINT_HH
 
+#include <iosfwd>
 #include <set>
 
 namespace Nav {
@@ -19,6 +20,8 @@ namespace Nav {
         { return x < other.x || (x == other.x && y < other.y); }
     };
     typedef std::set<PointID> PointSet;
+
+    std::ostream& operator << (std::ostream& io, PointID const& p);
 }
 
 #endif
