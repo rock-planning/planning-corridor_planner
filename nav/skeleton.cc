@@ -3,6 +3,7 @@
 #include <iostream>
 #include <queue>
 #include <iomanip>
+#include <limits>
 
 using namespace std;
 using namespace Nav;
@@ -18,11 +19,14 @@ SkeletonExtraction::~SkeletonExtraction()
 {
 }
 
-void SkeletonExtraction::initializeHeightMap(size_t maxDist, PointSet const& inside)
+void SkeletonExtraction::initializeHeightMap(PointSet const& inside)
 {
-    /* All of the heightmap is set to +maxDist+, except the border
-     * which is set to 0
+    /* All of the heightmap is initialized with 0, then the inside is set to
+     * the maximum value allowed by height_t. Finally, the border will be set to
+     * 1 by propagateHeightMap
      */
+    height_t maxDist = 999; // std::numeric_limits<height_t>::max();
+
     fill(heightmap.begin(), heightmap.end(), 0);
     for (PointSet::const_iterator it = inside.begin(); it != inside.end(); ++it)
     {
@@ -31,7 +35,7 @@ void SkeletonExtraction::initializeHeightMap(size_t maxDist, PointSet const& ins
     }
 }
 
-PointID SkeletonExtraction::pointFromPtr(uint8_t* ptr) const
+PointID SkeletonExtraction::pointFromPtr(height_t const* ptr) const
 {
     uint32_t offset = ptr - &heightmap[0];
     return PointID(offset % width, offset / width);
@@ -45,13 +49,13 @@ multimap<PointID, PointID> SkeletonExtraction::propagateHeightMap(PointSet const
         width, width - 1, width + 1, -1, +1 };
 
     CandidateSet candidates;
-    std::map<uint8_t*, uint8_t*> parents;
+    std::map<height_t*, height_t*> parents;
     for (PointSet::const_iterator it = border.begin(); it != border.end(); ++it)
     {
         if (it->x > 0 && it->x < width - 1 && it->y > 0 && it->y < height - 1)
         {
-            uint8_t* c_ptr = &heightmap[it->y * width + it->x];
-            *c_ptr = 0;
+            height_t* c_ptr = &heightmap[it->y * width + it->x];
+            *c_ptr = 1;
             candidates.push( c_ptr );
             parents.insert( make_pair(c_ptr, c_ptr) );
         }
@@ -62,16 +66,16 @@ multimap<PointID, PointID> SkeletonExtraction::propagateHeightMap(PointSet const
     multimap<PointID, PointID> skeleton;
     while (!candidates.empty())
     {
-        uint8_t* c_ptr   = candidates.top();
-        uint8_t  c_value = *c_ptr;
+        height_t* c_ptr   = candidates.top();
+        height_t  c_value = *c_ptr;
         cerr << "taking " << pointFromPtr(c_ptr) << "(" << (void*)c_ptr << ")=" << (int)c_value << endl;
         candidates.pop();
 
         bool propagated = false, median = false;
         for (size_t i = 0; i < 8; ++i)
         {
-            uint8_t* neighbour        = c_ptr   + displacement[i];
-            uint32_t propagated_value = c_value + addVal[i]; 
+            height_t* neighbour        = c_ptr   + displacement[i];
+            height_t propagated_value = c_value + addVal[i]; 
             cerr <<  "  " << pointFromPtr(neighbour) << "(" << (void*)neighbour << ")=" << (int)*neighbour << " ~ " << propagated_value << endl;
             if (*neighbour > propagated_value) // needs to be propagated further
             {
@@ -119,8 +123,8 @@ multimap<PointID, PointID> SkeletonExtraction::propagateHeightMap(PointSet const
             // Search for parents
             for (size_t i = 0; i < 8; ++i)
             {
-                uint8_t* neighbour        = c_ptr   + displacement[i];
-                uint32_t propagated_value = c_value - addVal[i]; 
+                height_t* neighbour        = c_ptr   + displacement[i];
+                height_t propagated_value  = c_value - addVal[i]; 
                 if (*neighbour == propagated_value)
                 {
                     PointID parent_p = pointFromPtr(parents[neighbour]);
@@ -153,7 +157,7 @@ void SkeletonExtraction::displayHeightMap(std::ostream& io) const
 
 Skeleton SkeletonExtraction::processEdgeSet(PointSet const& border, PointSet const& inside)
 {
-    initializeHeightMap(128, inside);
+    initializeHeightMap(inside);
 
     Skeleton skeleton;
     multimap<PointID, PointID> result = propagateHeightMap(border);

@@ -140,7 +140,7 @@ BOOST_AUTO_TEST_CASE( test_multipath_forest )
         ofstream out("multipath_forest_skeleton.txt");
         SkeletonExtraction skeleton(Size, Size);
         Skeleton skeleton_points = skeleton.processEdgeSet(result.first, result.second);
-        vector<uint8_t> map = skeleton.getHeightmap();
+        vector<int16_t> map = skeleton.getHeightmap();
 
         out << Size << " " << Size << "\n";
         for (int y = 0; y < Size; ++y)

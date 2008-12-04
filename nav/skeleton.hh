@@ -26,18 +26,20 @@ namespace Nav
     {
     public:
         int width, height;
-        std::vector<uint8_t>     heightmap;
+
+        typedef int16_t height_t;
+        std::vector<height_t> heightmap;
 
         struct CandidateComparison
         {
-            bool operator ()(uint8_t const* a, uint8_t const* b) const
+            bool operator ()(height_t const* a, height_t const* b) const
             { return *a > *b; }
         };
-        typedef std::priority_queue<uint8_t*, std::vector<uint8_t*>, CandidateComparison> CandidateSet;
+        typedef std::priority_queue<height_t*, std::vector<height_t*>, CandidateComparison> CandidateSet;
 
-        void initializeHeightMap(size_t max, PointSet const& inside);
+        void initializeHeightMap(PointSet const& inside);
         std::multimap<PointID, PointID> propagateHeightMap(PointSet const& border);
-        PointID pointFromPtr(uint8_t* ptr) const;
+        PointID pointFromPtr(height_t const* ptr) const;
         
     public:
         SkeletonExtraction(size_t width, size_t height);
@@ -49,7 +51,7 @@ namespace Nav
          * of +width x height+ where white is an edge and black a valley */
         Skeleton processEdgeSet(PointSet const& edges, PointSet const& inside);
 
-        std::vector<uint8_t> getHeightmap() const { return heightmap; }
+        std::vector<height_t> getHeightmap() const { return heightmap; }
     };
 }
 
