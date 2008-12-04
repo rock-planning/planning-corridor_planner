@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <stdint.h>
-#include <opencv/cv.h>
 #include <queue>
 #include <map>
 #include <iosfwd>
