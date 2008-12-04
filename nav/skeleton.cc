@@ -79,7 +79,7 @@ multimap<PointID, PointID> SkeletonExtraction::propagateHeightMap(PointSet const
 
                 *neighbour = propagated_value;
                 candidates.push( neighbour );
-                parents.insert( make_pair(neighbour, parents[c_ptr]) );
+                parents[neighbour] = parents[c_ptr];
             }
             else if (*neighbour == propagated_value)
                 propagated = true;
@@ -124,12 +124,14 @@ multimap<PointID, PointID> SkeletonExtraction::propagateHeightMap(PointSet const
                 if (*neighbour == propagated_value)
                 {
                     PointID parent_p = pointFromPtr(parents[neighbour]);
-                    cerr << "  " << parent_p << " (" << (void*)parents[c_ptr] << ")" << endl;
+                    cerr << "  " << parent_p << " (" << (void*)parents[neighbour] << "), parent of " << pointFromPtr(neighbour) << endl;
                     skeleton.insert( std::make_pair(candidate_p, parent_p) );
                 }
             }
         }
     }
+
+    displayHeightMap(cerr);
     return skeleton;
 }
 
