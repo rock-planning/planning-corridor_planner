@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
+#include <string.h>
 
 using namespace std;
 using namespace Nav;
@@ -37,25 +38,26 @@ BOOST_AUTO_TEST_CASE( test_simple_corridor_set )
     const int h = 40;
 
     PointSet border, inside;
-    for (int x = 5; x < 30; ++x)
+    for (int x = 5; x < 35; ++x)
     {
         int ymin, ymax;
-        if (x < 10)
+        if ((x >= 5 && x < 10) || (x >= 20 && x < 25))
         {
-            ymin = 5 + x;
-            ymax = 35 - x;
+            int base_x = x / 5 * 5;
+            ymin = 10 + (x - base_x);
+            ymax = 30 - (x - base_x);
         }
-        else if (x < 20)
+        else if ((x >= 10 && x < 15) || (x >= 25 && x < 30))
         {
             ymin = 15;
             ymax = 25;
         }
-        else if (x < 30)
+        else if ((x >= 15 && x < 20) || (x >= 30 && x < 35))
         {
-            ymin = 15 - (x - 20);
-            ymax = 25 + (x - 20);
+            int base_x = x / 5 * 5;
+            ymin = 15 - (x - base_x);
+            ymax = 25 + (x - base_x);
         }
-
 
         border.insert( PointID(x, ymin) );
         border.insert( PointID(x, ymax) );
@@ -67,41 +69,65 @@ BOOST_AUTO_TEST_CASE( test_simple_corridor_set )
     Skeleton result = skel.processEdgeSet(border, inside);
 
     displaySkeleton(cerr, result, w, h);
-    // for (Skeleton::const_iterator it = result.begin(); it != result.end(); ++it)
-    // {
-    //     cerr << it->first << " [ ";
-    //     set<PointID> const& parents = it->second.parents;
-    //     for (set<PointID>::const_iterator it = parents.begin(); it != parents.end(); ++it)
-    //         cerr << *it << " ";
-    //     cerr << " ]" << endl;
-    // }
     checkSimpleCorridorResult(result, 5, 30, w);
 }
 
 
 BOOST_AUTO_TEST_CASE( test_crossroad )
 {
-    const int w = 20;
-    const int h = 30;
+    const int w = 40;
+    const int h = 40;
 
-    int mid_x = w / 2;
-    int mid_y = h / 2;
-    int size  = 3;
-
-    vector<uint8_t> img(w * h, 0);
-    for (size_t i = 0; i < 5; ++i)
+    PointSet border, inside;
+    for (int x = 5; x < 30; ++x)
     {
-        img[ (mid_y + size) * w + (mid_x - size) - i] = 255;
-        img[ (mid_y - size) * w + (mid_x - size) - i] = 255;
-        img[ (mid_y - size - i) * w + (mid_x - size)] = 255;
-        img[ (mid_y + size + i) * w + (mid_x - size)] = 255;
-        img[ (mid_y - size - i) * w + (mid_x + size)] = 255;
-        img[ (mid_y + size + i) * w + (mid_x + size)] = 255;
+        int ymin0 = 0, ymax0 = 0, ymin1 = 0, ymax1 = 0;
+        if ((x >= 5 && x < 10) || (x >= 25 && x < 30)) // start and end: straight tunnel
+        {
+            ymin0 = 15;
+            ymax0 = 25;
+        }
+        else if ((x >= 10 && x < 15)) // growing section
+        {
+            int base_x = x / 5 * 5;
+            ymin0 = 15 - 2 * (x - base_x);
+            ymax0 = 25 + 2 * (x - base_x);
+        }
+        else if ((x >= 15 && x < 20)) // split section
+        {
+            ymin0 = 5;
+            ymax0 = 10;
+            ymin1 = 30;
+            ymax1 = 35;
+        }
+        else if (x >= 20 && x < 25) // merging section
+        {
+            int base_x = x / 5 * 5;
+            ymin0 =  5 + 2 * (x - base_x);
+            ymax0 = 35 - 2 * (x - base_x);
+        }
+
+        border.insert( PointID(x, ymin0) );
+        border.insert( PointID(x, ymax0) );
+        for (int y = ymin0 + 1; y < ymax0; ++y)
+            inside.insert( PointID(x, y) );
+
+        if (ymin1 != 0)
+        {
+            border.insert( PointID(x, ymin1) );
+            border.insert( PointID(x, ymax1) );
+            for (int y = ymin1 + 1; y < ymax1; ++y)
+                inside.insert( PointID(x, y) );
+        }
     }
-    for (int i = -size; i < size; ++i)
-        img[ (mid_y + i) * w + (mid_x + size)] = 255;
+    for (int y = 10; y <= 30; ++y)
+    {
+        border.insert( PointID(15, y) );
+        border.insert( PointID(19, y) );
+    }
 
     SkeletonExtraction skel(w, h);
-    // PointSet result = skel.processEdgeImage(&img[0]);
+    Skeleton result = skel.processEdgeSet(border, inside);
+    displaySkeleton(cerr, result, w, h);
 }
 
