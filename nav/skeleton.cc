@@ -169,11 +169,13 @@ Skeleton SkeletonExtraction::processEdgeSet(PointSet const& border, PointSet con
         else
             skel_it->second.parents.insert(it->second);
     }
+
     return skeleton;
 }
 
 void Nav::displaySkeleton(ostream& io, Skeleton const& skel, int w, int h)
 {
+    cerr << "Bitmap:" << endl;
     io << "  ";
     for (int x = 0; x < w; ++x)
         io << " " << std::setw(2) << x;
@@ -189,6 +191,16 @@ void Nav::displaySkeleton(ostream& io, Skeleton const& skel, int w, int h)
                 io << "  -";
         }
         io << endl;
+    }
+
+    cerr << "Parent list:" << std::endl;
+    for (Skeleton::const_iterator it = skel.begin(); it != skel.end(); ++it)
+    {
+        cerr << "  " << it->first << " [ ";
+        set<PointID> const& parents = it->second.parents;
+        for (set<PointID>::const_iterator it = parents.begin(); it != parents.end(); ++it)
+            cerr << *it << " ";
+        cerr << " ]" << endl;
     }
 }
 
