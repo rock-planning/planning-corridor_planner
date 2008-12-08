@@ -21,9 +21,20 @@ namespace Nav
 
     void displayMedianLine(std::ostream& io, MedianLine const& skel, int w, int h);
 
-    struct Skeleton
+    struct Corridor
     {
-    }
+        PointID    entry_points[4];
+        MedianLine median;
+        std::vector<int> connectivity;
+
+        Corridor() {}
+        Corridor(PointID const& p, MedianPoint const& info);
+    };
+
+    struct Skeleton : public std::vector<Corridor>
+    {
+        static Skeleton fromMedianLines(MedianLine const& points);
+    };
 
     class SkeletonExtraction
     {

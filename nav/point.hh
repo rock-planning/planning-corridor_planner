@@ -24,6 +24,19 @@ namespace Nav {
         {
             return abs(x - p.x) <= 1 && abs(y - p.y) <= 1;
         }
+
+        template<typename Container>
+        bool isNeighbour(Container const& container) const
+        {
+            typename Container::const_iterator it,
+                     end = container.end();
+            for (it = container.begin(); it != end; ++it)
+            {
+                if (it->isNeighbour(*this))
+                    return true;
+            }
+            return false;
+        }
     };
     typedef std::set<PointID> PointSet;
 

@@ -4,6 +4,7 @@
 #include <queue>
 #include <iomanip>
 #include <limits>
+#include <list>
 
 using namespace std;
 using namespace Nav;
@@ -90,6 +91,13 @@ MedianLine SkeletonExtraction::propagateHeightMap(PointSet const& border)
             height_t* c_ptr   = *candidates.begin();
             height_t  c_value = *c_ptr;
             cerr << "taking " << pointFromPtr(c_ptr) << "(" << (void*)c_ptr << ")=" << (int)c_value << endl;
+            cerr << "  with parents";
+
+            PointSet const& parent_set = parents[c_ptr];
+            for (PointSet::const_iterator it = parent_set.begin(); it != parent_set.end(); ++it)
+                cerr << " " << *it;
+            cerr << endl;
+
             candidates.erase(candidates.begin());
 
             // Look at the neighbours. Three situations:
@@ -121,19 +129,17 @@ MedianLine SkeletonExtraction::propagateHeightMap(PointSet const& border)
 
                     parents[neighbour] = parents[c_ptr];
                 }
-                else if (*neighbour == propagated_value || *neighbour == c_value)
+                else if (*neighbour == propagated_value || (addVal[i] == 1 && *neighbour == c_value))
                 {
                     cerr <<  "   ... found border ?" << flush;
                     bool is_neighbour = false;
                     for (PointSet::const_iterator parent_it = parents[neighbour].begin(); parent_it != parents[neighbour].end(); ++parent_it)
                     {
-                        for (PointSet::const_iterator parent_it2 = parents[c_ptr].begin(); parent_it2 != parents[c_ptr].end(); ++parent_it2)
+                        cerr << " " << *parent_it << flush;
+                        if (parent_it->isNeighbour(parents[c_ptr]))
                         {
-                            if (parent_it->isNeighbour(*parent_it2))
-                            {
-                                is_neighbour = true;
-                                break;
-                            }
+                            is_neighbour = true;
+                            break;
                         }
                     }
 
@@ -203,8 +209,51 @@ void SkeletonExtraction::displayHeightMap(std::ostream& io) const
 MedianLine SkeletonExtraction::processEdgeSet(PointSet const& border, PointSet const& inside)
 {
     initializeHeightMap(inside);
-    return propagateHeightMap(border);
+    MedianLine line = propagateHeightMap(border);
+
+    for (MedianLine::const_iterator it = line.begin(); it != line.end(); ++it)
+        Corridor corridor(it->first, it->second);
+
+    return line;
 }
+
+//Skeleton SkeletonExtraction::extractCorridorSet(MedianLine const& points)
+//{
+//    // Extract the set of corridors from the provided points. We use the
+//    // heightmap to mark which point is in which corridor (and therefore have a
+//    // fast neighbouring search). The value in the height map is the corridor
+//    // index
+//    fill(heightmap.begin(), heightmap.end(), 0);
+//
+//    vector< list<PointID> > corridors;
+//    corridors.push_back( list<PointID>() );
+//
+//    const int32_t displacement[8] = {
+//        -width, -width - 1, -width + 1,
+//        width, width - 1, width + 1, -1, +1 };
+//    vector<int> adjacents;
+//    adjacents.reserve(8);
+//
+//    for (MedianLine::const_iterator median_it = points.begin(); median_it != points.end(); ++median_it)
+//    {
+//        PointSet const& border_points = median_it->second.border_points;
+//
+//        for (PointSet::const_iterator it = border_points.begin(); it != border_points.end(); ++it)
+//        {
+//            height_t* c_ptr = it->y * width + it->x;
+//
+//            adjacents.clear();
+//            for (int i = 0; i < 8; ++i)
+//            {
+//                if (c_ptr[displacement[i]])
+//                    adjacents.push_back(displacement[i]);
+//            }
+//            if (adjacents.empty())
+//            {
+//            }
+//        }
+//    }
+//}
 
 void Nav::displayMedianLine(ostream& io, MedianLine const& skel, int w, int h)
 {
@@ -235,5 +284,43 @@ void Nav::displayMedianLine(ostream& io, MedianLine const& skel, int w, int h)
             cerr << *it << " ";
         cerr << " ]" << endl;
     }
+}
+
+Corridor::Corridor(PointID const& p, MedianPoint const& info)
+{
+    median[p] = info;
+    typedef list< list<PointID> > BorderList;
+    BorderList borders;
+
+    PointSet const& points = info.border_points;
+    for (PointSet::const_iterator it = points.begin(); it != points.end(); ++it)
+    {
+        vector<BorderList::iterator> adjacent_borders;
+        for (BorderList::iterator border_it = borders.begin(); border_it != borders.end(); ++border_it)
+        {
+            if (p.isNeighbour(*border_it))
+                adjacent_borders.push_back(border_it);
+        }
+
+        if (adjacent_borders.empty())
+        {
+            BorderList::value_type new_border;
+            new_border.push_back(*it);
+            borders.push_back(new_border);
+        }
+        else
+        {
+            list<PointID>& merged = *adjacent_borders[0];
+            for (vector<BorderList::iterator>::iterator border_it = ++adjacent_borders.begin();
+                    border_it != adjacent_borders.end(); ++border_it)
+            {
+                merged.splice(merged.end(), **border_it);
+            }
+            merged.push_back(p);
+        }
+    }
+
+    if (borders.size() != 2)
+        cerr << "found " << borders.size() << " borders for " << p << " out of " << points.size() << " border points" << endl;
 }
 
