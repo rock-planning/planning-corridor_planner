@@ -10,17 +10,20 @@
 
 namespace Nav
 {
-    struct SkeletonInfo
+    struct MedianPoint
     {
-        std::set<PointID> parents;
-        SkeletonInfo(PointID p)
-        {
-            parents.insert(p);
-        }
+        std::set<PointID> border_points;
+        int distance;
+        MedianPoint()
+            : distance(0)  {}
     };
-    typedef std::map<PointID, SkeletonInfo> Skeleton;
+    typedef std::map<PointID, MedianPoint> MedianLine;
 
-    void displaySkeleton(std::ostream& io, Skeleton const& skel, int w, int h);
+    void displayMedianLine(std::ostream& io, MedianLine const& skel, int w, int h);
+
+    struct Skeleton
+    {
+    }
 
     class SkeletonExtraction
     {
@@ -31,7 +34,7 @@ namespace Nav
         std::vector<height_t> heightmap;
 
         void initializeHeightMap(PointSet const& inside);
-        std::multimap<PointID, PointID> propagateHeightMap(PointSet const& border);
+        MedianLine propagateHeightMap(PointSet const& border);
         PointID pointFromPtr(height_t const* ptr) const;
         
     public:
@@ -42,7 +45,7 @@ namespace Nav
 
         /** Extracts the skeleton from the given edge image (i.e. greyscale image
          * of +width x height+ where white is an edge and black a valley */
-        Skeleton processEdgeSet(PointSet const& edges, PointSet const& inside);
+        MedianLine processEdgeSet(PointSet const& edges, PointSet const& inside);
 
         std::vector<height_t> getHeightmap() const { return heightmap; }
     };

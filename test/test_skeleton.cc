@@ -11,12 +11,12 @@
 using namespace std;
 using namespace Nav;
 
-void checkSimpleCorridorResult(Skeleton const& result, size_t xmin, size_t xmax, size_t w)
+void checkSimpleCorridorResult(MedianLine const& result, size_t xmin, size_t xmax, size_t w)
 {
     int check[w];
     memset(check, 0, sizeof(int) * w);
 
-    for (Skeleton::const_iterator it = result.begin(); it != result.end(); ++it)
+    for (MedianLine::const_iterator it = result.begin(); it != result.end(); ++it)
     {
         PointID p = it->first;
         BOOST_REQUIRE_EQUAL(p.y, 20);
@@ -66,9 +66,9 @@ BOOST_AUTO_TEST_CASE( test_simple_corridor_set )
     }
 
     SkeletonExtraction skel(w, h);
-    Skeleton result = skel.processEdgeSet(border, inside);
+    MedianLine result = skel.processEdgeSet(border, inside);
 
-    displaySkeleton(cerr, result, w, h);
+    displayMedianLine(cerr, result, w, h);
     checkSimpleCorridorResult(result, 5, 30, w);
 }
 
@@ -131,7 +131,7 @@ BOOST_AUTO_TEST_CASE( test_crossroad )
     }
 
     SkeletonExtraction skel(w, h);
-    Skeleton result = skel.processEdgeSet(border, inside);
-    displaySkeleton(cerr, result, w, h);
+    MedianLine result = skel.processEdgeSet(border, inside);
+    displayMedianLine(cerr, result, w, h);
 }
 

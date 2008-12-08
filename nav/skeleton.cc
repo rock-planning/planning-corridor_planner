@@ -41,7 +41,7 @@ PointID SkeletonExtraction::pointFromPtr(height_t const* ptr) const
     return PointID(offset % width, offset / width);
 }
 
-multimap<PointID, PointID> SkeletonExtraction::propagateHeightMap(PointSet const& border)
+MedianLine SkeletonExtraction::propagateHeightMap(PointSet const& border)
 {
     const int32_t addVal[8] = { 1, 2, 2, 1, 2, 2, 1, 1 };
     const int32_t displacement[8] = {
@@ -164,7 +164,19 @@ multimap<PointID, PointID> SkeletonExtraction::propagateHeightMap(PointSet const
     }
 
     displayHeightMap(cerr);
-    return skeleton;
+
+    MedianLine result;
+    for (CandidateSet::const_iterator it = skeleton.begin(); it != skeleton.end(); ++it)
+    {
+        PointID p = pointFromPtr(*it);
+        MedianPoint& info = result[p];
+
+        info.distance = **it;
+        for (PointSet::const_iterator parent_it = parents[*it].begin(); parent_it != parents[*it].end(); ++parent_it)
+            info.border_points.insert(*parent_it);
+    }
+
+    return result;
 }
 
 void SkeletonExtraction::displayHeightMap(std::ostream& io) const
@@ -188,25 +200,13 @@ void SkeletonExtraction::displayHeightMap(std::ostream& io) const
     }
 }
 
-Skeleton SkeletonExtraction::processEdgeSet(PointSet const& border, PointSet const& inside)
+MedianLine SkeletonExtraction::processEdgeSet(PointSet const& border, PointSet const& inside)
 {
     initializeHeightMap(inside);
-
-    Skeleton skeleton;
-    multimap<PointID, PointID> result = propagateHeightMap(border);
-    for (multimap<PointID, PointID>::const_iterator it = result.begin(); it != result.end(); ++it)
-    {
-        Skeleton::iterator skel_it = skeleton.find( it->first );
-        if (skel_it == skeleton.end())
-            skeleton.insert( make_pair(it->first, SkeletonInfo(it->second)) );
-        else
-            skel_it->second.parents.insert(it->second);
-    }
-
-    return skeleton;
+    return propagateHeightMap(border);
 }
 
-void Nav::displaySkeleton(ostream& io, Skeleton const& skel, int w, int h)
+void Nav::displayMedianLine(ostream& io, MedianLine const& skel, int w, int h)
 {
     cerr << "Bitmap:" << endl;
     io << "  ";
@@ -227,10 +227,10 @@ void Nav::displaySkeleton(ostream& io, Skeleton const& skel, int w, int h)
     }
 
     cerr << "Parent list:" << std::endl;
-    for (Skeleton::const_iterator it = skel.begin(); it != skel.end(); ++it)
+    for (MedianLine::const_iterator it = skel.begin(); it != skel.end(); ++it)
     {
         cerr << "  " << it->first << " [ ";
-        set<PointID> const& parents = it->second.parents;
+        set<PointID> const& parents = it->second.border_points;
         for (set<PointID>::const_iterator it = parents.begin(); it != parents.end(); ++it)
             cerr << *it << " ";
         cerr << " ]" << endl;
