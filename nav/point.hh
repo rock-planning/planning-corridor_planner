@@ -3,6 +3,7 @@
 
 #include <iosfwd>
 #include <set>
+#include <stdlib.h>
 
 namespace Nav {
     struct PointID { 
@@ -18,6 +19,11 @@ namespace Nav {
         { return !(*this == other); }
         bool operator < (PointID const& other) const
         { return x < other.x || (x == other.x && y < other.y); }
+
+        bool isNeighbour(PointID const& p) const
+        {
+            return abs(x - p.x) <= 1 && abs(y - p.y) <= 1;
+        }
     };
     typedef std::set<PointID> PointSet;
 

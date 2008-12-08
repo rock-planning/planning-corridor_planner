@@ -30,13 +30,6 @@ namespace Nav
         typedef int16_t height_t;
         std::vector<height_t> heightmap;
 
-        struct CandidateComparison
-        {
-            bool operator ()(height_t const* a, height_t const* b) const
-            { return *a > *b; }
-        };
-        typedef std::priority_queue<height_t*, std::vector<height_t*>, CandidateComparison> CandidateSet;
-
         void initializeHeightMap(PointSet const& inside);
         std::multimap<PointID, PointID> propagateHeightMap(PointSet const& border);
         PointID pointFromPtr(height_t const* ptr) const;

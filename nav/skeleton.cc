@@ -48,90 +48,118 @@ multimap<PointID, PointID> SkeletonExtraction::propagateHeightMap(PointSet const
         -width, -width - 1, -width + 1,
         width, width - 1, width + 1, -1, +1 };
 
+    // During propagation, we need to maintain only three sets:
+    //  * the set of lowest distance d (candidates)
+    //  * the set of d + 1 (direct propagation) (borders[0])
+    //  * the set of d + 2 (diagonal propagation) (borders[1])
+    //
+    // There is no other distance to be considered. We therefore do not need to
+    // maintain a priority queue or whatever, just those three sets. Still, a
+    // point can be promoted from d + 2 to d + 1, so we need to keep them as
+    // std::set.
+    typedef std::set<height_t*> CandidateSet;
     CandidateSet candidates;
-    std::map<height_t*, height_t*> parents;
+    CandidateSet borders[2];
+
+    // Initialize +candidates+ and +parents+ with the border points
+    std::map<height_t*, set<PointID> > parents;
     for (PointSet::const_iterator it = border.begin(); it != border.end(); ++it)
     {
         if (it->x > 0 && it->x < width - 1 && it->y > 0 && it->y < height - 1)
         {
             height_t* c_ptr = &heightmap[it->y * width + it->x];
             *c_ptr = 1;
-            candidates.push( c_ptr );
-            parents.insert( make_pair(c_ptr, c_ptr) );
+            candidates.insert( c_ptr );
+            parents[c_ptr].insert( pointFromPtr(c_ptr) );
         }
     }
 
     displayHeightMap(cerr);
 
-    multimap<PointID, PointID> skeleton;
+    // The points that are part of the median line. The parents are stored in
+    // the +parents+ map.
+    CandidateSet skeleton;
+
+    // Outer loop. This will leave if all three +candidates+, +borders[0]+ and
+    // +borders[1]+ are empty.
     while (!candidates.empty())
     {
-        height_t* c_ptr   = candidates.top();
-        height_t  c_value = *c_ptr;
-        cerr << "taking " << pointFromPtr(c_ptr) << "(" << (void*)c_ptr << ")=" << (int)c_value << endl;
-        candidates.pop();
-
-        bool propagated = false, median = false;
-        for (size_t i = 0; i < 8; ++i)
+        // Inner loop. Process all points in +candidates+
+        while (!candidates.empty())
         {
-            height_t* neighbour        = c_ptr   + displacement[i];
-            height_t propagated_value = c_value + addVal[i]; 
-            cerr <<  "  " << pointFromPtr(neighbour) << "(" << (void*)neighbour << ")=" << (int)*neighbour << " ~ " << propagated_value << endl;
-            if (*neighbour > propagated_value) // needs to be propagated further
-            {
-                propagated = true;
+            height_t* c_ptr   = *candidates.begin();
+            height_t  c_value = *c_ptr;
+            cerr << "taking " << pointFromPtr(c_ptr) << "(" << (void*)c_ptr << ")=" << (int)c_value << endl;
+            candidates.erase(candidates.begin());
 
-                *neighbour = propagated_value;
-                candidates.push( neighbour );
-                parents[neighbour] = parents[c_ptr];
-            }
-            else if (*neighbour == propagated_value)
-                propagated = true;
-        }
-
-        {
-            int right  = c_ptr[displacement[7]];
-            int left   = c_ptr[displacement[6]];
-            int top    = c_ptr[displacement[3]];
-            int bottom = c_ptr[displacement[0]];
-            int straight_div = (right + left - 2 * c_value) + (top + bottom - 2 * c_value);
-            if (right && left && top && bottom && straight_div < 0)
-            {
-                std::cerr << "  negative straight div " << straight_div << std::endl;
-                median = true;
-            }
-            else
-            {
-                int top_right    = c_ptr[displacement[5]];
-                int top_left     = c_ptr[displacement[4]];
-                int bottom_right = c_ptr[displacement[2]];
-                int bottom_left  = c_ptr[displacement[1]];
-                int diag_div = (top_right + bottom_left - 2 * c_value) + (bottom_right + top_left - 2 * c_value);
-                if (top_right && top_left && bottom_right && bottom_left && diag_div < 0)
-                {
-                    std::cerr << "  negative diag div " << diag_div << std::endl;
-                    median = true;
-                }
-            }
-        }
-
-        if (median || !propagated)
-        {
-            PointID candidate_p = pointFromPtr(c_ptr);
-            cerr << "peak " << (int)*c_ptr << " " << candidate_p << " (" << (void*)c_ptr << ") from\n";
-
-            // Search for parents
+            // Look at the neighbours. Three situations:
+            //  * the propagated cost (current_cost + edge_cost) is lower. The
+            //    target node is nearer to the parent of the current node.
+            //    Propagate.
+            //  * the cost of the target node is the same than the propagated
+            //    cost. The parents of the current node are at the same distance
+            //    of the neighbour than its current parents. Merge.
+            //  * the cost of the neighbour is the same than the current cost.
+            //    The actual Voronoi point is in-between the current node and
+            //    the neighbour. We don't have half-coordinates, so merge also.
+            //    Post-processing will remove points that have the same parents.
             for (size_t i = 0; i < 8; ++i)
             {
                 height_t* neighbour        = c_ptr   + displacement[i];
-                height_t propagated_value  = c_value - addVal[i]; 
-                if (*neighbour == propagated_value)
+                height_t propagated_value = c_value + addVal[i]; 
+                cerr <<  "  " << pointFromPtr(neighbour) << "(" << (void*)neighbour << ")=" << (int)*neighbour << " ~ " << propagated_value << endl;
+                if (*neighbour > propagated_value) // needs to be propagated further
                 {
-                    PointID parent_p = pointFromPtr(parents[neighbour]);
-                    cerr << "  " << parent_p << " (" << (void*)parents[neighbour] << "), parent of " << pointFromPtr(neighbour) << endl;
-                    skeleton.insert( std::make_pair(candidate_p, parent_p) );
+                    *neighbour = propagated_value;
+                    if (addVal[i] == 1)
+                    {
+                        borders[1].erase(neighbour);
+                        borders[0].insert(neighbour);
+                    }
+                    else
+                        borders[1].insert(neighbour);
+
+                    parents[neighbour] = parents[c_ptr];
+                }
+                else if (*neighbour == propagated_value || *neighbour == c_value)
+                {
+                    cerr <<  "   ... found border ?" << flush;
+                    bool is_neighbour = false;
+                    for (PointSet::const_iterator parent_it = parents[neighbour].begin(); parent_it != parents[neighbour].end(); ++parent_it)
+                    {
+                        for (PointSet::const_iterator parent_it2 = parents[c_ptr].begin(); parent_it2 != parents[c_ptr].end(); ++parent_it2)
+                        {
+                            if (parent_it->isNeighbour(*parent_it2))
+                            {
+                                is_neighbour = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!is_neighbour)
+                    {
+                        cerr << " yes" << endl;
+                        parents[neighbour].insert( parents[c_ptr].begin(), parents[c_ptr].end() );
+                        skeleton.insert( neighbour );
+                    }
+                    else
+                    {
+                        cerr << " no" << endl;
+                    }
                 }
             }
+        }
+
+        if (borders[0].empty())
+        {
+            candidates.swap(borders[1]);
+            borders[0].clear();
+        }
+        else
+        {
+            candidates.swap(borders[0]);
+            borders[0].swap(borders[1]);
         }
     }
 
