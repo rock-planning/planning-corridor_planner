@@ -92,6 +92,8 @@ BOOST_AUTO_TEST_CASE( test_crossroad )
             int base_x = x / 5 * 5;
             ymin0 = 15 - 2 * (x - base_x);
             ymax0 = 25 + 2 * (x - base_x);
+            border.insert( PointID(x, ymin0 - 1) );
+            border.insert( PointID(x, ymax0 + 1) );
         }
         else if ((x >= 15 && x < 20)) // split section
         {
@@ -105,6 +107,8 @@ BOOST_AUTO_TEST_CASE( test_crossroad )
             int base_x = x / 5 * 5;
             ymin0 =  5 + 2 * (x - base_x);
             ymax0 = 35 - 2 * (x - base_x);
+            border.insert( PointID(x + 1, ymin0 + 1) );
+            border.insert( PointID(x + 1, ymax0 - 1) );
         }
 
         border.insert( PointID(x, ymin0) );
