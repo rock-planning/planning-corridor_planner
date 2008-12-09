@@ -144,12 +144,17 @@ void SkeletonExtraction::displayHeightMap(std::ostream& io) const
     io << "   ";
     for (int x = 0; x < width; ++x)
         io << " " << std::setw(3) << x;
+    io << endl;
     for (int y = 0; y < height; ++y)
     {
         io << std::setw(3) << y;
         for (int x = 0; x < width; ++x)
         {
-            io << " " << std::setw(3) << (int)heightmap[y * width + x];
+            int val = (int)heightmap[y * width + x];
+            if (val)
+                io << " " << std::setw(3) << val;
+            else
+                io << "   -";
         }
         io << endl;
     }
