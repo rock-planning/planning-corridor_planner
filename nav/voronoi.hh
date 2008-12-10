@@ -45,6 +45,19 @@ namespace Nav
     std::ostream& operator << (std::ostream& io, MedianPoint const& p);
     typedef std::map<PointID, MedianPoint> MedianLine;
 
+    struct Corridor : public MedianPoint
+    {
+        std::map<PointID, MedianPoint> median;
+
+        void add(PointID const& p, MedianPoint const& descriptor);
+        void add(std::pair<PointID, MedianPoint> const& p);
+        void merge(Corridor const& corridor);
+
+        /** Returns true if \c p is adjacent to points in \c median */
+        bool isNeighbour(PointID const& p) const;
+    };
+    std::ostream& operator << (std::ostream& io, Corridor const& corridor);
+
     void displayMedianLine(std::ostream& io, MedianLine const& skel, int w, int h);
 }
 

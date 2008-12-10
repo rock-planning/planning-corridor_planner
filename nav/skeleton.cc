@@ -1,8 +1,13 @@
 #include "skeleton.hh"
+#include <limits>
+#include <boost/bind.hpp>
+#include <algorithm>
+
 #include <iostream>
 #include <iomanip>
-#include <limits>
 
+using boost::bind;
+using boost::mem_fn;
 using namespace std;
 using namespace Nav;
 
@@ -196,7 +201,58 @@ MedianLine SkeletonExtraction::processEdgeSet(PointSet const& border, PointSet c
 {
     initializeHeightMap(inside);
     MedianLine line = propagateHeightMap(border);
-
     return line;
+}
+
+list<Corridor> SkeletonExtraction::buildGraph(MedianLine const& points)
+{
+    typedef list<Corridor> CorridorList;
+    CorridorList corridors;
+
+    for (MedianLine::const_iterator p = points.begin(); p != points.end(); ++p)
+    {
+        if (p->second.borders.size() > 2)
+            continue;
+
+        // Search for one element in \c corridors that is adjacent to \c p (per
+        // the meaning of MedianPoint::isAdjacent, see documentation).
+        //
+        // If there is one, merge that point into the corresponding corridor.
+        // Otherwise, create a new corridor.
+        CorridorList::iterator adjacent_corridor =
+            find_if(corridors.begin(), corridors.end(),
+                    bind( logical_and<bool>(),
+                        bind(mem_fn(&MedianPoint::isAdjacent), _1, p->second),
+                        bind(mem_fn(&Corridor::isNeighbour), _1, p->first)));
+
+        if (adjacent_corridor == corridors.end())
+        {
+            Corridor new_corridor;
+            new_corridor.add(*p);
+            corridors.push_back(new_corridor);
+            cerr << "new corridor for " << p->first << " " << p->second << endl;
+        }
+        else
+        {
+            // If we found an adjacent corridor, then the new point could
+            // actually connect two previously non-adjacent corridors.
+            // Merge them if it is the case.
+            CorridorList::iterator merge_into = adjacent_corridor++;
+            cerr << "adding " << p->first << " " << p->second << endl;
+            merge_into->add(*p);
+            while (adjacent_corridor != corridors.end())
+            {
+                if (adjacent_corridor->isAdjacent(p->second) && adjacent_corridor->isNeighbour(p->first))
+                {
+                    cerr << "merging" << endl;
+                    merge_into->merge(*adjacent_corridor);
+                    corridors.erase(adjacent_corridor++);
+                }
+                else
+                    ++adjacent_corridor;
+            }
+        }
+    }
+    return corridors;
 }
 

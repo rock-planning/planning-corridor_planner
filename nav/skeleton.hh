@@ -29,6 +29,8 @@ namespace Nav
          * of +width x height+ where white is an edge and black a valley */
         MedianLine processEdgeSet(PointSet const& edges, PointSet const& inside);
 
+        std::list<Corridor> buildGraph(MedianLine const& points);
+
         std::vector<height_t> getHeightmap() const { return heightmap; }
     };
 }

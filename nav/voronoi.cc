@@ -103,3 +103,38 @@ void Nav::displayMedianLine(ostream& io, MedianLine const& skel, int w, int h)
     }
 }
 
+void Corridor::add(PointID const& p, MedianPoint const& descriptor)
+{ return add(make_pair(p, descriptor)); }
+
+void Corridor::add(std::pair<PointID, MedianPoint> const& p)
+{
+    median.insert(p);
+    mergeBorders(p.second);
+}
+void Corridor::merge(Corridor const& corridor)
+{
+    // Force the overload selection on Corridor::add
+    void (Corridor::*add)(pair<PointID, MedianPoint> const&) = &Corridor::add;
+    for_each(corridor.median.begin(), corridor.median.end(), bind(mem_fn(add), this, _1));
+}
+
+bool Corridor::isNeighbour(PointID const& p) const
+{
+    for (MedianLine::const_iterator it = median.begin(); it != median.end(); ++it)
+    {
+        if (it->first.isNeighbour(p))
+            return true;
+    }
+    return false;
+}
+
+ostream& Nav::operator << (ostream& io, Corridor const& corridor)
+{
+    io << "Median:\n";
+    for (MedianLine::const_iterator it = corridor.median.begin(); it != corridor.median.end(); ++it)
+        io << " " << it->first << " " << it->second << "\n";
+    io << "Borders:\n";
+    io << static_cast<MedianPoint const&>(corridor);
+    return io;
+}
+
