@@ -94,12 +94,10 @@ void Nav::displayMedianLine(ostream& io, MedianLine const& skel, int w, int h)
         io << endl;
     }
 
-    cerr << "Parent list:" << std::endl;
+    io << "Parent list:" << std::endl;
     for (MedianLine::const_iterator it = skel.begin(); it != skel.end(); ++it)
     {
-        cerr << "  " << it->first << " ";
-        it->second.displayBorders(cerr);
-        cerr << endl;
+        io << "  " << it->first << " " << it->second << endl;
     }
 }
 
