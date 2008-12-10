@@ -5,6 +5,8 @@
 
 #include <iostream>
 
+using boost::bind;
+using boost::mem_fn;
 using namespace std;
 using namespace Nav;
 
@@ -41,7 +43,7 @@ void MedianPoint::addBorderPoint(PointID const& p)
 void MedianPoint::mergeBorders(MedianPoint const& p)
 {
     for (BorderList::const_iterator border = p.borders.begin(); border != p.borders.end(); ++border)
-        for_each(border->begin(), border->end(), boost::bind( boost::mem_fn(&MedianPoint::addBorderPoint), this, _1));
+        for_each(border->begin(), border->end(), bind( mem_fn(&MedianPoint::addBorderPoint), this, _1));
 }
 
 bool MedianPoint::isAdjacent(MedianPoint const& p) const
