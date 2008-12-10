@@ -2,7 +2,7 @@ FIND_PACKAGE(GDAL)
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GDAL_CFLAGS}")
 
-ADD_LIBRARY(Nav SHARED point.cc dstar.cc skeleton.cc)
+ADD_LIBRARY(Nav SHARED point.cc dstar.cc voronoi.cc skeleton.cc)
 TARGET_LINK_LIBRARIES(Nav ${GDAL_LIBRARIES})
 
 INSTALL(TARGETS Nav
