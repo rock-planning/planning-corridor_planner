@@ -89,9 +89,7 @@ MedianLine SkeletonExtraction::propagateHeightMap(PointSet const& border)
             height_t* c_ptr   = *candidates.begin();
             height_t  c_value = *c_ptr;
             cerr << "taking " << pointFromPtr(c_ptr) << "(" << (void*)c_ptr << ")=" << (int)c_value << endl;
-            cerr << "  with borders ";
-            parents[c_ptr].displayBorders(cerr);
-            cerr << endl;
+            cerr << "  with borders " << parents[c_ptr] << endl;
 
             candidates.erase(candidates.begin());
 
@@ -126,11 +124,11 @@ MedianLine SkeletonExtraction::propagateHeightMap(PointSet const& border)
                 }
                 else if (*neighbour == propagated_value || (addVal[i] == 1 && *neighbour == c_value))
                 {
-                    cerr <<  "   ... found border ?" << flush;
-                    parents[neighbour].displayBorders(cerr);
+                    cerr <<  "   ... found border ?" << parents[neighbour] << flush;
                     if (!parents[neighbour].isAdjacent( parents[c_ptr] ))
                     {
                         cerr << " yes" << endl;
+
                         skeleton.insert( neighbour );
                         parents[neighbour].mergeBorders( parents[c_ptr] );
                     }

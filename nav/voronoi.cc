@@ -61,20 +61,22 @@ bool MedianPoint::isAdjacent(MedianPoint const& p) const
     return true;
 }
 
-void MedianPoint::displayBorders(ostream& io) const
+ostream& Nav::operator << (ostream& io, MedianPoint const& p)
 {
-    for (BorderList::const_iterator it = borders.begin(); it != borders.end(); ++it)
+    typedef std::list< PointSet > BorderList;
+    for (BorderList::const_iterator it = p.borders.begin(); it != p.borders.end(); ++it)
     {
         io << " (";
         for (PointSet::const_iterator p = it->begin(); p != it->end(); ++p)
             io << " " << *p;
         io << ")";
     }
+    return io;
 }
 
 void Nav::displayMedianLine(ostream& io, MedianLine const& skel, int w, int h)
 {
-    cerr << "Bitmap:" << endl;
+    io << "Bitmap:" << endl;
     io << "  ";
     for (int x = 0; x < w; ++x)
         io << " " << std::setw(2) << x;
