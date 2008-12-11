@@ -204,54 +204,48 @@ MedianLine SkeletonExtraction::processEdgeSet(PointSet const& border, PointSet c
     return line;
 }
 
-list<Corridor> SkeletonExtraction::buildGraph(MedianLine const& points)
+list<Corridor> SkeletonExtraction::buildGraph(MedianLine const& _points)
 {
     typedef list<Corridor> CorridorList;
     CorridorList corridors;
 
-    for (MedianLine::const_iterator p = points.begin(); p != points.end(); ++p)
+    MedianLine points = _points;
+    while (! points.empty())
     {
-        if (p->second.borders.size() > 2)
+        if (points.begin()->second.borders.size() != 2)
+        {
+            points.erase(points.begin());
             continue;
-
-        // Search for one element in \c corridors that is adjacent to \c p (per
-        // the meaning of MedianPoint::isAdjacent, see documentation).
-        //
-        // If there is one, merge that point into the corresponding corridor.
-        // Otherwise, create a new corridor.
-        CorridorList::iterator adjacent_corridor =
-            find_if(corridors.begin(), corridors.end(),
-                    bind( logical_and<bool>(),
-                        bind(mem_fn(&MedianPoint::isAdjacent), _1, p->second),
-                        bind(mem_fn(&Corridor::isNeighbour), _1, p->first)));
-
-        if (adjacent_corridor == corridors.end())
-        {
-            Corridor new_corridor;
-            new_corridor.add(*p);
-            corridors.push_back(new_corridor);
-            cerr << "new corridor for " << p->first << " " << p->second << endl;
         }
-        else
+
+        PointID seed = points.begin()->first;
+        Corridor corridor;
+
+        PointSet propagation;
+        propagation.insert(seed);
+        while (!propagation.empty())
         {
-            // If we found an adjacent corridor, then the new point could
-            // actually connect two previously non-adjacent corridors.
-            // Merge them if it is the case.
-            CorridorList::iterator merge_into = adjacent_corridor++;
-            cerr << "adding " << p->first << " " << p->second << endl;
-            merge_into->add(*p);
-            while (adjacent_corridor != corridors.end())
+            PointID p = *propagation.begin();
+            corridor.add(p, points[p]);
+            points.erase(p);
+            propagation.erase(propagation.begin());
+
+            for (int dy = -1; dy < 2; ++dy)
             {
-                if (adjacent_corridor->isAdjacent(p->second) && adjacent_corridor->isNeighbour(p->first))
+                for (int dx = -1; dx < 2; ++dx)
                 {
-                    cerr << "merging" << endl;
-                    merge_into->merge(*adjacent_corridor);
-                    corridors.erase(adjacent_corridor++);
+                    if (dx == 0 && dy == 0)
+                        continue;
+
+                    PointID neighbour(p.x + dx, p.y + dy);
+                    MedianLine::iterator neighbour_it = points.find(neighbour);
+                    if (neighbour_it != points.end() && corridor.isAdjacent(neighbour_it->second))
+                        propagation.insert(neighbour_it->first);
                 }
-                else
-                    ++adjacent_corridor;
             }
         }
+
+        corridors.push_back(corridor);
     }
     return corridors;
 }
