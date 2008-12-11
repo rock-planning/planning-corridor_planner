@@ -69,7 +69,11 @@ BOOST_AUTO_TEST_CASE( test_simple_corridor_set )
     MedianLine result = skel.processEdgeSet(border, inside);
 
     displayMedianLine(cerr, result, w, h);
-    checkSimpleCorridorResult(result, 5, 30, w);
+    //checkSimpleCorridorResult(result, 5, 30, w);
+
+    cerr << "Corridor set:" << endl;
+    Plan corridors = skel.buildGraph(result);
+    cerr << corridors << endl;
 }
 
 
@@ -133,5 +137,9 @@ BOOST_AUTO_TEST_CASE( test_crossroad )
     SkeletonExtraction skel(w, h);
     MedianLine result = skel.processEdgeSet(border, inside);
     displayMedianLine(cerr, result, w, h);
+
+    cerr << "Corridor set:" << endl;
+    Plan corridors = skel.buildGraph(result);
+    cerr << corridors << endl;
 }
 

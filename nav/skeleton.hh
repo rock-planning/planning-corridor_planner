@@ -19,6 +19,9 @@ namespace Nav
         MedianLine propagateHeightMap(PointSet const& border);
         PointID pointFromPtr(height_t const* ptr) const;
         
+        typedef std::map<PointID, std::map<PointID, int> > ConnectionMap;
+        void registerConnections(int idx, std::vector<Corridor>& corridors, ConnectionMap::const_iterator connection_point);
+
     public:
         SkeletonExtraction(size_t width, size_t height);
         ~SkeletonExtraction();
@@ -29,7 +32,7 @@ namespace Nav
          * of +width x height+ where white is an edge and black a valley */
         MedianLine processEdgeSet(PointSet const& edges, PointSet const& inside);
 
-        std::list<Corridor> buildGraph(MedianLine const& points);
+        Plan buildGraph(MedianLine points);
 
         std::vector<height_t> getHeightmap() const { return heightmap; }
     };

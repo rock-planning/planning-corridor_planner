@@ -130,11 +130,46 @@ bool Corridor::isNeighbour(PointID const& p) const
 
 ostream& Nav::operator << (ostream& io, Corridor const& corridor)
 {
-    io << "Median:\n";
+    io << "  Median:\n";
     for (MedianLine::const_iterator it = corridor.median.begin(); it != corridor.median.end(); ++it)
-        io << " " << it->first << " " << it->second << "\n";
-    io << "Borders:\n";
-    io << static_cast<MedianPoint const&>(corridor);
+        io << "    " << it->first << " " << it->second << "\n";
+    io << "  Borders:\n";
+    io << "    " << static_cast<MedianPoint const&>(corridor);
+    io << "\n";
+    io << "  Connections:\n";
+    for (Corridor::Connections::const_iterator it = corridor.connections.begin(); it != corridor.connections.end(); ++it)
+        io << "    " << it->get<0>() << " -> [" << it->get<1>() << ": " << it->get<2>() << "]" << endl;
+    return io;
+}
+
+void Plan::removeCorridor(int idx)
+{
+    corridors.erase(corridors.begin() + idx);
+    for (corridor_iterator corridor = corridors.begin(); corridor != corridors.end(); ++corridor)
+    {
+        Corridor::Connections& connections = corridor->connections;
+        Corridor::connection_iterator it = connections.begin();
+        while (it != connections.end())
+        {
+            if (it->get<1>() == idx)
+                connections.erase(it++);
+            else
+            {
+                if (it->get<1>() > idx)
+                    it->get<1>()--;
+                ++it;
+            }
+        }
+    }
+}
+
+ostream& Nav::operator << (ostream& io, Plan const& plan)
+{
+    for (vector<Corridor>::const_iterator it = plan.corridors.begin(); it != plan.corridors.end(); ++it)
+    {
+        io << "\n==== Corridor " << it - plan.corridors.begin() << "====\n";
+        io << *it << endl;
+    }
     return io;
 }
 

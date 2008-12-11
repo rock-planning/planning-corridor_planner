@@ -2,7 +2,9 @@
 #define NAV_VORONOI_HH
 #include <list>
 #include <map>
+#include <vector>
 #include <iosfwd>
+#include <boost/tuple/tuple.hpp>
 #include "point.hh"
 
 namespace Nav
@@ -49,6 +51,10 @@ namespace Nav
     {
         std::map<PointID, MedianPoint> median;
 
+        typedef std::list< boost::tuple<PointID, int, PointID> > Connections;
+        typedef Connections::iterator connection_iterator;
+        Connections connections;
+
         void add(PointID const& p, MedianPoint const& descriptor);
         void add(std::pair<PointID, MedianPoint> const& p);
         void merge(Corridor const& corridor);
@@ -57,6 +63,15 @@ namespace Nav
         bool isNeighbour(PointID const& p) const;
     };
     std::ostream& operator << (std::ostream& io, Corridor const& corridor);
+
+    struct Plan
+    {
+        std::vector<Corridor> corridors;
+        typedef std::vector<Corridor>::iterator corridor_iterator;
+
+        void removeCorridor(int idx);
+    };
+    std::ostream& operator << (std::ostream& io, Plan const& plan);
 
     void displayMedianLine(std::ostream& io, MedianLine const& skel, int w, int h);
 }
