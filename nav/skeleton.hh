@@ -3,6 +3,7 @@
 
 #include "point.hh"
 #include "voronoi.hh"
+#include "plan.hh"
 #include <vector>
 
 namespace Nav
@@ -32,7 +33,8 @@ namespace Nav
          * of +width x height+ where white is an edge and black a valley */
         MedianLine processEdgeSet(PointSet const& edges, PointSet const& inside);
 
-        Plan buildGraph(MedianLine points);
+        /** Creates a graph out of a set of median points */
+        Plan buildPlan(MedianLine points);
 
         std::vector<height_t> getHeightmap() const { return heightmap; }
     };

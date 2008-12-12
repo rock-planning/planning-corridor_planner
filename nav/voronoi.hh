@@ -64,15 +64,6 @@ namespace Nav
     };
     std::ostream& operator << (std::ostream& io, Corridor const& corridor);
 
-    struct Plan
-    {
-        std::vector<Corridor> corridors;
-        typedef std::vector<Corridor>::iterator corridor_iterator;
-
-        void removeCorridor(int idx);
-    };
-    std::ostream& operator << (std::ostream& io, Plan const& plan);
-
     void displayMedianLine(std::ostream& io, MedianLine const& skel, int w, int h);
 }
 

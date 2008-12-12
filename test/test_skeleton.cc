@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE( test_simple_corridor_set )
     //checkSimpleCorridorResult(result, 5, 30, w);
 
     cerr << "Corridor set:" << endl;
-    Plan corridors = skel.buildGraph(result);
+    Plan corridors = skel.buildPlan(result);
     cerr << corridors << endl;
 }
 
@@ -139,7 +139,7 @@ BOOST_AUTO_TEST_CASE( test_crossroad )
     displayMedianLine(cerr, result, w, h);
 
     cerr << "Corridor set:" << endl;
-    Plan corridors = skel.buildGraph(result);
+    Plan corridors = skel.buildPlan(result);
     cerr << corridors << endl;
 }
 

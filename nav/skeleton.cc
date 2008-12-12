@@ -221,7 +221,7 @@ void SkeletonExtraction::registerConnections(int idx, vector<Corridor>& corridor
     }
 }
 
-Plan SkeletonExtraction::buildGraph(MedianLine points)
+Plan SkeletonExtraction::buildPlan(MedianLine points)
 {
     Plan result;
     vector<Corridor>& corridors = result.corridors;
