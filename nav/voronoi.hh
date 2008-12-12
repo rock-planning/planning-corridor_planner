@@ -59,8 +59,15 @@ namespace Nav
         typedef Connections::iterator connection_iterator;
         Connections connections;
 
+        /** Add a median point to the corridor, updating its border and bouding
+         * box */
         void add(PointID const& p, MedianPoint const& descriptor);
+        /** Add a median point to the corridor, updating its border and bouding
+         * box */
         void add(std::pair<PointID, MedianPoint> const& p);
+        /** Merge \c corridor into this one, updating its border, median line
+         * and bounding box
+         */
         void merge(Corridor const& corridor);
 
         /** Returns true if \c p is adjacent to points in \c median */
