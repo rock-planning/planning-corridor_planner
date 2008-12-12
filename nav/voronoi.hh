@@ -42,7 +42,8 @@ namespace Nav
 
         /** Returns true if for each border of \c p there is at least one
          * touching border in \c this */
-        bool isAdjacent(MedianPoint const& p) const;
+        bool isBorderAdjacent(MedianPoint const& p) const;
+        bool isBorderAdjacent(PointID const& p) const;
     };
     std::ostream& operator << (std::ostream& io, MedianPoint const& p);
     typedef std::map<PointID, MedianPoint> MedianLine;

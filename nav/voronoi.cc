@@ -46,15 +46,21 @@ void MedianPoint::mergeBorders(MedianPoint const& p)
         for_each(border->begin(), border->end(), bind( mem_fn(&MedianPoint::addBorderPoint), this, _1));
 }
 
-bool MedianPoint::isAdjacent(MedianPoint const& p) const
+bool MedianPoint::isBorderAdjacent(PointID const& p) const
+{
+    BorderList::const_iterator adjacent_border = find_if(borders.begin(), borders.end(), boost::bind( boost::mem_fn(&PointID::isNeighbour<PointSet>), p, _1));
+    return (adjacent_border != borders.end());
+}
+
+
+bool MedianPoint::isBorderAdjacent(MedianPoint const& p) const
 {
     for (BorderList::const_iterator border = borders.begin(); border != borders.end(); ++border)
     {
         PointSet::const_iterator point;
         for (point = border->begin(); point != border->end(); ++point)
         {
-            BorderList::const_iterator adjacent_border = find_if(p.borders.begin(), p.borders.end(), boost::bind( boost::mem_fn(&PointID::isNeighbour<PointSet>), *point, _1));
-            if (adjacent_border != p.borders.end())
+            if (p.isBorderAdjacent(*point))
                 break;
         }
         if (point == border->end())

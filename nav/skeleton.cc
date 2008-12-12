@@ -131,7 +131,7 @@ MedianLine SkeletonExtraction::propagateHeightMap(PointSet const& border)
                 else if (*neighbour == propagated_value || (addVal[i] == 1 && *neighbour == c_value))
                 {
                     cerr <<  "   ... found border ?" << parents[neighbour] << flush;
-                    if (!parents[neighbour].isAdjacent( parents[c_ptr] ))
+                    if (!parents[neighbour].isBorderAdjacent( parents[c_ptr] ))
                     {
                         cerr << " yes" << endl;
 
@@ -276,7 +276,7 @@ Plan SkeletonExtraction::buildPlan(MedianLine points)
                     }
 
                     MedianLine::iterator neighbour_it = points.find(neighbour);
-                    if (neighbour_it != points.end() && corridor.isAdjacent(neighbour_it->second))
+                    if (neighbour_it != points.end() && corridor.isBorderAdjacent(neighbour_it->second))
                         propagation.insert(neighbour_it->first);
                     else
                     {

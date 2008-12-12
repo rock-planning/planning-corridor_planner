@@ -15,6 +15,10 @@ namespace Nav
         std::vector<uint8_t> pixel_map;
 
         void removeCorridor(int idx);
+
+        void addAdjacentBorders(MedianPoint const& p0, MedianPoint const& p1, std::set<PointID>& result) const;
+        void findAdjacentBorders(PointID p, Corridor const& corridor, std::set<PointID>& seen, std::set<PointID>& result) const;
+        void buildCrossroads() const;
     };
     std::ostream& operator << (std::ostream& io, Plan const& plan);
 }
