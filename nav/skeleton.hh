@@ -15,6 +15,8 @@ namespace Nav
 
         typedef int16_t height_t;
         std::vector<height_t> heightmap;
+        typedef std::map<height_t*, MedianPoint > ParentMap;
+        ParentMap parents;
 
         void initializeHeightMap(PointSet const& inside);
         MedianLine propagateHeightMap(PointSet const& border);
@@ -35,6 +37,7 @@ namespace Nav
 
         /** Creates a graph out of a set of median points */
         Plan buildPlan(MedianLine points);
+        void buildPixelMap(Plan& result) const;
 
         std::vector<height_t> getHeightmap() const { return heightmap; }
     };
