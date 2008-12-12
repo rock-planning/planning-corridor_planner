@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <boost/bind.hpp>
 #include <iomanip>
+#include <stdexcept>
+#include <numeric>
 
 #include <iostream>
 
@@ -74,6 +76,20 @@ bool MedianPoint::isBorderAdjacent(MedianPoint const& p) const
     return true;
 }
 
+Point<float> MedianPoint::direction() const
+{
+    if (borders.size() != 2)
+        throw std::runtime_error("found more than two borders in MedianPoint::direction()");
+
+
+    BorderList::const_iterator it = borders.begin();
+    PointID p1 = accumulate(it->begin(), it->end(), PointID()) / it->size();
+    ++it;
+    PointID p2 = accumulate(it->begin(), it->end(), PointID()) / it->size();
+
+    return (p2 - p1).normalize();
+}
+
 ostream& Nav::operator << (ostream& io, MedianPoint const& p)
 {
     typedef std::list< PointSet > BorderList;
@@ -129,6 +145,15 @@ void Corridor::merge(Corridor const& corridor)
     void (Corridor::*add)(pair<PointID, MedianPoint> const&) = &Corridor::add;
     for_each(corridor.median.begin(), corridor.median.end(), bind(mem_fn(add), this, _1));
 }
+
+void Corridor::clear()
+{
+    median_bbox = bbox = BoundingBox();
+    borders.clear();
+    median.clear();
+    connections.clear();
+}
+
 
 bool Corridor::isNeighbour(PointID const& p) const
 {

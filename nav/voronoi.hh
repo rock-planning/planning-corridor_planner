@@ -36,6 +36,8 @@ namespace Nav
 
         MedianPoint() : width(0)  {}
 
+        Point<float> direction() const;
+
         /** Add \c p to the borders. See borders for more details */
         void addBorderPoint(PointID const& p);
         /** Merge the borders of \c p into the ones of \c this */
@@ -51,13 +53,14 @@ namespace Nav
 
     struct Corridor : public MedianPoint
     {
-        std::map<PointID, MedianPoint> median;
-
+        MedianLine median;
         BoundingBox median_bbox;
 
         typedef std::list< boost::tuple<PointID, int, PointID> > Connections;
         typedef Connections::iterator connection_iterator;
         Connections connections;
+
+        void clear();
 
         /** Add a median point to the corridor, updating its border and bouding
          * box */

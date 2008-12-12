@@ -106,6 +106,16 @@ void Plan::buildCrossroads() const
     }
 }
 
+void Plan::concat(Plan const& other)
+{
+    int merge_start = corridors.size();
+    copy(other.corridors.begin(), other.corridors.end(), back_inserter(corridors));
+
+    for (vector<Corridor>::iterator it = corridors.begin() + merge_start; it != corridors.end(); ++it)
+        for (Corridor::connection_iterator c = it->connections.begin(); c != it->connections.end(); ++c)
+            c->get<1>() += merge_start;
+}
+
 ostream& Nav::operator << (ostream& io, Plan const& plan)
 {
     int const NO_OWNER = plan.corridors.size();

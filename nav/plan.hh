@@ -5,6 +5,7 @@
 
 namespace Nav
 {
+    class MergeResult;
     struct Plan
     {
         /** The set of corridors in this plan, including the connections between
@@ -18,6 +19,8 @@ namespace Nav
         int width, height;
         /** This vector maps each pixel into its corresponding corridor */
         std::vector<uint8_t> pixel_map;
+
+        void concat(Plan const& other);
 
         /** Removes the corridor from the set of corridors in this plan. In
          * particular, in updates the corridor connections.
