@@ -12,6 +12,8 @@ using namespace Nav;
 
 void MedianPoint::addBorderPoint(PointID const& p)
 {
+    bbox.update(p);
+
     BorderList::iterator it;
     for (it = borders.begin(); it != borders.end(); ++it)
     {
@@ -55,6 +57,9 @@ bool MedianPoint::isBorderAdjacent(PointID const& p) const
 
 bool MedianPoint::isBorderAdjacent(MedianPoint const& p) const
 {
+    if (!bbox.isAdjacent(p.bbox))
+        return false;
+
     for (BorderList::const_iterator border = borders.begin(); border != borders.end(); ++border)
     {
         PointSet::const_iterator point;
@@ -115,6 +120,7 @@ void Corridor::add(PointID const& p, MedianPoint const& descriptor)
 void Corridor::add(std::pair<PointID, MedianPoint> const& p)
 {
     median.insert(p);
+    median_bbox.update(p.first);
     mergeBorders(p.second);
 }
 void Corridor::merge(Corridor const& corridor)
@@ -126,6 +132,9 @@ void Corridor::merge(Corridor const& corridor)
 
 bool Corridor::isNeighbour(PointID const& p) const
 {
+    if (!median_bbox.isNeighbour(p))
+        return false;
+
     for (MedianLine::const_iterator it = median.begin(); it != median.end(); ++it)
     {
         if (it->first.isNeighbour(p))
