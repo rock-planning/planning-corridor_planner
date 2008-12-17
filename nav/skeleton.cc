@@ -171,7 +171,7 @@ MedianLine SkeletonExtraction::propagateHeightMap(PointSet const& border)
         PointID p = pointFromPtr(*it);
         MedianPoint& info = result[p];
         info = parents[*it];
-        info.distance = **it;
+        info.width = **it;
     }
 
     return result;

@@ -32,9 +32,9 @@ namespace Nav
         /** The distance between the point and the borders. Note that there is
          * one unique distance by construction
          */
-        int distance;
+        int width;
 
-        MedianPoint() : distance(0)  {}
+        MedianPoint() : width(0)  {}
 
         /** Add \c p to the borders. See borders for more details */
         void addBorderPoint(PointID const& p);
