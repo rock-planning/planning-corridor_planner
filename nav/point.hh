@@ -44,15 +44,27 @@ namespace Nav {
 
     struct BoundingBox
     {
+        bool initialized;
         PointID min;
         PointID max;
 
+        BoundingBox()
+            : initialized(false) {}
+
         void update(PointID const& p)
         {
-            min.x = std::min(p.x, min.x);
-            min.y = std::min(p.y, min.y);
-            max.x = std::max(p.x, max.x);
-            max.y = std::max(p.y, max.y);
+            if (!initialized)
+            {
+                min = max = p;
+                initialized = true;
+            }
+            else
+            {
+                min.x = std::min(p.x, min.x);
+                min.y = std::min(p.y, min.y);
+                max.x = std::max(p.x, max.x);
+                max.y = std::max(p.y, max.y);
+            }
         }
         bool isIncluded(PointID const& p) const
         {
