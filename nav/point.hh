@@ -3,22 +3,69 @@
 
 #include <iosfwd>
 #include <set>
+#include <cmath>
 #include <stdlib.h>
 
 namespace Nav {
-    struct PointID { 
-        int x; 
-        int y; 
+    template<typename T>
+    struct Point
+    {
+        T x, y;
 
-        PointID() {}
-        PointID(int x, int y)
-            : x(x), y(y) {}
-        bool operator == (PointID const& other) const
+        Point() : x(0), y(0) {}
+        Point(T x, T y) : x(x), y(y) {}
+
+        template<typename Other>
+        Point(Point<Other> const& p)
+            : x(p.x), y(p.y) {}
+
+        bool operator == (Point<T> const& other) const
         { return x == other.x && y == other.y; }
-        bool operator != (PointID const& other) const
+        bool operator != (Point<T> const& other) const
         { return !(*this == other); }
-        bool operator < (PointID const& other) const
+        bool operator < (Point<T> const& other) const
         { return x < other.x || (x == other.x && y < other.y); }
+
+        template<typename Scalar>
+        Point<T> operator / (Scalar v) const
+        { return Point<T>(x / v, y / v); }
+
+        template<typename Other>
+        Point<T> operator + (Point<Other> p) const
+        { return Point<T>(x + p.x, y + p.y); }
+
+        template<typename Other>
+        Point<T> operator - (Point<Other> p) const
+        { return Point<T>(x - p.x, y - p.y); }
+
+        T operator * (Point<T> const& p) const
+        { return x * p.x + y * p.y; }
+
+        Point<float> normalize() const
+        { 
+            float d = norm();
+            return Point<float>(x, y) / d;
+        }
+
+        float norm() const
+        {
+            return std::sqrt(static_cast<float>(x * x) + static_cast<float>(y * y));
+        }
+
+        template<typename Other>
+        float distance2(Point<Other> const& p) const
+        {
+            return static_cast<float>(x * p.x) + static_cast<float>(y * p.y);
+        }
+    };
+
+
+    struct PointID : public Point<int> { 
+        PointID() : Point<int>() {}
+        PointID(int x, int y)
+            : Point<int>(x, y) {}
+        PointID(Point<int> const& p)
+            : Point<int>(p) {}
 
         bool isNeighbour(PointID const& p) const
         {
