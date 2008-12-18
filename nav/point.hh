@@ -1,7 +1,7 @@
 #ifndef __NAV_POINT_HH
 #define __NAV_POINT_HH
 
-#include <iosfwd>
+#include <iostream>
 #include <set>
 #include <cmath>
 #include <stdlib.h>
@@ -88,7 +88,12 @@ namespace Nav {
     };
     typedef std::set<PointID> PointSet;
 
-    std::ostream& operator << (std::ostream& io, PointID const& p);
+    template<typename T>
+    std::ostream& operator << (std::ostream& io, Point<T> const& p)
+    {
+        io << "{ " << p.x << ", " << p.y << " }";
+        return io;
+    }
 
     struct BoundingBox
     {
