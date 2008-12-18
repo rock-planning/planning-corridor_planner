@@ -81,13 +81,17 @@ Point<float> MedianPoint::direction() const
     if (borders.size() != 2)
         throw std::runtime_error("found more than two borders in MedianPoint::direction()");
 
-
     BorderList::const_iterator it = borders.begin();
     PointID p1 = accumulate(it->begin(), it->end(), PointID()) / it->size();
     ++it;
     PointID p2 = accumulate(it->begin(), it->end(), PointID()) / it->size();
 
     return (p2 - p1).normalize();
+}
+
+bool MedianPoint::operator == (MedianPoint const& other) const
+{
+    return width == other.width && borders == other.borders;
 }
 
 ostream& Nav::operator << (ostream& io, MedianPoint const& p)
@@ -152,6 +156,11 @@ void Corridor::clear()
     borders.clear();
     median.clear();
     connections.clear();
+}
+
+bool Corridor::operator == (Corridor const& other) const
+{
+    return median == other.median;
 }
 
 

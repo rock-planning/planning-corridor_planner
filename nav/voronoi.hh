@@ -35,6 +35,7 @@ namespace Nav
         int width;
 
         MedianPoint() : width(0)  {}
+        bool operator == (MedianPoint const& other) const;
 
         Point<float> direction() const;
 
@@ -61,6 +62,7 @@ namespace Nav
         Connections connections;
 
         void clear();
+        bool operator == (Corridor const& other) const;
 
         /** Add a median point to the corridor, updating its border and bouding
          * box */
