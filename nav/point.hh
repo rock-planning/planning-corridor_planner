@@ -49,13 +49,14 @@ namespace Nav {
 
         float norm() const
         {
-            return std::sqrt(static_cast<float>(x * x) + static_cast<float>(y * y));
+            return std::sqrt(distance2(Point<T>(0, 0)));
         }
 
         template<typename Other>
         float distance2(Point<Other> const& p) const
         {
-            return static_cast<float>(x * p.x) + static_cast<float>(y * p.y);
+            return static_cast<float>(x - p.x) * static_cast<float>(x - p.x) + 
+                 static_cast<float>(y - p.y) * static_cast<float>(y - p.y);
         }
     };
 
