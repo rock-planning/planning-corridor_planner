@@ -14,10 +14,9 @@ namespace Nav
         { NONE, LEFT_RIGHT, MERGING };
         MERGING_MODES mode;
 
-        void pushPoint(int target_idx, Corridor& target, Corridor const& source, MedianLine::const_iterator median);
+        void copyConnections(int target_idx, Corridor& target, PointID const& target_p,
+                Corridor const& source, PointID const& source_p);
 
-        void mergeCorridors(Corridor const& left, Corridor const& right, std::vector<Corridor>& result,
-                float coverage_threshold, float angular_threshold);
         void pushLeftRight(Corridor const& left, MedianLine::const_iterator left_p,
                 Corridor const& right, MedianLine::const_iterator right_p);
         void pushMerged(Corridor const& left, MedianLine::const_iterator left_p,
@@ -29,6 +28,8 @@ namespace Nav
     public:
         PlanMerge();
         void merge(Plan const& left, Plan const& right);
+        bool mergeCorridors(int left_idx, int right_idx,
+                float coverage_threshold, float angular_threshold);
     };
 }
 

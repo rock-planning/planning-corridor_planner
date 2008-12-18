@@ -12,6 +12,10 @@ using namespace Nav;
 using boost::mem_fn;
 using boost::bind;
 
+void Plan::clear()
+{
+    corridors.clear();
+}
 
 void Plan::removeCorridor(int idx)
 {

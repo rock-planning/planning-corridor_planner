@@ -20,6 +20,7 @@ namespace Nav
         /** This vector maps each pixel into its corresponding corridor */
         std::vector<uint8_t> pixel_map;
 
+        void clear();
         void concat(Plan const& other);
 
         /** Removes the corridor from the set of corridors in this plan. In
