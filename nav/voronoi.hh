@@ -80,7 +80,7 @@ namespace Nav
     };
     std::ostream& operator << (std::ostream& io, Corridor const& corridor);
 
-    void displayMedianLine(std::ostream& io, MedianLine const& skel, int w, int h);
+    void displayMedianLine(std::ostream& io, MedianLine const& skel, int xmin, int xmax, int ymin, int ymax);
 }
 
 #endif

@@ -107,31 +107,51 @@ ostream& Nav::operator << (ostream& io, MedianPoint const& p)
     return io;
 }
 
-void Nav::displayMedianLine(ostream& io, MedianLine const& skel, int w, int h)
+static void displayPoint(ostream& io, MedianLine const& median_set, PointSet const& border_set, int x, int y)
 {
-    io << "Bitmap:" << endl;
-    io << "  ";
-    for (int x = 0; x < w; ++x)
-        io << " " << std::setw(2) << x;
-    io << endl;
-    for (int y = 0; y < h; ++y)
-    {
-        io << std::setw(2) << y;
-        for (int x = 0; x < w; ++x)
-        {
-            if (skel.count(PointID(x, y)))
-                io << " " << std::setw(2) << 1;
-            else
-                io << "  -";
-        }
-        io << endl;
-    }
+    if (x < -9)
+        io << "   ";
+    else
+        io << "  ";
 
-    io << "Parent list:" << std::endl;
+    if (median_set.count(PointID(x, y)))
+        io << 1;
+    else if (border_set.count(PointID(x, y)))
+        io << 0;
+    else
+        io << "-";
+}
+
+void Nav::displayMedianLine(ostream& io, MedianLine const& skel, int xmin, int xmax, int ymin, int ymax)
+{
+    // Build the set of points that are in the border
+    PointSet border_all;
     for (MedianLine::const_iterator it = skel.begin(); it != skel.end(); ++it)
     {
-        io << "  " << it->first << " " << it->second << endl;
+        MedianPoint::BorderList const& borders = it->second.borders;
+        for (MedianPoint::BorderList::const_iterator border = borders.begin(); border != borders.end(); ++border)
+            border_all.insert(border->begin(), border->end());
     }
+
+    io << "  Bitmap:" << endl;
+    io << "     ";
+    for (int x = xmin; x < xmax; ++x)
+        io << " " << std::setw(2) << x;
+    for (int y = ymin; y < ymax; ++y)
+    {
+        io << endl << "  ";
+        io << std::setw(3) << y;
+        for (int x = xmin; x < xmax; ++x)
+            displayPoint(io, skel, border_all, x, y);
+    }
+
+    io << endl << "  Parent list:";
+    for (MedianLine::const_iterator it = skel.begin(); it != skel.end(); ++it)
+    {
+        io << endl;
+        io << "    " << it->first << " " << it->second;
+    }
+    io << endl;
 }
 
 void Corridor::add(PointID const& p, MedianPoint const& descriptor)
@@ -179,9 +199,8 @@ bool Corridor::isNeighbour(PointID const& p) const
 
 ostream& Nav::operator << (ostream& io, Corridor const& corridor)
 {
-    io << "  Median:\n";
-    for (MedianLine::const_iterator it = corridor.median.begin(); it != corridor.median.end(); ++it)
-        io << "    " << it->first << " " << it->second << "\n";
+    displayMedianLine(io, corridor.median, corridor.bbox.min.x - 1, corridor.bbox.max.x + 1, corridor.bbox.min.y - 1, corridor.bbox.max.y + 1);
+
     io << "  Borders:\n";
     io << "    " << static_cast<MedianPoint const&>(corridor);
     io << "\n";
