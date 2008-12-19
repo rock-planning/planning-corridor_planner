@@ -29,6 +29,8 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
 
     Corridor left  = corridors[left_idx];
     Corridor right = corridors[right_idx];
+    // First, traverse the left corridor and build left-only and merged
+    // corridors
     for (MedianLine::const_iterator left_slice = left.median.begin(); left_slice != left.median.end(); ++left_slice)
     {
         PointID left_p = left_slice->first;
@@ -57,7 +59,7 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
 
         if (left_dir * right_dir < cos_angular_threshold)
         {
-            pushLeftRight(left, left_slice, right, right_slice);
+            pushSingle(left, left_slice);
             continue;
         }
 
@@ -67,9 +69,9 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
         float right_w = right_slice->second.width;
 
         if ((right_w - (left_w - distance)) / right_w > 1 - coverage_threshold)
-            pushLeftRight(left, left_slice, right, right_slice);
+            pushSingle(left, left_slice);
         else if ((left_w - (right_w - distance)) / left_w > 1 - coverage_threshold)
-            pushLeftRight(left, left_slice, right, right_slice);
+            pushSingle(left, left_slice);
         else
         {
             did_merge = true;
@@ -78,31 +80,66 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
         }
     }
 
-    if (did_merge)
+    // No merge detected, just stop here since there is changes needed
+    if (!did_merge)
+        return false;
+
+    // Push the leftovers from the first pass
+    pushAccumulator();
+
+    // Now that we did everything we could for the left corridor, let's traverse
+    // the right corridor. Here, we just have to register all points that are
+    // not already merged since the merging is symmetric
+    mode = NONE;
+    for (MedianLine::const_iterator right_slice = right.median.begin(); right_slice != right.median.end(); ++right_slice)
     {
-        finalizeMerge();
-        return true;
+        if (point_mapping.count(right_slice->first) && mode == SINGLE)
+        {
+            if (accumulator.median.size() > 1) // to account for rasterization errors
+                pushAccumulator();
+            accumulator.clear();
+            mode = NONE;
+        }
+        else
+        {
+            pushSingle(right, right_slice);
+            mode = SINGLE;
+        }
     }
-    else return false;
+    if (mode == SINGLE && accumulator.median.size() > 1)
+        pushAccumulator();
+
+    return true;
 }
 
-void PlanMerge::pushLeftRight(Corridor const& left, MedianLine::const_iterator left_p,
-        Corridor const& right, MedianLine::const_iterator right_p)
+void PlanMerge::pushAccumulator()
+{
+    for (list<PointMappingTuple>::const_iterator it = accumulator_point_mapping.begin(); it != accumulator_point_mapping.end(); ++it)
+    {
+        PointID source_p, target_p;
+        Corridor const* source_corridor;
+        tie(source_p, source_corridor, target_p) = *it;
+
+        if (mode == MERGING)
+            point_mapping.insert( make_pair(source_p, target_p) );
+        copyConnections(corridors.size(), accumulator, target_p, *source_corridor, source_p);
+    }
+
+    corridors.push_back(accumulator);
+    accumulator_point_mapping.clear();
+    accumulator.clear();
+}
+
+void PlanMerge::pushSingle(Corridor const& corridor, MedianLine::const_iterator point)
 {
     if (mode == MERGING)
-    {
-        corridors.push_back(merged_corridor);
-        left_corridor.clear();
-        right_corridor.clear();
-    }
-    mode = LEFT_RIGHT;
+        pushAccumulator();
+    mode = SINGLE;
 
     // Add both the points and the connections that go from/to that point. If
     // there is connections, also update the other end of it
-    left_corridor.add(*left_p);
-    copyConnections(corridors.size(), left_corridor, left_p->first, left, left_p->first);
-    right_corridor.add(*right_p);
-    copyConnections(corridors.size() + 1, right_corridor, right_p->first, right, right_p->first);
+    accumulator_point_mapping.push_back(make_tuple(point->first, &corridor, point->first));
+    accumulator.add(*point);
 }
 
 void PlanMerge::copyConnections(int target_idx, Corridor& target, PointID const& target_p,
@@ -136,33 +173,12 @@ void PlanMerge::pushMerged(
         Corridor const& right, MedianLine::const_iterator right_p,
         PointID const& p, MedianPoint const& median)
 {
-    if (mode == LEFT_RIGHT)
-    {
-        corridors.push_back(left_corridor);
-        corridors.push_back(right_corridor);
-        merged_corridor.clear();
-    }
+    if (mode == SINGLE)
+        pushAccumulator();
     mode = MERGING;
 
-    merged_corridor.add(p, median);
-    copyConnections(corridors.size(), merged_corridor, p, left, left_p->first);
-    copyConnections(corridors.size(), merged_corridor, p, right, right_p->first);
-}
-
-void PlanMerge::finalizeMerge()
-{
-    if (mode == LEFT_RIGHT)
-    {
-        corridors.push_back(left_corridor);
-        corridors.push_back(right_corridor);
-    }
-    else if (mode == MERGING)
-        corridors.push_back(merged_corridor);
-
-    left_corridor.clear();
-    right_corridor.clear();
-    merged_corridor.clear();
-    
-    mode = NONE;
+    accumulator_point_mapping.push_back(make_tuple(left_p->first, &left, p));
+    accumulator_point_mapping.push_back(make_tuple(right_p->first, &right, p));
+    accumulator.add(p, median);
 }
 

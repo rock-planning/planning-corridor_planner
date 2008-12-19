@@ -187,3 +187,59 @@ BOOST_AUTO_TEST_CASE( test_merge_near_corridors )
     BOOST_REQUIRE_EQUAL(3,  merge.corridors.size());
 }
 
+/** In this test case, we try to merge two different corridors which has only a
+ * section in the middle in common
+ */
+BOOST_AUTO_TEST_CASE( test_fork_merge )
+{
+    Corridor a, b;
+    for (int x = 0; x <= 8; ++x)
+    {
+        MedianPoint a_median;
+        a_median.addBorderPoint( PointID(x, 10-x) );
+        a_median.addBorderPoint( PointID(x, 6-x) );
+        a_median.width = 2;
+        a.add(PointID(x, 8-x), a_median);
+
+        MedianPoint b_median;
+        b_median.addBorderPoint( PointID(x, -10+x) );
+        b_median.addBorderPoint( PointID(x, -6+x) );
+        b_median.width = 2;
+        b.add(PointID(x, -8+x), b_median);
+    }
+    for (int x = 9; x <= 15; ++x)
+    {
+        MedianPoint median;
+        median.addBorderPoint( PointID(x, 2) );
+        median.addBorderPoint( PointID(x, -2) );
+        median.width = 2;
+        a.add(PointID(x, 0), median);
+        b.add(PointID(x, 0), median);
+    }
+    for (int x = 15; x <= 23; ++x)
+    {
+        MedianPoint a_median;
+        a_median.addBorderPoint( PointID(x, 2+x-15) );
+        a_median.addBorderPoint( PointID(x, -2+x-15) );
+        a_median.width = 2;
+        a.add(PointID(x, x-15), a_median);
+
+        MedianPoint b_median;
+        b_median.addBorderPoint( PointID(x, 2-x+15) );
+        b_median.addBorderPoint( PointID(x, -2-x+15) );
+        b_median.width = 2;
+        b.add(PointID(x, -x+15), b_median);
+    }
+
+    PlanMerge merge;
+    merge.corridors.push_back(a);
+    merge.corridors.push_back(b);
+    BOOST_REQUIRE( merge.mergeCorridors(0, 1, 0.5, 0.1) );
+    BOOST_REQUIRE_EQUAL(7,  merge.corridors.size());
+
+    for (int i = 2; i < 7; ++i)
+        cerr << merge.corridors[i] << endl;
+
+}
+
+
