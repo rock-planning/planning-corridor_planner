@@ -24,11 +24,18 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
         return false;
 
     mode = NONE;
+    accumulator.clear();
+    accumulator_point_mapping.clear();
+    point_mapping.clear();
+    merged_points.clear();
+    endpoints.clear();
+
     bool did_merge = false;
     float cos_angular_threshold = cos(angular_threshold);
 
     Corridor left  = corridors[left_idx];
     Corridor right = corridors[right_idx];
+
     // First, traverse the left corridor and build left-only and merged
     // corridors
     for (MedianLine::const_iterator left_slice = left.median.begin(); left_slice != left.median.end(); ++left_slice)
@@ -93,7 +100,7 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
     mode = NONE;
     for (MedianLine::const_iterator right_slice = right.median.begin(); right_slice != right.median.end(); ++right_slice)
     {
-        if (point_mapping.count(right_slice->first) && mode == SINGLE)
+        if (merged_points.count(right_slice->first) && mode == SINGLE)
         {
             if (accumulator.median.size() > 1) // to account for rasterization errors
                 pushAccumulator();
@@ -109,22 +116,31 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
     if (mode == SINGLE && accumulator.median.size() > 1)
         pushAccumulator();
 
+    finalizeMerge();
+
     return true;
 }
 
 void PlanMerge::pushAccumulator()
 {
-    for (list<PointMappingTuple>::const_iterator it = accumulator_point_mapping.begin(); it != accumulator_point_mapping.end(); ++it)
+    for (list<AccMappingTuple>::const_iterator it = accumulator_point_mapping.begin(); it != accumulator_point_mapping.end(); ++it)
     {
         PointID source_p, target_p;
         Corridor const* source_corridor;
         tie(source_p, source_corridor, target_p) = *it;
 
         if (mode == MERGING)
-            point_mapping.insert( make_pair(source_p, target_p) );
+            merged_points.insert(source_p);
+
+        if (source_p != target_p)
+            point_mapping.push_back( make_tuple(source_p, corridors.size(), target_p) );
+
         copyConnections(corridors.size(), accumulator, target_p, *source_corridor, source_p);
     }
 
+    // Register the endpoints to connect the corridors to each other afterwards
+    endpoints.push_back( make_tuple(accumulator.median.begin()->first, corridors.size(), mode == MERGING) );
+    endpoints.push_back( make_tuple(accumulator.median.rbegin()->first, corridors.size(), mode == MERGING) );
     corridors.push_back(accumulator);
     accumulator_point_mapping.clear();
     accumulator.clear();
@@ -180,5 +196,45 @@ void PlanMerge::pushMerged(
     accumulator_point_mapping.push_back(make_tuple(left_p->first, &left, p));
     accumulator_point_mapping.push_back(make_tuple(right_p->first, &right, p));
     accumulator.add(p, median);
+}
+
+void PlanMerge::finalizeMerge()
+{
+    for (EndPoints::const_iterator src = endpoints.begin(); src != endpoints.end(); ++src)
+    {
+        PointID src_p   = src->get<0>();
+        int     src_idx = src->get<1>();
+        bool    src_is_merge = src->get<2>();
+
+        // Check if there are other endpoints that are closeby this one
+        EndPoints::const_iterator trg = src;
+        for (++trg; trg != endpoints.end(); ++trg)
+        {
+            if (trg->get<2>() == src_is_merge)
+                continue;
+
+            PointID trg_p = trg->get<0>();
+            int     trg_idx = trg->get<1>();
+            if (trg_p.isNeighbour(src_p) && trg_idx != src_idx)
+            {
+                corridors[src_idx].connections.push_back( make_tuple(src_p, trg_idx, trg_p) );
+                corridors[trg_idx].connections.push_back( make_tuple(trg_p, src_idx, src_p) );
+            }
+        }
+
+        // Now, also check for merged points if src is a non-merge corridor
+        if (src_is_merge)
+            continue;
+
+        for (list<PtMappingTuple>::const_iterator trg = point_mapping.begin(); trg != point_mapping.end(); ++trg)
+        {
+            int trg_idx = trg->get<1>();
+            if (trg->get<0>().isNeighbour(src_p) && trg_idx != src_idx)
+            {
+                corridors[src_idx].connections.push_back( make_tuple(src_p, trg_idx, trg->get<2>()) );
+                corridors[trg_idx].connections.push_back( make_tuple(trg->get<2>(), src_idx, src_p) );
+            }
+        }
+    }
 }
 

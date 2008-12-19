@@ -14,14 +14,20 @@ namespace Nav
          */
         Corridor accumulator;
 
+        typedef std::list< boost::tuple<PointID, int, bool> > EndPoints;
+        EndPoints endpoints;
+
         /** This type and this list hold the set of mapping from the given
          * corridor into the merged ones. The tuple is
          *  ( source_point, source_corridor, new_point )
          */
-        typedef boost::tuple<PointID, Corridor const*, PointID> PointMappingTuple;
-        std::list<PointMappingTuple> accumulator_point_mapping;
+        typedef boost::tuple<PointID, Corridor const*, PointID> AccMappingTuple;
+        std::list<AccMappingTuple> accumulator_point_mapping;
 
-        std::map<PointID, PointID> point_mapping;
+        typedef boost::tuple<PointID, int, PointID> PtMappingTuple;
+        std::list<PtMappingTuple> point_mapping;
+
+        PointSet merged_points;
 
         enum MERGING_MODES
         { NONE, SINGLE, MERGING };
@@ -35,6 +41,8 @@ namespace Nav
         void pushMerged(Corridor const& left, MedianLine::const_iterator left_p,
                 Corridor const& right, MedianLine::const_iterator right_p,
                 PointID const& p, MedianPoint const& median);
+
+        void finalizeMerge();
 
     public:
         PlanMerge();
