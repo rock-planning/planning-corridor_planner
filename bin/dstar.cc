@@ -55,8 +55,8 @@ int main(int argc, char** argv)
     DStar algo(*map);
     GridGraph const& graph = algo.graph();
 
+    algo.initialize(x1, y1);
     std::cerr << "applying D* on a " << graph.xSize() << "x" << graph.ySize() << " map" << std::endl;
-    algo.initialize(x1, y1, x0, y0);
     std::cerr << "done ... checking its consistency" << std::endl;
     algo.checkSolutionConsistency();
 

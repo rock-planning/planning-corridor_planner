@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE( test_linear_symmetric )
 
     DStar algo(map);
 
-    algo.initialize(x1, y1, x0, y0);
+    algo.initialize(x1, y1);
     BOOST_REQUIRE(algo.checkSolutionConsistency());
 
     ofstream out("multipath_linear_symmetric.txt");
@@ -84,7 +84,7 @@ BOOST_AUTO_TEST_CASE( test_multipath_heterogeneous )
 
     DStar algo(map);
 
-    algo.initialize(x1, y1, x0, y0);
+    algo.initialize(x1, y1);
     BOOST_REQUIRE(algo.checkSolutionConsistency());
 
     ofstream out("multipath_heterogeneous.txt");
@@ -126,7 +126,7 @@ BOOST_AUTO_TEST_CASE( test_multipath_forest )
 
     DStar algo(map);
 
-    algo.initialize(x1, y1, x0, y0);
+    algo.initialize(x1, y1);
     BOOST_REQUIRE(algo.checkSolutionConsistency());
 
     pair<PointSet, PointSet> result;

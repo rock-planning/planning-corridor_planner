@@ -223,7 +223,7 @@ GridGraph& DStar::graph()
 GridGraph const& DStar::graph() const
 { return m_graph; }
 
-void DStar::initialize(int goal_x, int goal_y, int pos_x, int pos_y)
+void DStar::initialize(int goal_x, int goal_y)
 {
     /** First, clear up everything */
     m_graph.clear(std::numeric_limits<float>::max());
@@ -234,7 +234,7 @@ void DStar::initialize(int goal_x, int goal_y, int pos_x, int pos_y)
 
     m_graph.setValue(goal_x, goal_y, 0);
     insert(goal_x, goal_y, 0);
-    update(pos_x, pos_y);
+    update();
 }
 
 float DStar::costOfClass(int klass)
@@ -409,7 +409,7 @@ bool DStar::isOpened(int x, int y) const
     return m_open_from_node.find(id) != m_open_from_node.end();
 }
 
-void DStar::update(int pos_x, int pos_y)
+void DStar::update()
 {
     while (!m_open_from_cost.empty())
     {

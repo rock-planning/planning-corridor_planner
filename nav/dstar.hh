@@ -415,14 +415,14 @@ namespace Nav {
         GridGraph const& graph() const;
 
         /** Initializes the algorithm for the given position and goal */
-        void initialize(int goal_x, int goal_y, int pos_x, int pos_y);
+        void initialize(int goal_x, int goal_y);
 
         /** Announce that the given cell has been updated in the traversability
          * map */
         float updated(int x, int y);
 
         /** Update the trajectories for the given position */
-        void update(int pos_x, int pos_y);
+        void update();
 
         /** True if \c it points to a cell which has never been considered by
          * the algorithm */
