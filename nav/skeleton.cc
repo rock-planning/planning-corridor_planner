@@ -327,27 +327,6 @@ Plan SkeletonExtraction::buildPlan(MedianLine points)
     for (ConnectionMap::const_iterator it = in_out.begin(); it != in_out.end(); ++it)
         registerConnections(0, it, corridors);
 
-    // Filter dead ends out of the plan. A dead end is a corridor whose
-    // connections are all already connected together. A dead end is:
-    //  * the corridor itself does not provide a new connection between two
-    //    otherwise not connected points.
-    //  * it does not provide a mean to go out of the zone (i.e. on of its ends
-    //    is not adjacent 
-    size_t corridor_idx = 1;
-    while (corridor_idx < result.corridors.size())
-    {
-        MedianPoint classifier;
-        Corridor& corridor = result.corridors[corridor_idx];
-
-        for (Corridor::connection_iterator it = corridor.connections.begin(); it != corridor.connections.end(); ++it)
-            classifier.addBorderPoint(it->get<2>());
-
-        if (classifier.borders.size() == 1)
-            result.removeCorridor(corridor_idx);
-        else
-            corridor_idx++;
-    }
-
     return result;
 }
 
