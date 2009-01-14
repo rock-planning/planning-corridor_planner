@@ -175,8 +175,10 @@ BOOST_AUTO_TEST_CASE( test_grid_graph )
 std::vector<float> dstarCosts()
 {
     vector<float> basic_costs;
+    TraversabilityMap map(100, 100);
+    DStar dummy(map);
     for (int i = 0; i < TraversabilityMap::CLASSES_COUNT; ++i)
-        basic_costs.push_back( DStar::costOfClass(i) );
+        basic_costs.push_back( dummy.costOfClass(i) );
     return basic_costs;
 }
 

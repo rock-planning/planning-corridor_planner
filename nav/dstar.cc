@@ -11,6 +11,8 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
+#include <algorithm>
 
 using namespace std;
 using namespace Nav;
@@ -43,35 +45,88 @@ namespace Nav {
         GridGraph::TOP_LEFT };
 }
 
-TraversabilityMap* TraversabilityMap::load(std::string const& path)
+std::list<TerrainClass> TerrainClass::load(std::string const& path)
+{
+    list<TerrainClass> classes;
+    ifstream class_file(path.c_str());
+    while (!class_file.eof())
+    {
+        char line[256];
+        class_file.getline(line, 256);
+
+        if (line[0] == '#' || !*line)
+            continue;
+
+        istringstream class_desc(line);
+        TerrainClass klass;
+        class_desc >> klass.in >> klass.out >> klass.cost >> klass.name;
+        classes.push_back(klass);
+    }
+
+    return classes;
+}
+
+TraversabilityMap* TraversabilityMap::load(std::string const& path, TerrainClasses const& classes)
 {
     auto_ptr<GDALDataset> set((GDALDataset*) GDALOpen(path.c_str(), GA_ReadOnly));
     GDALRasterBand* band = set->GetRasterBand(1);
+    double transform[6];
+    set->GetGeoTransform(transform);
+    float scale = transform[1];
 
     int width  = band->GetXSize();
     int height = band->GetYSize();
 
-    vector<float> data(width * height);
+    vector<uint8_t> data(width * height);
     band->RasterIO(GF_Read, 0, 0, width, height,
-	    &data[0], width, height, GDT_Float32, 0, 0);
+	    &data[0], width, height, GDT_Byte, 0, 0);
 
-    auto_ptr<TraversabilityMap> map(new TraversabilityMap(width, height, 0));
+    if (!classes.empty())
+    {
+        int klass_map[256];
+        for (int i = 0; i < 256; ++i)
+            klass_map[i] = -1;
+        for (TerrainClasses::const_iterator it = classes.begin(); it != classes.end(); ++it)
+            klass_map[it->in] = it->out;
+
+        for (int i = 0; i < width * height; ++i)
+        {
+            int out = klass_map[data[i]];
+            if (out == -1)
+            {
+                cerr << "unknown class found: " << static_cast<int>(data[i]) << endl;
+                return NULL;
+            }
+            data[i] = out;
+        }
+    }
+
+    auto_ptr<TraversabilityMap> map(new TraversabilityMap(width, height, scale, 0));
     map->fill(data);
     return map.release();
 }
 
 TraversabilityMap::TraversabilityMap(size_t width, size_t height, uint8_t init)
-    : GridMap(width, height)
+    : GridMap(width, height), m_scale(1.0)
     , m_values((width * height + 1) / 2, init) { }
 
-void TraversabilityMap::fill(vector<float> const& values)
+TraversabilityMap::TraversabilityMap(size_t width, size_t height, float scale, uint8_t init)
+    : GridMap(width, height), m_scale(scale)
+    , m_values((width * height + 1) / 2, init) { }
+
+float TraversabilityMap::getScale() const { return m_scale; }
+
+void TraversabilityMap::fill(vector<uint8_t> const& values)
 {
+    m_values.resize(values.size() / 2);
     for (int i = 0; i < (int)m_values.size(); ++i)
     {
         m_values[i] = 
-            static_cast<int>(values[i] * (CLASSES_COUNT - 1)) |
-            (static_cast<int>(values[2 * i + 1] * (CLASSES_COUNT - 1)) << 4);
+            static_cast<int>(values[2 * i]) |
+            static_cast<int>(values[2 * i + 1] << 4);
     }
+    if (values.size() % 2 == 1)
+        m_values.push_back(values[values.size() - 1]);
 }
 void TraversabilityMap::fill(uint8_t value)
 { 
@@ -117,7 +172,7 @@ void NeighbourGenericIterator<GC>::findNextNeighbour()
     /* Initialize m_neighbour to the value of the first non-zero bit
      * in the parent field of (x, y)
      */
-    while( ((m_mask & 0x1) == 0) && (m_neighbour < 9) )
+    while ( ((m_mask & 0x1) == 0) && (m_neighbour < 9) )
     {
         m_mask >>= 1;
         m_neighbour++;
@@ -213,10 +268,34 @@ namespace Nav {
     static const float DIAG_FACTOR = sqrt(2);
 }
 
-DStar::DStar(TraversabilityMap& map)
+DStar::DStar(TraversabilityMap& map, TerrainClasses const& classes)
     : m_map(map)
     , m_graph(map.xSize(), map.ySize(), std::numeric_limits<float>::max())
-{ }
+{
+    if (classes.empty())
+    {
+        for (int i = 0; i < TraversabilityMap::CLASSES_COUNT; ++i)
+            m_cost_of_class[i] = TraversabilityMap::CLASSES_COUNT + 1 - i;
+    }
+    else
+    {
+        float map_scale = map.getScale();
+
+        for (int i = 0; i < TraversabilityMap::CLASSES_COUNT; ++i)
+            m_cost_of_class[i] = 1000000;
+
+        for (TerrainClasses::const_iterator it = classes.begin(); it != classes.end(); ++it)
+        {
+            float speed = it->cost;
+            if (speed == 0)
+                m_cost_of_class[it->out] = 1000000;
+            else
+                m_cost_of_class[it->out] = map_scale / speed;
+
+            cerr << " class " << it->out << " has cost " << m_cost_of_class[it->out] << endl;
+        }
+    }
+}
 
 GridGraph& DStar::graph()
 { return m_graph; }
@@ -237,17 +316,11 @@ void DStar::initialize(int goal_x, int goal_y)
     update();
 }
 
-float DStar::costOfClass(int klass)
-{
-    return TraversabilityMap::CLASSES_COUNT + 1 - klass;
-    // float p = static_cast<float>(klass) / (TraversabilityMap::CLASSES_COUNT - 1);
-    // float sigma = p * (COST_GROWTH_1 - COST_GROWTH_0) + COST_GROWTH_0;
-    // return std::pow(2, (1 - p) / sigma);
-}
+float DStar::costOfClass(int i) const { return m_cost_of_class[i]; }
 float DStar::costOf(NeighbourConstIterator it) const
 {
-    float a = costOfClass(m_map.getValue(it.sourceX(), it.sourceY()));
-    float b = costOfClass(m_map.getValue(it.x(), it.y()));
+    float a = m_cost_of_class[m_map.getValue(it.sourceX(), it.sourceY())];
+    float b = m_cost_of_class[m_map.getValue(it.x(), it.y())];
 
     if (it.getNeighbour() & GridGraph::DIR_STRAIGHT)
         return a + b;
@@ -262,8 +335,8 @@ float DStar::costOf(NeighbourConstIterator it) const
     NeighbourConstIterator next = m_graph.getNeighbour(it.sourceX(), it.sourceY(), next_neighbour);
     NeighbourConstIterator prev = m_graph.getNeighbour(it.sourceX(), it.sourceY(), prev_neighbour);
 
-    float c = costOfClass(m_map.getValue(next.x(), next.y()));
-    float d = costOfClass(m_map.getValue(prev.x(), prev.y()));
+    float c = m_cost_of_class[m_map.getValue(next.x(), next.y())];
+    float d = m_cost_of_class[m_map.getValue(prev.x(), prev.y())];
     return (a + b + c + d) / 2 * Nav::DIAG_FACTOR;
 }
 
@@ -282,6 +355,9 @@ float DStar::updated(int x, int y)
 
 DStar::Cost DStar::insert(int x, int y, Cost new_cost)
 {
+    //if (m_map.getValue(x, y) == 0)
+    //    return m_graph.getValue(x, y);
+
     Cost old_cost = m_graph.getValue(x, y);
     m_graph.setValue(x, y, new_cost.value);
 
@@ -324,12 +400,12 @@ bool DStar::checkSolutionConsistency() const
             if (x != getGoalX() || y != getGoalY())
             {
                 NeighbourConstIterator parent = m_graph.parentsBegin(x, y);
-                if (parent.isEnd())
-                {
-                    has_error = true;
-                    fprintf(stderr, "node (%i, %i) has no parent\n", 
-                            x, y);
-                }
+                //if (!parent.isEnd() && m_map.getValue(x, y) == 0)
+                //{
+                //    has_error = true;
+                //    fprintf(stderr, "node (%i, %i) is obstacle but has a parent\n", 
+                //            x, y);
+                //}
                 if (m_graph.getValue(x, y) <= 0)
                 {
                     has_error = true;
@@ -536,7 +612,7 @@ pair<PointSet, PointSet> DStar::solutionBorder(int x, int y, float expand) const
             }
 
             min_limit = m_graph.getValue(x, y);
-            max_limit = std::max(old_cost, min_limit * (1.0f + expand));
+            max_limit = std::max(old_cost, min_limit + expand);
             hi_border.insert(make_pair(m_graph.getValue(x, y), PointID(x, y)));
         }
         else

@@ -9,6 +9,7 @@
 #include <boost/cstdint.hpp>
 #include <cmath>
 #include <set>
+#include <list>
 #include <iosfwd>
 
 namespace Nav {
@@ -31,12 +32,28 @@ namespace Nav {
         size_t getCellID(size_t x, size_t y) const { return y * m_xsize + x; }
     };
 
+    /** This structure is a terrain class as described in a on-disk map */
+    struct TerrainClass
+    {
+        int in; //! The class value on disk
+        int out; //! The class value to be used in TraversabilityMap
+        float cost; //! The cost of this class
+        std::string name; //! The class name
+
+        static std::list<TerrainClass> load(std::string const& path);
+    };
+
+    typedef std::list<TerrainClass> TerrainClasses;
+
     /** Objects of this class represent traversability maps. Traversability is
      * an integer value which can be represented on 4 bits (i.e. 16
      * traversability classes).
      */
     class TraversabilityMap : public GridMap
     {
+        /** The size, in meters, of one pixel */
+        float m_scale;
+
         /** The vector of values. Traversability is encoded on 4-bits fields, which
          * means that one uint8_t stores two cells. Moreover, values are stored
          * X-first, which means that the value for the cell (x, y) is at (y *
@@ -50,14 +67,14 @@ namespace Nav {
 
         /** Creates a new map with the given size in the X and Y axis */
         TraversabilityMap(size_t xsize, size_t ysize, boost::uint8_t fill = 0);
+        TraversabilityMap(size_t xsize, size_t ysize, float scale, boost::uint8_t fill = 0);
+
+        /** Returns the size, in meters, of one pixel */
+        float getScale() const;
 
         /** Fills the map with the given traversability */
         void fill(boost::uint8_t value);
-        /** Fills the map with the values in the given data
-         * vector. The floating point values are supposed to be
-         * stored in [0:1], and are converted in the map's internal
-         * format. */
-        void fill(std::vector<float> const& value);
+        void fill(std::vector<uint8_t> const& value);
 
         /** Returns the traversability value for the cell with the given ID */
         boost::uint8_t getValue(size_t id) const;
@@ -85,7 +102,7 @@ namespace Nav {
          * }
          * </code>
          */
-        static TraversabilityMap* load(std::string const& path);
+        static TraversabilityMap* load(std::string const& path, TerrainClasses const& classes);
     };
 
     class GridGraph;
@@ -382,6 +399,8 @@ namespace Nav {
         /** The underlying map we are acting on */
         TraversabilityMap& m_map;
 
+        float m_cost_of_class[TraversabilityMap::CLASSES_COUNT];
+
         /** The GridGraph object we use to store the algorithm state. The float
          * value of a node in this graph stores the cost of the path from that
          * cell to the goal
@@ -391,14 +410,13 @@ namespace Nav {
         /** The current goal */
         int m_goal_x, m_goal_y;
 
-
         typedef std::multimap<Cost, PointID> OpenFromCost;
         OpenFromCost m_open_from_cost;
         typedef std::map<PointID, Cost> OpenFromNode;
         OpenFromNode m_open_from_node;
 
     public:
-        DStar(TraversabilityMap& map);
+        DStar(TraversabilityMap& map, TerrainClasses const& classes = TerrainClasses());
 
         /* Insert the following point in the open list, using the given value
          * as ordering value
@@ -445,28 +463,8 @@ namespace Nav {
         /** True if (\c x, \c y) is neither new nor opened */
         bool isClosed(int x, int y) const { return !isNew(x, y) && !isOpened(x, y); }
 
-        /** Computes the cost of traversing a cell of the given class
-         * If p is the probability of being able to traverse the cell,
-         * the cost is
-         *   
-         *   2**((1-p)/s(p))
-         *
-         * where 
-         *   s(p) = p * (COST_1 - COST_0) + COST_0
-         *
-         * The basic idea of this cost function is to base itself on the idea
-         * of 
-         *
-         *   2**((1-p)/s)
-         *
-         * i.e. having an exponential growth in term of probabilities. The growth
-         * rate \c s is then made function of p, so that the cost function grows
-         * rapidly for low probabilities (high-cost areas) and slowly for
-         * low cost areas.
-         *
-         * The values for COST_1 and COST_0 are defined in dstar.cc
-         */
-        static float costOfClass(int klass);
+        /** Returns the basic cost associated with the given terrain class */
+        float costOfClass(int i) const;
 
         /** Computes the cost of crossing the edge represented by \c it
          *
