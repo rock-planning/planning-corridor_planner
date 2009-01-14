@@ -9,6 +9,17 @@
 
 namespace Nav
 {
+    /** This method updates the set of point sets \c sets by adding \c p so
+     * that:
+     * <ul>
+     *  <li> the points in each set of \c sets form a connected set
+     *  <li> no two sets are connected
+     * </ul>
+     *
+     * @returns the element of \c sets which now contains \c p
+     */
+    std::list<PointSet>::iterator updateConnectedSets(std::list<PointSet>& sets, PointID p);
+
     /** Descriptor for one point of the voronoi diagram. This descriptor
      * maintains the association between the point and the associated border
      * points

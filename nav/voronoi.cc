@@ -12,6 +12,41 @@ using boost::mem_fn;
 using namespace std;
 using namespace Nav;
 
+list<PointSet>::iterator Nav::updateConnectedSets(std::list<PointSet>& sets, PointID p)
+{
+    list<PointSet>::iterator it;
+    for (it = sets.begin(); it != sets.end(); ++it)
+    {
+        if (p.isNeighbour(*it))
+            break;
+    }
+
+    if (it == sets.end())
+    { // not connected to any set
+        sets.push_back( PointSet() );
+        sets.rbegin()->insert( p );
+        return --sets.end();
+    }
+
+    
+    list<PointSet>::iterator added_in = it;
+    PointSet& adjacent_border = *added_in;
+    adjacent_border.insert(p);
+
+    ++it;
+    while (it != sets.end())
+    {
+        if (p.isNeighbour(*it))
+        {
+            adjacent_border.insert(it->begin(), it->end());
+            sets.erase(it++);
+        }
+        else ++it;
+    }
+
+    return added_in;
+}
+
 void MedianPoint::addBorderPoint(PointID const& p)
 {
     bbox.update(p);
