@@ -68,6 +68,11 @@ namespace Nav {
         PointID(Point<int> const& p)
             : Point<int>(p) {}
 
+        bool operator == (PointID const& p) const
+        {
+            return x == p.x && y == p.y;
+        }
+
         bool isNeighbour(PointID const& p) const
         {
             return abs(x - p.x) <= 1 && abs(y - p.y) <= 1;
@@ -92,6 +97,20 @@ namespace Nav {
     std::ostream& operator << (std::ostream& io, Point<T> const& p)
     {
         io << "{ " << p.x << ", " << p.y << " }";
+        return io;
+    }
+    inline std::ostream& operator << (std::ostream& io, PointSet const& set)
+    {
+        if (set.empty())
+            io << "{ }";
+        else
+        {
+            PointSet::const_iterator it = set.begin();
+            io << "{ " << *it;
+            for (++it; it != set.end(); ++it)
+                io << ", " << *it;
+            io << " }";
+        }
         return io;
     }
 
