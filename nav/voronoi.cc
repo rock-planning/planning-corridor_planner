@@ -205,6 +205,14 @@ void Corridor::merge(Corridor const& corridor)
     for_each(corridor.median.begin(), corridor.median.end(), bind(mem_fn(add), this, _1));
 }
 
+bool Corridor::contains(PointID const& p) const
+{
+    if (!bbox.isIncluded(p))
+        return false;
+
+    return true; // buggy ...
+}
+
 void Corridor::clear()
 {
     median_bbox = bbox = BoundingBox();

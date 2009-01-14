@@ -72,6 +72,7 @@ namespace Nav
         typedef Connections::iterator connection_iterator;
         Connections connections;
 
+        bool contains(PointID const& p) const;
         void clear();
         bool operator == (Corridor const& other) const;
 
