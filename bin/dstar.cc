@@ -174,6 +174,12 @@ int main(int argc, char** argv)
         SkeletonExtraction skel(xSize, ySize);
         MedianLine result = skel.processEdgeSet(border.first, border.second);
         Plan plan = skel.buildPlan(result);
+
+        PointSet endpoints;
+        endpoints.insert( PointID(x0, y0) );
+        endpoints.insert( PointID(x1, y1) );
+        plan.simplify(endpoints);
+
         cerr << plan.corridors.size() << " corridors found" << endl;
 
         { vector<uint8_t> red(image.begin(), image.end()), green(image.begin(), image.end()), blue(image.begin(), image.end());
