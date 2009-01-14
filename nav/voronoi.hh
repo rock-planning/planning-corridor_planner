@@ -77,6 +77,9 @@ namespace Nav
 
         /** Returns true if \c p is adjacent to points in \c median */
         bool isNeighbour(PointID const& p) const;
+
+        /** Returns a point of the median line which is adjacent to \c p */
+        PointID adjacentEndpoint(PointID const& p) const;
     };
     std::ostream& operator << (std::ostream& io, Corridor const& corridor);
 

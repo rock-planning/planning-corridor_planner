@@ -205,19 +205,17 @@ MedianLine SkeletonExtraction::processEdgeSet(PointSet const& border, PointSet c
     return line;
 }
 
-void SkeletonExtraction::registerConnections(int idx, vector<Corridor>& corridors, ConnectionMap::const_iterator connection_point)
+void SkeletonExtraction::registerConnections(PointID source_point, int source_idx, map<PointID, int> const& targets, vector<Corridor>& corridors)
 {
-    Corridor& corridor = corridors[idx];
-    PointID point = connection_point->first;
-    map<PointID, int> const& connections = connection_point->second;
-
-    for (map<PointID, int>::const_iterator target_point = connections.begin(); target_point != connections.end(); ++target_point)
+    Corridor& source = corridors[source_idx];
+    for (map<PointID, int>::const_iterator target_it = targets.begin(); target_it != targets.end(); ++target_it)
     {
-        int target_idx = target_point->second;
+        PointID target_point = target_it->first;
+        int target_idx = target_it->second;
         Corridor& target = corridors[target_idx];
 
-        corridor.connections.push_back( make_tuple(point, target_idx, target_point->first));
-        target.connections.push_back( make_tuple(target_point->first, idx, point));
+        source.connections.push_back( make_tuple(source_point, target_idx, target_point));
+        target.connections.push_back( make_tuple(target_point, source_idx, source_point));
     }
 }
 
@@ -235,6 +233,27 @@ Plan SkeletonExtraction::buildPlan(MedianLine points)
     ConnectionMap connections;
     ConnectionMap in_out;
 
+    // Move all points that have a connectivity of more than 2 to a separate
+    // set. This set will be used to finalize the connections (but they won't be
+    // part of any corridors).
+    MedianLine crossroads;
+    for (MedianLine::iterator it = points.begin(); it != points.end(); )
+    {
+        if (it->second.borders.size() > 2)
+        {
+            crossroads.insert(*it);
+            points.erase(it++);
+        }
+        else ++it;
+    }
+
+    // To build the corridor set, we consider a point in the point set and
+    // insert it as a seed in the +propagation+ set. Then, we do the following:
+    //  
+    //   while !propagation.empty?
+    //     take p out of propagation
+    //     add in propagation the points P for which border(P) is neighbouring border(p)
+    //   end
     while (! points.empty())
     {
         PointID seed = points.begin()->first;
@@ -255,7 +274,7 @@ Plan SkeletonExtraction::buildPlan(MedianLine points)
             // between the two objects.
             ConnectionMap::iterator p_conn = connections.find(p);
             if (p_conn != connections.end())
-                registerConnections(corridor_idx, corridors, p_conn);
+                registerConnections(corridor_idx, p_conn, corridors);
 
             points.erase(p);
             propagation.erase(propagation.begin());
@@ -288,8 +307,25 @@ Plan SkeletonExtraction::buildPlan(MedianLine points)
         }
     }
 
+    map< PointID, int > connected_corridors;
+    for (MedianLine::const_iterator it = crossroads.begin(); it != crossroads.end(); ++it)
+    {
+        MedianPoint point = it->second;
+        connected_corridors.clear();
+        for (size_t i = 0; i < corridors.size(); ++i)
+        {
+            Corridor& corridor = corridors[i];
+            if (corridor.isBorderAdjacent(point))
+            {
+                PointID endpoint = corridor.adjacentEndpoint(it->first);
+                registerConnections(endpoint, i, connected_corridors, corridors);
+                connected_corridors.insert( make_pair(endpoint, i) );
+            }
+        }
+    }
+
     for (ConnectionMap::const_iterator it = in_out.begin(); it != in_out.end(); ++it)
-        registerConnections(0, corridors, it);
+        registerConnections(0, it, corridors);
 
     // Filter dead ends out of the plan. A dead end is a corridor whose
     // connections are all already connected together. A dead end is:

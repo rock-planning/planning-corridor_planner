@@ -23,7 +23,20 @@ namespace Nav
         PointID pointFromPtr(height_t const* ptr) const;
         
         typedef std::map<PointID, std::map<PointID, int> > ConnectionMap;
-        void registerConnections(int idx, std::vector<Corridor>& corridors, ConnectionMap::const_iterator connection_point);
+
+        /** Registers the connection described by \c connection_point between
+         * the corridors listed in \c corridors and the corridor which index is
+         * \c idx. In practice, it adds connections between
+         *
+         *   [idx, connection_point->first] and all [corridor, point] pairs in
+         *     connection_point->second.
+         */
+        void registerConnections(PointID target_point, int target_idx,
+                std::map<PointID, int> const& source_pairs,
+                std::vector<Corridor>& corridors);
+
+        void registerConnections(int idx, ConnectionMap::const_iterator endpoints, std::vector<Corridor>& corridors)
+        { registerConnections(endpoints->first, idx, endpoints->second, corridors); }
 
     public:
         SkeletonExtraction(size_t width, size_t height);

@@ -183,6 +183,15 @@ bool Corridor::operator == (Corridor const& other) const
     return median == other.median;
 }
 
+PointID Corridor::adjacentEndpoint(PointID const& p) const
+{
+    for (MedianLine::const_iterator it = median.begin(); it != median.end(); ++it)
+    {
+        if (it->first.isNeighbour(p))
+            return it->first;
+    }
+    return PointID();
+}
 
 bool Corridor::isNeighbour(PointID const& p) const
 {
