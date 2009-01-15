@@ -42,13 +42,8 @@ void markPoints(PointSet const& points, int xSize, vector<RGBColor> & pixels, RG
     {
         int x = point_it->x, y = point_it->y;
         int idx = x + y * xSize;
-        //cerr << x << " " << y << " " << (int)color.r << " " << (int)color.g << " " << (int)color.b << endl;
 
         pixels[idx] = color;
-        if (x > 0)
-            pixels[idx - 1] = color;
-        if (y > 0)
-            pixels[idx - xSize] = color;
     }
 }
 
