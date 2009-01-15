@@ -198,6 +198,28 @@ void Corridor::add(std::pair<PointID, MedianPoint> const& p)
     median_bbox.update(p.first);
     mergeBorders(p.second);
 }
+
+bool Corridor::isConnectedTo(int other_corridor) const
+{
+    for (Connections::const_iterator it = connections.begin(); it != connections.end(); ++it)
+    {
+        if (it->get<1>() == other_corridor)
+            return true;
+    }
+    return false;
+}
+
+void Corridor::removeConnectionsTo(int other_corridor)
+{
+    Connections::iterator it = connections.begin();
+    while (it != connections.end())
+    {
+        if (it->get<1>() == other_corridor)
+            connections.erase(it++);
+        else ++it;
+    }
+}
+
 void Corridor::merge(Corridor const& corridor)
 {
     // Force the overload selection on Corridor::add
@@ -213,6 +235,27 @@ bool Corridor::contains(PointID const& p) const
     return true; // buggy ...
 }
 
+bool Corridor::isNeighbour(PointID const& p) const
+{
+    if (!bbox.isNeighbour(p))
+        return false;
+    if (contains(p))
+        return true;
+    return true;
+}
+
+bool Corridor::isMedianNeighbour(PointID const& p) const
+{
+    if (!median_bbox.isNeighbour(p))
+        return false;
+
+    for (MedianLine::const_iterator it = median.begin(); it != median.end(); ++it)
+        if (it->first.isNeighbour(p))
+            return true;
+
+    return false;
+}
+
 void Corridor::clear()
 {
     median_bbox = bbox = BoundingBox();
@@ -226,6 +269,14 @@ bool Corridor::operator == (Corridor const& other) const
     return median == other.median;
 }
 
+list<PointSet> Corridor::endRegions() const
+{
+    list<PointSet> endpoints;
+    for (Connections::const_iterator it = connections.begin(); it != connections.end(); ++it)
+        updateConnectedSets(endpoints, it->get<0>());
+    return endpoints;
+}
+
 PointID Corridor::adjacentEndpoint(PointID const& p) const
 {
     for (MedianLine::const_iterator it = median.begin(); it != median.end(); ++it)
@@ -234,19 +285,6 @@ PointID Corridor::adjacentEndpoint(PointID const& p) const
             return it->first;
     }
     return PointID();
-}
-
-bool Corridor::isNeighbour(PointID const& p) const
-{
-    if (!median_bbox.isNeighbour(p))
-        return false;
-
-    for (MedianLine::const_iterator it = median.begin(); it != median.end(); ++it)
-    {
-        if (it->first.isNeighbour(p))
-            return true;
-    }
-    return false;
 }
 
 ostream& Nav::operator << (ostream& io, Corridor const& corridor)

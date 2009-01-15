@@ -72,7 +72,17 @@ namespace Nav
         typedef Connections::iterator connection_iterator;
         Connections connections;
 
+        /** Returns true if \c p is contained in this corridor */
         bool contains(PointID const& p) const;
+        /** Returns true if \c p is either contained in, or touches the border of,
+         * the corridor
+         */
+        bool isNeighbour(PointID const& p) const;
+
+        bool isMedianNeighbour(PointID const& p) const;
+
+        std::list<PointSet> endRegions() const;
+
         void clear();
         bool operator == (Corridor const& other) const;
 
@@ -87,8 +97,15 @@ namespace Nav
          */
         void merge(Corridor const& corridor);
 
-        /** Returns true if \c p is adjacent to points in \c median */
-        bool isNeighbour(PointID const& p) const;
+        /** Returns true if there is at least one connection from this corridor
+         * to \c other_corridor
+         */
+        bool isConnectedTo(int other_corridor) const;
+
+        /** Removes all connections that point to \c other_corridor. It does
+         * not remove them on \c other_corridor
+         */
+        void removeConnectionsTo(int other_corridor);
 
         /** Returns a point of the median line which is adjacent to \c p */
         PointID adjacentEndpoint(PointID const& p) const;
