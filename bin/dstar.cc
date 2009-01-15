@@ -12,64 +12,70 @@
 using namespace std;
 using namespace Nav;
 
-void saveColorImage(string const& path, int xSize, int ySize, vector<uint8_t>& red, vector<uint8_t>& green, vector<uint8_t>& blue)
+struct RGBColor
+{
+    uint8_t r, g, b;
+    RGBColor()
+        : r(0), g(0), b(0) {}
+    explicit RGBColor(uint8_t grey)
+        : r(grey), g(grey), b(grey) {}
+    explicit RGBColor(uint8_t r, uint8_t g, uint8_t b)
+        : r(r), g(g), b(b) {}
+};
+
+void saveColorImage(string const& path, int xSize, int ySize, vector<RGBColor>& pixels)
 {
     GDALDriver* driver = GetGDALDriverManager()->GetDriverByName("Gtiff");
     auto_ptr<GDALDataset> output_set(driver->Create(path.c_str(), xSize, ySize, 3, GDT_Byte, 0));
 
     output_set->GetRasterBand(1)->RasterIO(GF_Write, 0, 0, xSize, ySize,
-            &red[0], xSize, ySize, GDT_Byte, 0, 0);
+            &pixels[0].r, xSize, ySize, GDT_Byte, sizeof(RGBColor), sizeof(RGBColor) * xSize);
     output_set->GetRasterBand(2)->RasterIO(GF_Write, 0, 0, xSize, ySize,
-            &green[0], xSize, ySize, GDT_Byte, 0, 0);
+            &pixels[0].g, xSize, ySize, GDT_Byte, sizeof(RGBColor), sizeof(RGBColor) * xSize);
     output_set->GetRasterBand(3)->RasterIO(GF_Write, 0, 0, xSize, ySize,
-            &blue[0], xSize, ySize, GDT_Byte, 0, 0);
+            &pixels[0].b, xSize, ySize, GDT_Byte, sizeof(RGBColor), sizeof(RGBColor) * xSize);
 }
 
-void markPolyline(PointSet const& points, int xSize, vector<uint8_t> & red, vector<uint8_t> & green, vector<uint8_t>& blue,
-        uint8_t r, uint8_t g, uint8_t b)
-{
-    PointID last;
-    for (PointSet::const_iterator point_it = points.begin(); point_it != points.end(); ++point_it)
-    {
-        PointID p = *point_it;
-        if (point_it == points.begin())
-        {
-            red[p.x + p.y * xSize]   = r;
-            green[p.x + p.y * xSize] = g;
-            blue[p.x + p.y * xSize]  = b;
-        }
-        else
-        {
-            float dx = p.x - last.x;
-            float dy = p.y - last.y;
-            int steps = fabs(dx) > fabs(dy) ? ceil(fabs(dx)) : ceil(fabs(dy));
-
-            dx /= steps;
-            dy /= steps;
-
-            for (int i = 0; i < steps; ++i)
-            {
-                int idx = last.x + i * dx + (last.y + i * dy) * xSize;
-
-                red[idx]   = r;
-                green[idx] = g;
-                blue[idx]  = b;
-            }
-        }
-
-        last = p;
-    }
-}
-
-void markPoints(PointSet const& points, int xSize, vector<uint8_t> & red, vector<uint8_t> & green, vector<uint8_t>& blue,
-        uint8_t r, uint8_t g, uint8_t b)
+void markPoints(PointSet const& points, int xSize, vector<RGBColor> & pixels, RGBColor color)
 {
     for (PointSet::const_iterator point_it = points.begin(); point_it != points.end(); ++point_it)
     {
-        red[point_it->x + point_it->y * xSize]   = r;
-        green[point_it->x + point_it->y * xSize] = g;
-        blue[point_it->x + point_it->y * xSize]  = b;
+        int x = point_it->x, y = point_it->y;
+        int idx = x + y * xSize;
+        //cerr << x << " " << y << " " << (int)color.r << " " << (int)color.g << " " << (int)color.b << endl;
+
+        pixels[idx] = color;
+        if (x > 0)
+            pixels[idx - 1] = color;
+        if (y > 0)
+            pixels[idx - xSize] = color;
     }
+}
+
+
+vector<RGBColor> allocateColors(size_t count)
+{
+    vector<RGBColor> result;
+    if (count == 1)
+        result.push_back(RGBColor(100, 100, 255));
+    else if (count == 2)
+    {
+        result.push_back(RGBColor(100, 100, 255));
+        result.push_back(RGBColor(255, 100, 100));
+    }
+    else if (count > 2)
+    {
+        float step = 155.0 / (count / 2);
+        for (size_t i = 0; i < count / 2; ++i)
+            result.push_back(RGBColor(100, 100 + step * i, 255 - step * i));
+
+        step = 155.0 / (count - count / 2);
+        for (size_t i = 0; i < count - count / 2; ++i)
+            result.push_back(RGBColor(100 + step * i, 255 - step * i, 100 + step * i));
+    }
+
+    random_shuffle(result.begin(), result.end());
+    return result;
 }
 
 int main(int argc, char** argv)
@@ -163,11 +169,14 @@ int main(int argc, char** argv)
         std::cerr << "computing grown region" << std::endl;
         pair<PointSet, PointSet> border = algo.solutionBorder(x0, y0, expand);
 
-        { vector<uint8_t> red(image.begin(), image.end()), green(image.begin(), image.end()), blue(image.begin(), image.end());
-            markPoints(border.first, xSize, red, green, blue, 128, 128, 255);
+        { vector<RGBColor> color_image;
+            for (size_t i = 0; i < image.size(); ++i)
+                color_image.push_back(RGBColor(image[i]));
+
+            markPoints(border.first, xSize, color_image, RGBColor(128, 128, 255));
             string out = out_basename + "-border.tif";
             std::cerr << "  saving result in " << out << std::endl;
-            saveColorImage(out, xSize, ySize, red, green, blue);
+            saveColorImage(out, xSize, ySize, color_image);
         }
 
         std::cerr << "computing plan" << std::endl;
@@ -182,23 +191,40 @@ int main(int argc, char** argv)
 
         cerr << plan.corridors.size() << " corridors found" << endl;
 
-        { vector<uint8_t> red(image.begin(), image.end()), green(image.begin(), image.end()), blue(image.begin(), image.end());
-            Plan::corridor_iterator corridor_it;
-            for (corridor_it = plan.corridors.begin(); corridor_it != plan.corridors.end(); ++corridor_it)
-            {
-                uint8_t r = 128;
-                uint8_t g = 128;
-                uint8_t b = 255;
+        { vector<RGBColor> color_image;
+            // Initialize with the real image
+            for (size_t i = 0; i < image.size(); ++i)
+                color_image.push_back(RGBColor(image[i]));
+            // Get a color set for the corridors
+            vector<RGBColor> colors = allocateColors(plan.corridors.size());
 
-                Corridor const& c = *corridor_it;
+            for (size_t corridor_idx = 0; corridor_idx < plan.corridors.size(); ++corridor_idx)
+            {
+                Corridor const& c = plan.corridors[corridor_idx];
                 MedianPoint::BorderList::const_iterator border_it;
                 for (border_it = c.borders.begin(); border_it != c.borders.end(); ++border_it)
-                    markPolyline(*border_it, xSize, red, green, blue, r, g, b);
+                    markPoints(*border_it, xSize, color_image, colors[corridor_idx]);
             }
 
             string corridor_out = out_basename + "-corridors.tif";
-            std::cerr << "  saving result in " << corridor_out << std::endl;
-            saveColorImage(corridor_out, xSize, ySize, red, green, blue);
+            cerr << "  saving image in " << corridor_out << endl;
+            saveColorImage(corridor_out, xSize, ySize, color_image);
+            string dot_out = out_basename + "-corridors.dot";
+            cerr << "  saving result in " << dot_out << endl;
+            ofstream dot(dot_out.c_str());
+            dot << "graph {\n";
+            for (size_t corridor_idx = 0; corridor_idx < plan.corridors.size(); ++corridor_idx)
+            {
+                RGBColor color = colors[corridor_idx];
+                dot << "  c" << corridor_idx << "[color=\"#" << hex
+                    << (int)color.r << (int)color.g << (int)color.b << "\"];\n" << dec;
+                Corridor::Connections& connections = plan.corridors[corridor_idx].connections;
+                Corridor::Connections::const_iterator conn_it;
+                for (conn_it = connections.begin(); conn_it != connections.end(); ++conn_it)
+                    dot << "  c" << corridor_idx << " -- c" << conn_it->get<1>() << ";\n";
+            }
+            dot << "}\n";
+
         }
     }
     return 0;
