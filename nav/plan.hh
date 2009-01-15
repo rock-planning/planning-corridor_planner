@@ -8,16 +8,36 @@ namespace Nav
     class MergeResult;
     class Plan
     {
-        /** Removes the useless corridors. Useless corridors are the corridors
-         * that don't connect one endpoint with another
+        /** Removes corridors that don't provide any meaningful information in
+         * the plan, i.e. corridors with only one connection or null-sized
+         * corridors which connects corridors that are already connected
+         * directly to each other.
+         *
+         * Corridors that are marked as useful in \c useful are kept
+         */
+        void markNullCorridors(std::vector<int>& useful);
+
+        /** Marks in \c useful the useless corridors. Useless corridors are the
+         * corridors that don't connect one endpoint with another
          *
          * @see simplify
          */
-        void removeUselessCorridors(PointSet endpoints);
+        void markUselessCorridors(std::vector<int>& useful);
+
+        /** Removes the corridors that are marked as useless in \c useful.
+         *
+         * @see simplify
+         */
+        void removeUselessCorridors(std::vector<int>& useful);
 
         /** Constants used by markNextCorridors and removeUselessCorridors */
         static const int USEFUL = 1;
         static const int NOT_USEFUL = 2;
+
+        /** Mark in \c useful the corridors that contains the endpoints in \c
+         * endpoints
+         */
+        void markEndpointCorridors(std::vector<int>& useful, PointSet endpoints);
 
         /** This method is used by removeUselessCorridors to search for useless
          * corridors. We use for that a DFS, where
@@ -54,8 +74,9 @@ namespace Nav
         void clear();
         void concat(Plan const& other);
 
-        /** Removes the corridor from the set of corridors in this plan. In
-         * particular, in updates the corridor connections.
+        /** Removes the corridor from the set of corridors in this plan. It
+         * updates all indexes in the other corridor connections, and removes
+         * any connection that were existing towards the removed corridor
          */
         void removeCorridor(int idx);
 

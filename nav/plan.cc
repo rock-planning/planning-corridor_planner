@@ -3,6 +3,8 @@
 #include <iomanip>
 #include <boost/bind.hpp>
 #include <algorithm>
+#include <stdexcept>
+#include <boost/lexical_cast.hpp>
 
 const int Nav::Plan::USEFUL;
 const int Nav::Plan::NOT_USEFUL;
@@ -11,9 +13,7 @@ const int Nav::Plan::NOT_USEFUL;
 
 using namespace std;
 using namespace Nav;
-
-using boost::mem_fn;
-using boost::bind;
+using namespace boost;
 
 void Plan::clear()
 {
@@ -147,66 +147,156 @@ void Plan::moveConnections(int into_idx, int from_idx)
 
 void Plan::simplify(PointSet endpoints)
 {
-    removeUselessCorridors(endpoints);
-    mergeSimpleCrossroads();
-}
-
-void Plan::removeUselessCorridors(PointSet endpoints)
-{
     vector<int> useful_corridors;
     useful_corridors.resize(corridors.size(), 0);
-
     useful_corridors[0] = USEFUL;
 
-    for (size_t i = 0; i < corridors.size(); ++i)
-    {
-        Corridor& corridor = corridors[i];
-        cerr << "  corridor " << i << " has " << corridor.endpointCount() << " endpoints" << endl;
-        if (corridor.median.size() == 1)
-            useful_corridors[i] = NOT_USEFUL;
-    }
+    int original_count = corridors.size();
 
+    markEndpointCorridors(useful_corridors, endpoints);
+    markNullCorridors(useful_corridors);
+    removeUselessCorridors(useful_corridors);
+    markUselessCorridors(useful_corridors);
+    removeUselessCorridors(useful_corridors);
+
+    mergeSimpleCrossroads();
+
+    // We changed something. Re-run the simplification process.
+    if (original_count != corridors.size())
+        simplify(endpoints);
+}
+void Plan::markNullCorridors(vector<int>& useful)
+{
+    for (size_t corridor_idx = 1; corridor_idx < corridors.size(); ++corridor_idx)
+    {
+        Corridor& corridor = corridors[corridor_idx];
+        list<PointSet> end_regions = corridor.endRegions();
+
+        if (useful[corridor_idx] == USEFUL || end_regions.size() > 1)
+            continue;
+        else if (corridor.connections.size() <= 1)
+        {
+            cerr << "  " << corridor_idx << " is a null corridor" << endl;
+            useful[corridor_idx] = NOT_USEFUL;
+        }
+        else
+        {
+            // We still have to check that there is no two corridors that
+            // are connected only through this one, i.e. that we don't have
+            //
+            // A => B => C
+            //
+            // but no direct A => C connection, in which case we can't remove B
+            Corridor::Connections& connections = corridor.connections;
+            Corridor::Connections::const_iterator conn_it = connections.begin();
+            while (conn_it != connections.end())
+            {
+                int conn_idx = conn_it->get<1>();
+                Corridor& conn_corridor = corridors[conn_idx];
+
+                Corridor::Connections::const_iterator target_it = connections.begin();
+                for (; target_it != connections.end(); ++target_it)
+                {
+                    int target_idx = target_it->get<1>();
+                    if (target_idx == conn_idx)
+                        continue;
+                    if (!conn_corridor.isConnectedTo(target_it->get<1>()))
+                        break;
+                }
+
+                // increment first, since we may invalidate the iterator by
+                // removing the connections
+                if (target_it == connections.end())
+                {
+                    // we can remove this connection
+                    corridor.removeConnectionsTo(conn_idx);
+                    conn_corridor.removeConnectionsTo(corridor_idx);
+
+                    // we don't know where is the next iterator
+                    // (removeConnectionsTo can remove more than one
+                    // connection). Just start again ...
+                    conn_it = connections.begin();
+                }
+                else ++conn_it;
+            }
+
+            if (corridor.connections.size() <= 1)
+            {
+                cerr << "  " << corridor_idx << " is a null corridor" << endl;
+                useful[corridor_idx] = NOT_USEFUL;
+            }
+        }
+    }
+}
+
+void Plan::markEndpointCorridors(vector<int>& useful, PointSet endpoints)
+{
+    // Mark as useful the corridors that contain endpoints. What we assume here
+    // is that there is at most one corridor which contains the endpoints.
     while (!endpoints.empty())
     {
         PointID endp = *endpoints.begin();
         endpoints.erase(endpoints.begin());
+        float min_distance = -1;
+        int owner = -1;
         
-        for (size_t i = 0; i < corridors.size(); ++i)
+        for (size_t i = 1; i < corridors.size(); ++i)
         {
             Corridor& corridor = corridors[i];
-            if (corridor.contains(endp))
+            if (!corridor.bbox.isNeighbour(endp))
+                continue;
+
+            for (MedianLine::const_iterator median_it = corridor.median.begin(); median_it != corridor.median.end(); ++median_it)
             {
-                cerr << "  corridor " << i << " contains " << endp << endl;
-                useful_corridors[i] = USEFUL;
+                float d = endp.distanceTo2(median_it->first);
+                if (min_distance == -1 || min_distance > d)
+                {
+                    min_distance = d;
+                    owner = i;
+                }
             }
         }
-    }
 
+        if (owner == -1)
+            throw std::runtime_error("no owner for endpoint " + lexical_cast<string>(endp));
+
+        cerr << "  corridor " << owner << " contains " << endp << endl;
+        cerr << corridors[owner] << endl;
+        useful[owner] = USEFUL;
+    }
+}
+
+void Plan::markUselessCorridors(vector<int>& useful)
+{
     // Now, do a depth-first search. The useful corridors are the ones that
     // helps connecting an endpoint corridor to another endpoint corridor
     vector<int> dfs_stack;
     for (size_t i = 1; i < corridors.size(); ++i)
     {
-        if (useful_corridors[i] == USEFUL)
+        if (useful[i] == USEFUL)
         {
             dfs_stack.clear();
             dfs_stack.push_back(i);
-            markNextCorridors(dfs_stack, i, useful_corridors);
+            markNextCorridors(dfs_stack, i, useful);
         }
     }
+}
 
+void Plan::removeUselessCorridors(vector<int>& useful)
+{
     // Now remove the not useful corridors
     for (size_t i = corridors.size() - 1; i > 0; --i)
     {
-        if (useful_corridors[i] == NOT_USEFUL)
+        if (useful[i] == NOT_USEFUL)
         {
-            cerr << "corridor " << i << " is not useful" << endl;
+            cerr << "  corridor " << i << " is not useful" << endl;
             removeCorridor(i);
+            useful.erase(useful.begin() + i);
         }
-        else if (useful_corridors[i] == USEFUL)
-            cerr << "corridor " << i << " is useful" << endl;
+        else if (useful[i] == USEFUL)
+            cerr << "  corridor " << i << " is useful" << endl;
         else
-            cerr << "corridor " << i << " is undetermined" << endl;
+            cerr << "  corridor " << i << " is undetermined" << endl;
     }
 }
 
