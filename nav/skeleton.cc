@@ -295,7 +295,10 @@ Plan SkeletonExtraction::buildPlan(MedianLine points)
                     }
 
                     MedianLine::iterator neighbour_it = points.find(neighbour);
-                    if (neighbour_it != points.end() && corridor.isBorderAdjacent(neighbour_it->second))
+                    if (neighbour_it == points.end())
+                        continue;
+
+                    if (corridor.isBorderAdjacent(neighbour_it->second))
                         propagation.insert(neighbour_it->first);
                     else
                     {
