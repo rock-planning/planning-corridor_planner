@@ -6,9 +6,7 @@
 #include <iostream>
 #include <iomanip>
 
-using boost::bind;
-using boost::mem_fn;
-using boost::make_tuple;
+using namespace boost;
 using namespace std;
 using namespace Nav;
 
@@ -236,12 +234,12 @@ Plan SkeletonExtraction::buildPlan(MedianLine points)
     // Move all points that have a connectivity of more than 2 to a separate
     // set. This set will be used to finalize the connections (but they won't be
     // part of any corridors).
-    MedianLine crossroads;
+    list<PointSet> crossroads;
     for (MedianLine::iterator it = points.begin(); it != points.end(); )
     {
         if (it->second.borders.size() > 2)
         {
-            crossroads.insert(*it);
+            updateConnectedSets(crossroads, it->first);
             points.erase(it++);
         }
         else ++it;
@@ -311,16 +309,16 @@ Plan SkeletonExtraction::buildPlan(MedianLine points)
     }
 
     map< PointID, int > connected_corridors;
-    for (MedianLine::const_iterator it = crossroads.begin(); it != crossroads.end(); ++it)
+    for (list<PointSet>::const_iterator it = crossroads.begin(); it != crossroads.end(); ++it)
     {
-        MedianPoint point = it->second;
         connected_corridors.clear();
-        for (size_t i = 0; i < corridors.size(); ++i)
+        for (size_t i = 1; i < corridors.size(); ++i)
         {
             Corridor& corridor = corridors[i];
-            if (corridor.isBorderAdjacent(point))
+            PointSet::const_iterator crossroad_point = find_if(it->begin(), it->end(), bind(&Corridor::isMedianNeighbour, ref(corridor), _1));
+            if (crossroad_point != it->end())
             {
-                PointID endpoint = corridor.adjacentEndpoint(it->first);
+                PointID endpoint = corridor.adjacentEndpoint(*crossroad_point);
                 registerConnections(endpoint, i, connected_corridors, corridors);
                 connected_corridors.insert( make_pair(endpoint, i) );
             }
