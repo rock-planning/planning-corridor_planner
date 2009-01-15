@@ -78,6 +78,11 @@ namespace Nav {
             return abs(x - p.x) <= 1 && abs(y - p.y) <= 1;
         }
 
+        float distanceTo2(PointID const& other) const
+        {
+            return (x - other.x) * (x - other.x) + (y - other.y) * (y - other.y);
+        }
+
         template<typename Container>
         bool isNeighbour(Container const& container) const
         {
