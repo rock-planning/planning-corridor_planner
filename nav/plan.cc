@@ -151,7 +151,7 @@ void Plan::simplify(PointSet endpoints)
     useful_corridors.resize(corridors.size(), 0);
     useful_corridors[0] = USEFUL;
 
-    int original_count = corridors.size();
+    size_t original_count = corridors.size();
 
     markEndpointCorridors(useful_corridors, endpoints);
     markNullCorridors(useful_corridors);
