@@ -199,6 +199,12 @@ int main(int argc, char** argv)
                 MedianPoint::BorderList::const_iterator border_it;
                 for (border_it = c.borders.begin(); border_it != c.borders.end(); ++border_it)
                     markPoints(*border_it, xSize, color_image, colors[corridor_idx]);
+
+                MedianLine::const_iterator median_it;
+                PointSet median_points;
+                for (median_it = c.median.begin(); median_it != c.median.end(); ++median_it)
+                    median_points.insert(median_it->first);
+                markPoints(median_points, xSize, color_image, colors[corridor_idx]);
             }
 
             string corridor_out = out_basename + "-corridors.tif";
