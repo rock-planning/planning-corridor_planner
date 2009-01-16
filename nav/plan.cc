@@ -6,10 +6,11 @@
 #include <stdexcept>
 #include <boost/lexical_cast.hpp>
 
+// #include <CGAL/Cartesian.h>
+// #include <CGAL/convex_hull_2.h>
+
 const int Nav::Plan::USEFUL;
 const int Nav::Plan::NOT_USEFUL;
-#include <CGAL/Cartesian.h>
-#include <CGAL/convex_hull_2.h>
 
 using namespace std;
 using namespace Nav;
@@ -77,40 +78,40 @@ void Plan::findAdjacentBorders(PointID p, Corridor const& corridor,
 
 void Plan::buildCrossroads() const
 {
-    set<PointID> seen;
-    set<PointID> result;
-    typedef CGAL::Point_2<CGAL::Cartesian<int> > Point_2;
-
-    for (size_t corridor_idx = 1; corridor_idx < corridors.size(); ++corridor_idx)
-    {
-        Corridor const& corridor = corridors[corridor_idx];
-        for (Corridor::Connections::const_iterator it = corridor.connections.begin();
-                it != corridor.connections.end(); ++it)
-        {
-            result.clear();
-
-            PointID source = it->get<0>();
-            if (seen.count(source))
-                continue;
-
-            seen.insert(source);
-            findAdjacentBorders(source, corridor, seen, result);
-
-            if (result.empty())
-                continue;
-
-            vector<Point_2> unordered_points;
-            for (PointSet::const_iterator it = result.begin(); it != result.end(); ++it)
-                unordered_points.push_back( Point_2(it->x, it->y) );
-            vector<Point_2> hull_points;
-            convex_hull_2(unordered_points.begin(), unordered_points.end(), back_inserter(hull_points));
-
-            cerr << " == Crossroad\n";
-            for (vector<Point_2>::const_iterator it = hull_points.begin(); it != hull_points.end(); ++it)
-                cerr << it->x() << " " << it->y() << "\n";
-            cerr << endl;
-        }
-    }
+//    set<PointID> seen;
+//    set<PointID> result;
+//    typedef CGAL::Point_2<CGAL::Cartesian<int> > Point_2;
+//
+//    for (size_t corridor_idx = 1; corridor_idx < corridors.size(); ++corridor_idx)
+//    {
+//        Corridor const& corridor = corridors[corridor_idx];
+//        for (Corridor::Connections::const_iterator it = corridor.connections.begin();
+//                it != corridor.connections.end(); ++it)
+//        {
+//            result.clear();
+//
+//            PointID source = it->get<0>();
+//            if (seen.count(source))
+//                continue;
+//
+//            seen.insert(source);
+//            findAdjacentBorders(source, corridor, seen, result);
+//
+//            if (result.empty())
+//                continue;
+//
+//            vector<Point_2> unordered_points;
+//            for (PointSet::const_iterator it = result.begin(); it != result.end(); ++it)
+//                unordered_points.push_back( Point_2(it->x, it->y) );
+//            vector<Point_2> hull_points;
+//            convex_hull_2(unordered_points.begin(), unordered_points.end(), back_inserter(hull_points));
+//
+//            cerr << " == Crossroad\n";
+//            for (vector<Point_2>::const_iterator it = hull_points.begin(); it != hull_points.end(); ++it)
+//                cerr << it->x() << " " << it->y() << "\n";
+//            cerr << endl;
+//        }
+//    }
 }
 
 void Plan::concat(Plan const& other)
