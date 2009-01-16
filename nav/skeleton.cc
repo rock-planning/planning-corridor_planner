@@ -77,7 +77,7 @@ MedianLine SkeletonExtraction::propagateHeightMap(PointSet const& border)
         }
     }
 
-    displayHeightMap(cerr);
+// displayHeightMap(cerr);
 
     // The points that are part of the median line. The parents are stored in
     // the +parents+ map.
@@ -92,8 +92,8 @@ MedianLine SkeletonExtraction::propagateHeightMap(PointSet const& border)
         {
             height_t* c_ptr   = *candidates.begin();
             height_t  c_value = *c_ptr;
-            cerr << "taking " << pointFromPtr(c_ptr) << "(" << (void*)c_ptr << ")=" << (int)c_value << endl;
-            cerr << "  with borders " << parents[c_ptr] << endl;
+            // cerr << "taking " << pointFromPtr(c_ptr) << "(" << (void*)c_ptr << ")=" << (int)c_value << endl;
+            // cerr << "  with borders " << parents[c_ptr] << endl;
 
             candidates.erase(candidates.begin());
 
@@ -112,7 +112,7 @@ MedianLine SkeletonExtraction::propagateHeightMap(PointSet const& border)
             {
                 height_t* neighbour        = c_ptr   + displacement[i];
                 height_t propagated_value = c_value + addVal[i]; 
-                cerr <<  "  " << pointFromPtr(neighbour) << "(" << (void*)neighbour << ")=" << (int)*neighbour << " ~ " << propagated_value << endl;
+                //cerr <<  "  " << pointFromPtr(neighbour) << "(" << (void*)neighbour << ")=" << (int)*neighbour << " ~ " << propagated_value << endl;
                 if (*neighbour > propagated_value) // needs to be propagated further
                 {
                     *neighbour = propagated_value;
@@ -128,22 +128,22 @@ MedianLine SkeletonExtraction::propagateHeightMap(PointSet const& border)
                 }
                 else if (*neighbour == propagated_value || (addVal[i] == 1 && *neighbour == c_value))
                 {
-                    cerr <<  "   ... found border ?" << parents[neighbour] << flush;
+                    //cerr <<  "   ... found border ?" << parents[neighbour] << flush;
                     if (!parents[neighbour].isBorderAdjacent( parents[c_ptr] ))
                     {
-                        cerr << " yes" << endl;
+                        //cerr << " yes" << endl;
 
                         skeleton.insert( neighbour );
                         parents[neighbour].mergeBorders( parents[c_ptr] );
                     }
                     else if (*neighbour == propagated_value)
                     {
-                        cerr << " no" << endl;
+                        //cerr << " no" << endl;
                         parents[neighbour].mergeBorders( parents[c_ptr] );
                     }
                     else
                     {
-                        cerr << " no" << endl;
+                        //cerr << " no" << endl;
                     }
                 }
             }
@@ -161,7 +161,7 @@ MedianLine SkeletonExtraction::propagateHeightMap(PointSet const& border)
         }
     }
 
-    displayHeightMap(cerr);
+    //displayHeightMap(cerr);
 
     MedianLine result;
     for (CandidateSet::const_iterator it = skeleton.begin(); it != skeleton.end(); ++it)
@@ -339,7 +339,7 @@ void SkeletonExtraction::buildPixelMap(Plan& result) const
     int const NO_OWNER = result.corridors.size();
     int const MULTIPLE_OWNERS = 0;
     fill(result.pixel_map.begin(), result.pixel_map.end(), NO_OWNER);
-    cerr << "Pixel map (border)\n";
+    //cerr << "Pixel map (border)\n";
     for (size_t corridor_idx = 1; corridor_idx < result.corridors.size(); ++corridor_idx)
     {
         MedianPoint::BorderList const& borders = result.corridors[corridor_idx].borders;
@@ -352,12 +352,12 @@ void SkeletonExtraction::buildPixelMap(Plan& result) const
                     owner = corridor_idx;
                 else
                     owner = MULTIPLE_OWNERS;
-                cerr << corridor_idx << " " << (int)owner << " " << point->x << " " << point->y << endl;
+                //cerr << corridor_idx << " " << (int)owner << " " << point->x << " " << point->y << endl;
             }
     }
 
     /** Now, take each pixel and assign its corridor based on its parents */
-    cerr << "Pixel map (interior)\n";
+    //cerr << "Pixel map (interior)\n";
     for (int idx = 0; idx < width * height; ++idx)
     {
         if (result.pixel_map[idx] != NO_OWNER)
@@ -380,9 +380,9 @@ void SkeletonExtraction::buildPixelMap(Plan& result) const
                 }
                 else if (border_owner != owner && border_owner != MULTIPLE_OWNERS)
                     owner = MULTIPLE_OWNERS;
-                cerr << (int)owner << " " << idx%width
-                    << " " << idx/width <<  " " << (int)border_owner << " " 
-                    << point->x << " " << point->y << endl;
+                //cerr << (int)owner << " " << idx%width
+                    //<< " " << idx/width <<  " " << (int)border_owner << " " 
+                    //<< point->x << " " << point->y << endl;
             }
 
         result.pixel_map[idx] = owner;
