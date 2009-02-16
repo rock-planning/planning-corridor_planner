@@ -570,96 +570,62 @@ void DStar::appendPathFrom(PointSet& result, PointID const& start_id, PointSet c
 
 pair<PointSet, PointSet> DStar::solutionBorder(int x, int y, float expand) const
 {
-    typedef multimap<float, PointID> Border;
-    Border hi_border;
-    PointSet lo_border;
+    PointSet border;
     PointSet inside;
+    typedef multimap<float, PointID> OpenSet;
+    OpenSet open_from_cost;
+    map<PointID, OpenSet::iterator> is_in_open;
 
-    // Initialization happens in the it == end condition of the loop
-    float min_limit = 0, max_limit = 0;
-    lo_border.insert(PointID(x, y));
-    Border temp_border;
-    while(true)
+    float cost_max = m_graph.getValue(x, y) * expand;
     {
-        // expand +solution+ until all elements in it have their cost greater
-        // than cost*expand
-        temp_border.clear();
-        temp_border.swap(hi_border);
-        Border::iterator it  = temp_border.begin();
-        Border::iterator end = temp_border.upper_bound(max_limit);
+        PointID p0(x, y);
+        OpenSet::iterator n_it = open_from_cost.insert( make_pair(0, p0) );
+        is_in_open.insert( make_pair(p0, n_it) );
+        inside.insert( p0 );
+    }
 
-        // Nothing to expand further, go to the next element of the reference
-        // path and start again
-        if (it == end)
+    while(!open_from_cost.empty())
+    {
+        cerr << open_from_cost.size() << " elements in open set" << endl;
+        PointID point;
+        float cost;
+        tie(cost, point) = *open_from_cost.begin();
+        open_from_cost.erase(open_from_cost.begin());
+        is_in_open.erase(point);
+
+        for (NeighbourConstIterator n = m_graph.neighboursBegin(point.x, point.y); !n.isEnd(); ++n)
         {
-            NeighbourConstIterator next_element = m_graph.parentsBegin(x, y);
-            float old_cost = min_limit;
-            if (!next_element.isEnd())
-            {
-                x = next_element.x();
-                y = next_element.y();
-            }
-            else if (!lo_border.empty())
-            {
-                PointSet::const_iterator new_path = lo_border.begin();
-                x = new_path->x;
-                y = new_path->y;
-                lo_border.erase(new_path);
-            }
-            else
-            {
-                break;
-            }
+            float n_cost = cost + costOf(n);
+            PointID n_p = PointID(n.x(), n.y());
 
-            min_limit = m_graph.getValue(x, y);
-            max_limit = std::max(old_cost, min_limit + expand);
-            hi_border.insert(make_pair(m_graph.getValue(x, y), PointID(x, y)));
-        }
-        else
-        {
-            for (; it != end; ++it)
+            if (n_cost + n.getValue() <= cost_max)
             {
-                PointID p = it->second;
-                lo_border.erase(p);
-                inside.insert(p);
-                float cost_offset = it->first - m_graph.getValue(p.x, p.y);
-
-                for (NeighbourConstIterator n = m_graph.neighboursBegin(p.x, p.y); !n.isEnd(); ++n)
+                if (inside.count(n_p))
                 {
-                    PointID n_id = PointID(n.x(), n.y());
-                    if (inside.count(n_id))
-                        continue;
-
-                    float n_v  = n.getValue() + cost_offset + costOf(n);
-                    if (n_v >= min_limit)
+                    map<PointID, OpenSet::iterator>::iterator open_it = is_in_open.find(n_p);
+                    OpenSet::iterator n_it = open_it->second;
+                    if (open_it != is_in_open.end() && n_it->first > n_cost)
                     {
-                        inside.insert(n_id);
-                        hi_border.insert(make_pair(n_v, n_id));
-                    }
-                    else
-                    {
-                        lo_border.insert(n_id);
+                        open_from_cost.erase(open_it->second);
+                        n_it = open_from_cost.insert( make_pair(n_cost, n_p) );
+                        open_it->second = n_it;
                     }
                 }
+                else
+                {
+                    border.erase(n_p);
+                    inside.insert(n_p);
+                    OpenSet::iterator n_it = open_from_cost.insert( make_pair(n_cost, n_p) );
+                    is_in_open.insert( make_pair(n_p, n_it) );
+                }
+            }
+            else if (!inside.count(n_p))
+            {
+                border.insert(n_p);
             }
         }
     }
 
-    // This is slow and completely unscalable, but it works
-    PointSet result;
-    for (PointSet::iterator it = inside.begin(); it != inside.end(); ++it)
-    {
-        PointID p = *it;
-        for (NeighbourConstIterator n = m_graph.neighboursBegin(p.x, p.y); !n.isEnd(); ++n)
-        {
-            PointID n_id = PointID(n.x(), n.y());
-            if (!inside.count(n_id))
-            {
-                result.insert(p);
-                break;
-            }
-        }
-    }
-    return make_pair(result, inside);
+    return make_pair(border, inside);
 }
 
