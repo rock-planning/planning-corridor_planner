@@ -4,10 +4,10 @@
 219 3 0.2 deep water
 209 4 0.3 shallow water
 0   0 0 obstacle
-149 5 1.5 soft ground
-119 2 0.4 hard ground
-99 6 0.8 rough
-79  7 0.5 hard terrain
+149 5 1.0 soft ground
+119 2 0.5 hard ground
+99 6 0.4 rough
+79  7 0.1 hard terrain
 59  1 0.2 slippy terrain
 39  8 0.5 stairs
 
