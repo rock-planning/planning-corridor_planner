@@ -15,7 +15,9 @@ using namespace std;
 
 static pair<PointSet, PointSet> outputGrownBorder(ostream& out, DStar const& algo, int x0, int y0, float expand)
 {
-    pair<PointSet, PointSet> result = algo.solutionBorder(x0, y0, expand);
+    SkeletonExtraction extraction(algo.graph().xSize(), algo.graph().ySize());
+    extraction.initializeFromDStar(algo, x0, y0, expand);
+    pair<PointSet, PointSet> result = extraction.getBorderAndInside();
     PointSet border = result.first;
 
     out << std::endl;
@@ -129,33 +131,23 @@ BOOST_AUTO_TEST_CASE( test_multipath_forest )
     algo.initialize(x1, y1);
     BOOST_REQUIRE(algo.checkSolutionConsistency());
 
-    pair<PointSet, PointSet> result;
     {
         ofstream out("multipath_forest.txt");
         algo.graph().save(out);
-        result = outputGrownBorder(out, algo, x0, y0, expand);
+        outputGrownBorder(out, algo, x0, y0, expand);
     }
 
     {
         ofstream out("multipath_forest_skeleton.txt");
         SkeletonExtraction skeleton(Size, Size);
-        MedianLine skeleton_points = skeleton.processEdgeSet(result.first, result.second);
+        skeleton.initializeFromDStar(algo, x0, y0, expand);
+        MedianLine skeleton_points = skeleton.process();
         vector<int16_t> map = skeleton.getHeightmap();
 
         out << Size << " " << Size << "\n";
         for (int y = 0; y < Size; ++y)
             for (int x = 0; x < Size; ++x)
                 out << x << " " << y << " " << static_cast<int>(map[y * Size + x]) << "\n";
-
-        out << "\n";
-        PointSet const& border = result.first;
-        for (PointSet::const_iterator it = border.begin(); it != border.end(); ++it)
-            out << it->x << " " << it->y << "\n";
-
-        out << "\n";
-        for (MedianLine::const_iterator it = skeleton_points.begin(); it != skeleton_points.end(); ++it)
-            out << it->first.x << " " << it->first.y << "\n";
-        out << std::flush;
     }
 }
 

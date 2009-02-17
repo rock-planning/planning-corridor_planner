@@ -161,10 +161,13 @@ int main(int argc, char** argv)
         int y0 = boost::lexical_cast<int>(argv[7]);
         float expand = boost::lexical_cast<float>(argv[8]);
 
-        std::cerr << "computing grown region" << std::endl;
-        pair<PointSet, PointSet> border = algo.solutionBorder(x0, y0, expand);
+        std::cerr << "computing skeleton" << std::endl;
+        SkeletonExtraction skel(xSize, ySize);
+        MedianLine result = skel.processDStar(algo, x0, y0, expand);
 
-        { vector<RGBColor> color_image;
+        { 
+            pair<PointSet, PointSet> border = skel.getBorderAndInside();
+            vector<RGBColor> color_image;
             for (size_t i = 0; i < image.size(); ++i)
                 color_image.push_back(RGBColor(image[i]));
 
@@ -175,8 +178,6 @@ int main(int argc, char** argv)
         }
 
         std::cerr << "computing plan" << std::endl;
-        SkeletonExtraction skel(xSize, ySize);
-        MedianLine result = skel.processEdgeSet(border.first, border.second);
         Plan plan = skel.buildPlan(result);
 
         PointSet endpoints;

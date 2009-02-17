@@ -4,6 +4,7 @@
 #include "point.hh"
 #include "voronoi.hh"
 #include "plan.hh"
+#include "dstar.hh"
 #include <vector>
 
 namespace Nav
@@ -11,15 +12,17 @@ namespace Nav
     class SkeletonExtraction
     {
     public:
+        typedef int16_t height_t;
+        static const height_t MAX_DIST = 999;
+
         int width, height;
 
-        typedef int16_t height_t;
         std::vector<height_t> heightmap;
         typedef std::map<height_t*, MedianPoint > ParentMap;
         ParentMap parents;
+        PointSet border;
 
         void initializeHeightMap(PointSet const& inside);
-        MedianLine propagateHeightMap(PointSet const& border);
         PointID pointFromPtr(height_t const* ptr) const;
         
         typedef std::map<PointID, std::map<PointID, int> > ConnectionMap;
@@ -40,13 +43,47 @@ namespace Nav
 
     public:
         SkeletonExtraction(size_t width, size_t height);
+        SkeletonExtraction(DStar const& nav_function, int x, int y, float expand);
         ~SkeletonExtraction();
 
         void displayHeightMap(std::ostream& io) const;
 
-        /** Extracts the skeleton from the given edge image (i.e. greyscale image
-         * of +width x height+ where white is an edge and black a valley */
-        MedianLine processEdgeSet(PointSet const& edges, PointSet const& inside);
+        /** Initializes the skeleton extraction process by extracting the
+         * navigation zone from the provided navigation function (a D* result).
+         * The resulting zone is the set of points P whose total cost 
+         * (cost(P0 -> P) + cost(P -> P1)) is below expand * optimal_cost.
+         */
+        void initializeFromDStar(DStar const& nav_function, int x, int y, float expand);
+
+        /** This is a convenience function which extracts the skeleton from a
+         * dstar result. It is simply calling initializeFromDStar and process
+         */
+        MedianLine processDStar(DStar const& nav_function, int x, int y, float expand);
+
+        /** Initializes the skeleton extraction process from a set of inside
+         * points and a set of border points.
+         */
+        void initializeFromPointSets(PointSet const& inside, PointSet const& border);
+
+        /** This is a convenience function which extracts the skeleton from two
+         * sets of points. It is simply calling initializeFromPointSets and process
+         */
+        MedianLine processPointSets(PointSet const& inside, PointSet const& border);
+
+        /** Returns true if the given point is inside the navigation zone (the
+         * zone for which a skeleton needs to be built and false otherwise
+         */
+        bool isInside(int x, int y) const;
+
+        /** Returns the set of points that are inside the considered region, and
+         * the set of points that are border of it.
+         *
+         * This is for debugging purposes.
+         */
+        std::pair<PointSet, PointSet> getBorderAndInside() const;
+
+
+        MedianLine process();
 
         /** Creates a graph out of a set of median points */
         Plan buildPlan(MedianLine points);

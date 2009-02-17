@@ -496,13 +496,6 @@ namespace Nav {
          * if it is not the case */
         bool checkSolutionConsistency() const;
 
-        /** Returns the border of the region that is in \c expand ratio from the
-         * optimal path starting at \c x and \c y.
-         *
-         * The resulting pair is (border, inside)
-         */
-        std::pair<PointSet, PointSet> solutionBorder(int x, int y, float expand) const;
-
         void appendPathFrom(PointSet& result, PointID const& start_id, PointSet const& into) const;
     };
 }

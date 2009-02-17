@@ -5,37 +5,22 @@
 
 #include <iostream>
 #include <iomanip>
+#include <map>
 
 using namespace boost;
 using namespace std;
 using namespace Nav;
-
 
 SkeletonExtraction::SkeletonExtraction(size_t width, size_t height)
     : width(width)
     , height(height)
     , heightmap(width * height)
 {
+    fill(heightmap.begin(), heightmap.end(), 0);
 }
 
 SkeletonExtraction::~SkeletonExtraction()
 {
-}
-
-void SkeletonExtraction::initializeHeightMap(PointSet const& inside)
-{
-    /* All of the heightmap is initialized with 0, then the inside is set to
-     * the maximum value allowed by height_t. Finally, the border will be set to
-     * 1 by propagateHeightMap
-     */
-    height_t maxDist = 999; // std::numeric_limits<height_t>::max();
-
-    fill(heightmap.begin(), heightmap.end(), 0);
-    for (PointSet::const_iterator it = inside.begin(); it != inside.end(); ++it)
-    {
-        if (it->x > 0 && it->x < width - 1 && it->y > 0 && it->y < height - 1)
-            heightmap[it->y * width + it->x] = maxDist;
-    }
 }
 
 PointID SkeletonExtraction::pointFromPtr(height_t const* ptr) const
@@ -44,7 +29,7 @@ PointID SkeletonExtraction::pointFromPtr(height_t const* ptr) const
     return PointID(offset % width, offset / width);
 }
 
-MedianLine SkeletonExtraction::propagateHeightMap(PointSet const& border)
+MedianLine SkeletonExtraction::process()
 {
     const int32_t addVal[8] = { 1, 2, 2, 1, 2, 2, 1, 1 };
     const int32_t displacement[8] = {
@@ -196,11 +181,102 @@ void SkeletonExtraction::displayHeightMap(std::ostream& io) const
     }
 }
 
-MedianLine SkeletonExtraction::processEdgeSet(PointSet const& border, PointSet const& inside)
+bool SkeletonExtraction::isInside(int x, int y) const
 {
-    initializeHeightMap(inside);
-    MedianLine line = propagateHeightMap(border);
-    return line;
+    return heightmap[y * width + x] > 1;
+}
+
+pair<PointSet, PointSet> SkeletonExtraction::getBorderAndInside() const
+{
+    PointSet inside;
+    for (int y = 0; y < height; ++y)
+        for (int x = 0; x < width; ++x)
+        {
+            if (isInside(x, y))
+                inside.insert(PointID(x, y));
+        }
+
+    return make_pair(border, inside);
+}
+
+void SkeletonExtraction::initializeFromDStar(DStar const& dstar, int x, int y, float expand)
+{
+    typedef multimap<float, PointID> OpenSet;
+    OpenSet open_from_cost;
+    map<PointID, OpenSet::iterator> is_in_open;
+
+    border.clear();
+    parents.clear();
+    fill(heightmap.begin(), heightmap.end(), 0);
+
+    GridGraph const& nav_function = dstar.graph();
+
+    float cost_max = nav_function.getValue(x, y) * expand;
+    {
+        PointID p0(x, y);
+        OpenSet::iterator n_it = open_from_cost.insert( make_pair(0, p0) );
+        is_in_open.insert( make_pair(p0, n_it) );
+        heightmap[y * width + x] = MAX_DIST;
+    }
+
+    while(!open_from_cost.empty())
+    {
+        PointID point; float cost;
+        tie(cost, point) = *open_from_cost.begin();
+        open_from_cost.erase(open_from_cost.begin());
+        is_in_open.erase(point);
+
+        for (NeighbourConstIterator n = nav_function.neighboursBegin(point.x, point.y); !n.isEnd(); ++n)
+        {
+            float n_cost = cost + dstar.costOf(n);
+            PointID n_p = PointID(n.x(), n.y());
+
+            if (n_cost + n.getValue() <= cost_max)
+            {
+                if (isInside(n_p.x, n_p.y))
+                {
+                    map<PointID, OpenSet::iterator>::iterator open_it = is_in_open.find(n_p);
+                    OpenSet::iterator n_it = open_it->second;
+                    if (open_it != is_in_open.end() && n_it->first > n_cost)
+                    {
+                        open_from_cost.erase(open_it->second);
+                        n_it = open_from_cost.insert( make_pair(n_cost, n_p) );
+                        open_it->second = n_it;
+                    }
+                }
+                else
+                {
+                    border.erase(n_p);
+                    heightmap[n_p.y * width + n_p.x] = MAX_DIST;
+                    OpenSet::iterator n_it = open_from_cost.insert( make_pair(n_cost, n_p) );
+                    is_in_open.insert( make_pair(n_p, n_it) );
+                }
+            }
+            else if (!isInside(n_p.x, n_p.y))
+            {
+                border.insert(n_p);
+            }
+        }
+    }
+}
+MedianLine SkeletonExtraction::processDStar(DStar const& dstar, int x, int y, float expand)
+{
+    initializeFromDStar(dstar, x, y, expand);
+    return process();
+}
+
+void SkeletonExtraction::initializeFromPointSets(PointSet const& inside, PointSet const& border)
+{
+    this->border = border;
+    parents.clear();
+    fill(heightmap.begin(), heightmap.end(), 0);
+    for (PointSet::const_iterator it = inside.begin(); it != inside.end(); ++it)
+        heightmap[it->x + it->y*width] = MAX_DIST;
+}
+MedianLine SkeletonExtraction::processPointSets(PointSet const& inside, PointSet const& border)
+{
+    initializeFromPointSets(inside, border);
+    return process();
 }
 
 void SkeletonExtraction::registerConnections(PointID source_point, int source_idx, map<PointID, int> const& targets, vector<Corridor>& corridors)
