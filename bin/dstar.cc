@@ -2,7 +2,7 @@
 #include <gdal_priv.h>
 #include <nav/dstar.hh>
 #include <nav/skeleton.hh>
-
+#include <dfki/base_types.h>
 #include <vector>
 #include <iostream>
 #include <algorithm>
@@ -10,6 +10,7 @@
 #include <fstream>
 #include <memory>
 using namespace std;
+using DFKI::Time;
 using namespace Nav;
 
 struct RGBColor
@@ -73,6 +74,24 @@ vector<RGBColor> allocateColors(size_t count)
     return result;
 }
 
+struct Profile
+{
+    char const* desc;
+    Time start_time;
+
+    Profile(char const* desc)
+        : desc(desc)
+        , start_time(Time::now())
+    {
+        cerr << "starting " << desc << endl;
+    }
+    ~Profile()
+    {
+        cerr << desc << ": " << (Time::now() - start_time).toMilliseconds() << endl;
+    }
+};
+
+
 int main(int argc, char** argv)
 {
     if (argc != 6 && argc != 9)
@@ -134,7 +153,9 @@ int main(int argc, char** argv)
     band->RasterIO(GF_Read, 0, 0, xSize, ySize, &image[0], xSize, ySize, GDT_Byte, 0, 0);
 
     std::cerr << "applying D* on a " << graph.xSize() << "x" << graph.ySize() << " map, target point is " << x1 << "x" << y1 << std::endl;
-    algo.initialize(x1, y1);
+    { Profile profiler("dstar");
+        algo.initialize(x1, y1);
+    }
     std::cerr << "  done ... checking solution consistency" << std::endl;
     algo.checkSolutionConsistency();
 
@@ -161,9 +182,11 @@ int main(int argc, char** argv)
         int y0 = boost::lexical_cast<int>(argv[7]);
         float expand = boost::lexical_cast<float>(argv[8]);
 
-        std::cerr << "computing skeleton" << std::endl;
+        MedianLine result;
         SkeletonExtraction skel(xSize, ySize);
-        MedianLine result = skel.processDStar(algo, x0, y0, expand);
+        { Profile profiler("computing skeleton");
+            result = skel.processDStar(algo, x0, y0, expand);
+        }
 
         { 
             pair<PointSet, PointSet> border = skel.getBorderAndInside();
@@ -177,10 +200,11 @@ int main(int argc, char** argv)
             saveColorImage(out, xSize, ySize, color_image);
         }
 
+        Plan plan;
+        { Profile profiler("computing plan");
+            plan = skel.buildPlan(result);
             plan.simplify( PointID(x0, y0),  PointID(x1, y1), algo.graph() );
-        std::cerr << "computing plan" << std::endl;
-        Plan plan = skel.buildPlan(result);
-
+        }
 
         cerr << plan.corridors.size() << " corridors found" << endl;
 
