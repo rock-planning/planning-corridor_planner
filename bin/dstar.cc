@@ -9,6 +9,7 @@
 #include <boost/lexical_cast.hpp>
 #include <fstream>
 #include <memory>
+#include <set>
 using namespace std;
 using DFKI::Time;
 using namespace Nav;
@@ -241,10 +242,20 @@ int main(int argc, char** argv)
                 RGBColor color = colors[corridor_idx];
                 dot << "  c" << corridor_idx << "[color=\"#" << hex
                     << (int)color.r << (int)color.g << (int)color.b << "\"];\n" << dec;
+
+                std::set<int> seen;
                 Corridor::Connections& connections = plan.corridors[corridor_idx].connections;
                 Corridor::Connections::const_iterator conn_it;
                 for (conn_it = connections.begin(); conn_it != connections.end(); ++conn_it)
-                    dot << "  c" << corridor_idx << " -- c" << conn_it->get<1>() << ";\n";
+                {
+
+                    int target_idx = conn_it->get<1>();
+                    if (!seen.count(target_idx))
+                    {
+                        dot << "  c" << corridor_idx << " -- c" << target_idx << ";\n";
+                        seen.insert(target_idx);
+                    }
+                }
             }
             dot << "}\n";
 
