@@ -399,6 +399,13 @@ void Plan::markUselessCorridors(vector<int>& useful)
             markNextCorridors(dfs_stack, i, useful);
         }
     }
+
+    for (size_t i = 1; i < useful.size(); ++i)
+    {
+        if (useful[i] == 0)
+            useful[i] = NOT_USEFUL;
+    }
+
 }
 
 void Plan::removeUselessCorridors(vector<int>& useful)
@@ -539,36 +546,19 @@ int Plan::markNextCorridors(vector<int>& stack, int corridor_idx, vector<int>& u
     Corridor const& c = corridors[corridor_idx];
     Corridor::Connections::const_iterator conn_it;
 
-    int is_useful = (useful[corridor_idx] == USEFUL ? USEFUL : NOT_USEFUL);
+    stack.push_back(corridor_idx);
     for (conn_it = c.connections.begin(); conn_it != c.connections.end(); ++conn_it)
     {
         int target_idx = conn_it->get<1>();
-        if (target_idx == 0 || *stack.rbegin() == target_idx)
+        if (target_idx == 0 || find(stack.begin(), stack.end(), target_idx) != stack.end())
             continue;
 
-        // If the target is in the stack, it means we don't know yet if this
-        // connection is useful or not (it will depend on wether target_idx is
-        // useful or not).  Stay undetermined after this visit.
-        if (find(stack.begin(), stack.end(), target_idx) != stack.end())
-        {
-            if (is_useful == NOT_USEFUL)
-                is_useful = 0;
-            continue;
-        }
-
-        int target_useful = useful[target_idx];
-        if (!target_useful)
-        {
-            stack.push_back(corridor_idx);
-            target_useful = markNextCorridors(stack, target_idx, useful);
-            stack.pop_back();
-        }
-
-        if (target_useful == USEFUL)
-            is_useful = USEFUL;
+        if (useful[target_idx] == USEFUL || markNextCorridors(stack, target_idx, useful) == USEFUL)
+            useful[corridor_idx] = USEFUL;
     }
 
-    return (useful[corridor_idx] = is_useful);
+    stack.pop_back();
+    return useful[corridor_idx];
 }
 
 ostream& Nav::operator << (ostream& io, Plan const& plan)
