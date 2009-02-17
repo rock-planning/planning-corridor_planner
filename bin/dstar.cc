@@ -236,7 +236,7 @@ int main(int argc, char** argv)
             string dot_out = out_basename + "-corridors.dot";
             cerr << "  saving result in " << dot_out << endl;
             ofstream dot(dot_out.c_str());
-            dot << "graph {\n";
+            dot << "digraph {\n";
             for (size_t corridor_idx = 0; corridor_idx < plan.corridors.size(); ++corridor_idx)
             {
                 RGBColor color = colors[corridor_idx];
@@ -252,7 +252,7 @@ int main(int argc, char** argv)
                     int target_idx = conn_it->get<1>();
                     if (!seen.count(target_idx))
                     {
-                        dot << "  c" << corridor_idx << " -- c" << target_idx << ";\n";
+                        dot << "  c" << corridor_idx << " -> c" << target_idx << ";\n";
                         seen.insert(target_idx);
                     }
                 }
