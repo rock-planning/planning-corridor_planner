@@ -177,13 +177,10 @@ int main(int argc, char** argv)
             saveColorImage(out, xSize, ySize, color_image);
         }
 
+            plan.simplify( PointID(x0, y0),  PointID(x1, y1), algo.graph() );
         std::cerr << "computing plan" << std::endl;
         Plan plan = skel.buildPlan(result);
 
-        PointSet endpoints;
-        endpoints.insert( PointID(x0, y0) );
-        endpoints.insert( PointID(x1, y1) );
-        plan.simplify(endpoints);
 
         cerr << plan.corridors.size() << " corridors found" << endl;
 

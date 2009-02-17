@@ -2,6 +2,7 @@
 #define NAV_PLAN_HH
 
 #include "voronoi.hh"
+#include "dstar.hh"
 
 namespace Nav
 {
@@ -37,7 +38,7 @@ namespace Nav
         /** Mark in \c useful the corridors that contains the endpoints in \c
          * endpoints
          */
-        void markEndpointCorridors(std::vector<int>& useful, PointSet endpoints);
+        void markEndpointCorridors(std::vector<int>& useful, PointID start, PointID end);
 
         /** This method is used by removeUselessCorridors to search for useless
          * corridors. We use for that a DFS, where
@@ -52,6 +53,10 @@ namespace Nav
          * useful, then the corridor is useful as well.
          */
         int markNextCorridors(std::vector<int>& stack, int corridor_idx, std::vector<int>& useful) const;
+
+        void removeBackToBackConnections(PointID start, PointID end, GridGraph const& navmap);
+
+        int findEndpointCorridor(PointID const& endp);
 
         /** Remove crossroads that simply connects two corridors (i.e. not real
          * crossroads)
@@ -102,7 +107,8 @@ namespace Nav
          *
          * @arg endpoints the set of endpoints
          */
-        void simplify(PointSet endpoints);
+        void simplify(PointID start, PointID end, GridGraph const& navmap);
+        void simplify(PointID start, PointID end);
     };
     std::ostream& operator << (std::ostream& io, Plan const& plan);
 }

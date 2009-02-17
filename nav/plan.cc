@@ -146,7 +146,7 @@ void Plan::moveConnections(int into_idx, int from_idx)
     }
 }
 
-void Plan::simplify(PointSet endpoints)
+void Plan::simplify(PointID start, PointID end)
 {
     vector<int> useful_corridors;
     useful_corridors.resize(corridors.size(), 0);
@@ -154,7 +154,7 @@ void Plan::simplify(PointSet endpoints)
 
     size_t original_count = corridors.size();
 
-    markEndpointCorridors(useful_corridors, endpoints);
+    markEndpointCorridors(useful_corridors, start, end);
     markNullCorridors(useful_corridors);
     removeUselessCorridors(useful_corridors);
     markUselessCorridors(useful_corridors);
@@ -164,8 +164,85 @@ void Plan::simplify(PointSet endpoints)
 
     // We changed something. Re-run the simplification process.
     if (original_count != corridors.size())
-        simplify(endpoints);
+        simplify(start, end);
 }
+
+void Plan::simplify(PointID start, PointID end, GridGraph const& navmap)
+{
+    simplify(start, end);
+    removeBackToBackConnections(start, end, navmap);
+}
+
+void Plan::removeBackToBackConnections(PointID start, PointID end, GridGraph const& navmap)
+{
+    // Mark, for each corridor, which endpoints are "front" and which are "back"
+    // based on the cost. Note that endpoint corridors have either all front or
+    // all back (based on wether they are start or end points).
+
+    static const int FRONT_LINE = 0;
+    static const int BACK_LINE = 1;
+    size_t start_idx = findEndpointCorridor(start);
+    size_t end_idx   = findEndpointCorridor(end);
+    map< pair<int, PointID>, int> types;
+
+    {
+        Corridor& corridor = corridors[start_idx];
+        Corridor::Connections& connections = corridor.connections;
+        Corridor::connection_iterator it = connections.begin(),
+            end = connections.end();
+        for (; it != end; ++it)
+            types[ make_pair(start_idx, it->get<0>()) ] = FRONT_LINE;
+    }
+    {
+        Corridor& corridor = corridors[end_idx];
+        Corridor::Connections& connections = corridor.connections;
+        Corridor::connection_iterator it = connections.begin(),
+            end = connections.end();
+        for (; it != end; ++it)
+            types[ make_pair(end_idx, it->get<0>()) ] = BACK_LINE;
+    }
+
+    for (size_t corridor_idx = 1; corridor_idx < corridors.size(); ++corridor_idx)
+    {
+        if (corridor_idx == start_idx || corridor_idx == end_idx)
+            continue;
+
+        Corridor& corridor = corridors[corridor_idx];
+        Corridor::Connections& connections = corridor.connections;
+        Corridor::connection_iterator it = connections.begin(),
+            end = connections.end();
+
+        // Gather a cost value for the endpoints of each existing connections
+        list< tuple<int, PointID, float> > endpoint_costs;
+        float min_value = std::numeric_limits<float>::max(),
+              max_value = std::numeric_limits<float>::min();
+        for (; it != end; ++it)
+        {
+            PointID p = it->get<0>();
+            float value = navmap.getValue(p.x, p.y);
+            endpoint_costs.push_back(make_tuple( it->get<1>(), it->get<0>(), value));
+            min_value = min(value, min_value);
+            max_value = max(value, max_value);
+        }
+
+        float min_bound = (max_value + 3 * min_value) / 4;
+        float max_bound = (3 * max_value + min_value) / 4;
+        for (list< tuple<int, PointID, float> >::const_iterator it = endpoint_costs.begin(); it != endpoint_costs.end(); ++it)
+        {
+            float cost = it->get<2>();
+            if (cost < min_bound)
+                types[ make_pair(it->get<0>(), it->get<1>()) ] = BACK_LINE;
+            else if (cost > max_bound)
+                types[ make_pair(it->get<0>(), it->get<1>()) ] = FRONT_LINE;
+            else
+            {
+                cerr << "min_bound = " << min_bound << ", max_bound = " << max_bound << ", cost = " << cost << endl;
+                throw std::runtime_error("cost not in [min_bound, max_bound]");
+            }
+        }
+    }
+}
+
 void Plan::markNullCorridors(vector<int>& useful)
 {
     for (size_t corridor_idx = 1; corridor_idx < corridors.size(); ++corridor_idx)
@@ -177,7 +254,7 @@ void Plan::markNullCorridors(vector<int>& useful)
             continue;
         else if (corridor.connections.size() <= 1)
         {
-            cerr << "  " << corridor_idx << " is a null corridor" << endl;
+            //cerr << "  " << corridor_idx << " is a null corridor" << endl;
             useful[corridor_idx] = NOT_USEFUL;
         }
         else
@@ -223,46 +300,50 @@ void Plan::markNullCorridors(vector<int>& useful)
 
             if (corridor.connections.size() <= 1)
             {
-                cerr << "  " << corridor_idx << " is a null corridor" << endl;
+                //cerr << "  " << corridor_idx << " is a null corridor" << endl;
                 useful[corridor_idx] = NOT_USEFUL;
             }
         }
     }
 }
 
-void Plan::markEndpointCorridors(vector<int>& useful, PointSet endpoints)
+int Plan::findEndpointCorridor(PointID const& endp)
+{
+    float min_distance = -1;
+    int owner = -1;
+
+    for (size_t i = 1; i < corridors.size(); ++i)
+    {
+        Corridor& corridor = corridors[i];
+        if (!corridor.bbox.isNeighbour(endp))
+            continue;
+
+        for (MedianLine::const_iterator median_it = corridor.median.begin(); median_it != corridor.median.end(); ++median_it)
+        {
+            float d = endp.distanceTo2(median_it->first);
+            if (min_distance == -1 || min_distance > d)
+            {
+                min_distance = d;
+                owner = i;
+            }
+        }
+    }
+    return owner;
+}
+
+void Plan::markEndpointCorridors(vector<int>& useful, PointID start, PointID end)
 {
     // Mark as useful the corridors that contain endpoints. What we assume here
     // is that there is at most one corridor which contains the endpoints.
-    while (!endpoints.empty())
+    PointID endpoints[2] = { start, end };
+    for (int endp_idx = 0; endp_idx < 2; ++endp_idx)
     {
-        PointID endp = *endpoints.begin();
-        endpoints.erase(endpoints.begin());
-        float min_distance = -1;
-        int owner = -1;
-        
-        for (size_t i = 1; i < corridors.size(); ++i)
-        {
-            Corridor& corridor = corridors[i];
-            if (!corridor.bbox.isNeighbour(endp))
-                continue;
-
-            for (MedianLine::const_iterator median_it = corridor.median.begin(); median_it != corridor.median.end(); ++median_it)
-            {
-                float d = endp.distanceTo2(median_it->first);
-                if (min_distance == -1 || min_distance > d)
-                {
-                    min_distance = d;
-                    owner = i;
-                }
-            }
-        }
+        PointID endp = endpoints[endp_idx];
+        int owner = findEndpointCorridor(endp);
 
         if (owner == -1)
             throw std::runtime_error("no owner for endpoint " + lexical_cast<string>(endp));
 
-        cerr << "  corridor " << owner << " contains " << endp << endl;
-        cerr << corridors[owner] << endl;
         useful[owner] = USEFUL;
     }
 }
@@ -290,14 +371,14 @@ void Plan::removeUselessCorridors(vector<int>& useful)
     {
         if (useful[i] == NOT_USEFUL)
         {
-            cerr << "  corridor " << i << " is not useful" << endl;
+            //cerr << "  corridor " << i << " is not useful" << endl;
             removeCorridor(i);
             useful.erase(useful.begin() + i);
         }
-        else if (useful[i] == USEFUL)
-            cerr << "  corridor " << i << " is useful" << endl;
-        else
-            cerr << "  corridor " << i << " is undetermined" << endl;
+        //else if (useful[i] == USEFUL)
+        //    //cerr << "  corridor " << i << " is useful" << endl;
+        //else
+        //    //cerr << "  corridor " << i << " is undetermined" << endl;
     }
 }
 
@@ -321,7 +402,7 @@ void Plan::mergeSimpleCrossroads()
 
             PointID source = conn_it->get<0>();
             PointID target = conn_it->get<2>();
-            cerr << source << " " << target << endl;
+            //cerr << source << " " << target << endl;
             ownerships[source] = i;
             ownerships[target] = target_idx;
 
@@ -352,14 +433,14 @@ void Plan::mergeSimpleCrossroads()
         }
     }
 
-    cerr << connection_zones.size() << " crossroads found" << endl;
+    //cerr << connection_zones.size() << " crossroads found" << endl;
 
     // Now that we have clustered the connection points, merge the corridors
     // which are connected by a simple crossroad
     list<PointSet>::const_iterator zone_it;
     for (zone_it = connection_zones.begin(); zone_it != connection_zones.end(); ++zone_it)
     {
-        cerr << *zone_it << endl;
+        //cerr << *zone_it << endl;
 
         PointSet const& points = *zone_it;
         set<int> connected;
@@ -376,7 +457,7 @@ void Plan::mergeSimpleCrossroads()
             // needed for the suite of this loop.
             int into_idx = *connected.begin();
             int from_idx = *(++connected.begin());
-            cerr << "simple: " << into_idx << " and " << from_idx << endl;
+            //cerr << "simple: " << into_idx << " and " << from_idx << endl;
             Corridor& into = corridors[into_idx];
             Corridor& from = corridors[from_idx];
             into.merge(from);
