@@ -77,7 +77,8 @@ vector<RGBColor> allocateColors(size_t count)
             result.push_back(RGBColor(100 + step * i, 255 - step * i, 100 + step * i));
     }
 
-    random_shuffle(result.begin(), result.end());
+    for (int i = 0; i < 20; ++i)
+        random_shuffle(result.begin(), result.end());
     return result;
 }
 
