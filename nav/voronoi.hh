@@ -101,6 +101,9 @@ namespace Nav
          */
         void merge(Corridor const& corridor);
 
+        /** Returns the set of corridors this one is connected to */
+        std::set<int> connectivity() const;
+
         /** Returns true if there is at least one connection from this corridor
          * to \c other_corridor
          */

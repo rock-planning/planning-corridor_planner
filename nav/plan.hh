@@ -73,6 +73,7 @@ namespace Nav
          * crossroads)
          */
         void mergeSimpleCrossroads();
+        void mergeSimpleCrossroads_directed();
 
     public:
         Plan();
@@ -104,7 +105,7 @@ namespace Nav
          * updates all indexes in the other corridor connections, and removes
          * any connection that were existing towards the removed corridor
          */
-        void removeCorridor(int idx);
+        void removeCorridor(int idx, int replace_by = -1);
 
         /** Move all connections that are defined on \c from_idx into the
          * corridor \c into_idx, updating the other end of the connection as

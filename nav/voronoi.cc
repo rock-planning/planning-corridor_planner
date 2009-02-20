@@ -286,6 +286,14 @@ bool Corridor::operator == (Corridor const& other) const
     return median == other.median;
 }
 
+set<int> Corridor::connectivity() const
+{
+    set<int> result;
+    for (Connections::const_iterator it = connections.begin(); it != connections.end(); ++it)
+        result.insert(it->get<1>());
+    return result;
+}
+
 list<PointSet> Corridor::endRegions() const
 {
     list<PointSet> endpoints;

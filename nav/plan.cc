@@ -32,7 +32,7 @@ void Plan::setNavigationFunction(GridGraph const& nav_function)
 void Plan::clear()
 { corridors.clear(); }
 
-void Plan::removeCorridor(int idx)
+void Plan::removeCorridor(int idx, int replace_by)
 {
     corridors.erase(corridors.begin() + idx);
     for (corridor_iterator corridor = corridors.begin(); corridor != corridors.end(); ++corridor)
@@ -41,12 +41,16 @@ void Plan::removeCorridor(int idx)
         Corridor::connection_iterator it = connections.begin();
         while (it != connections.end())
         {
-            if (it->get<1>() == idx)
+            int const target_idx = it->get<1>();
+            if (replace_by == -1 && target_idx == idx)
                 connections.erase(it++);
             else
             {
-                if (it->get<1>() > idx)
+                if (target_idx == idx)
+                    it->get<1>() = replace_by;
+                else if (target_idx > idx)
                     it->get<1>()--;
+
                 ++it;
             }
         }
@@ -123,6 +127,7 @@ void Plan::simplify()
 
         markUselessCorridors(useful_corridors);
         removeUselessCorridors(useful_corridors);
+        mergeSimpleCrossroads_directed();
     }
 }
 
@@ -391,6 +396,42 @@ void Plan::removeUselessCorridors(vector<int>& useful)
         //    //cerr << "  corridor " << i << " is useful" << endl;
         //else
         //    //cerr << "  corridor " << i << " is undetermined" << endl;
+    }
+}
+
+void Plan::mergeSimpleCrossroads_directed()
+{
+    vector<int> in_connectivity(corridors.size(), 0);
+    vector<int> out_connectivity(corridors.size(), 0);
+
+    for (size_t i = 1; i < corridors.size(); ++i)
+    {
+        set<int> connectivity = corridors[i].connectivity();
+        for (set<int>::const_iterator it = connectivity.begin();
+                it != connectivity.end(); ++it)
+            in_connectivity[*it]++;
+
+        out_connectivity[i] = connectivity.size();
+    }
+
+    vector<bool> simple_corridor(corridors.size());
+    for (size_t i = 1; i < corridors.size(); ++i) 
+        simple_corridor[i] = (out_connectivity[i] <= 1 && in_connectivity[i] <= 1);
+
+    for (int i = 1; i < (int)corridors.size(); ++i)
+    {
+        if (!simple_corridor[i]) continue;
+
+        int target_idx = corridors[i].connections.front().get<1>();
+        if (!simple_corridor[target_idx]) continue;
+
+        Corridor const& source = corridors[i];
+        Corridor& target = corridors[target_idx];
+        cerr << "merging " << target_idx << " " << i << endl;
+        target.merge(source);
+        removeCorridor(i, target_idx);
+        simple_corridor.erase(simple_corridor.begin() + i);
+        --i;
     }
 }
 

@@ -69,8 +69,6 @@ void PlanMerge::process(float coverage_threshold, float angular_threshold)
         else
             ++i;
     }
-
-    mergeSimpleCrossroads();
 }
 
 bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
