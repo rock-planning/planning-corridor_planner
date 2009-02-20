@@ -18,7 +18,7 @@ void checkSimpleCorridorResult(MedianLine const& result, size_t xmin, size_t xma
 
     for (MedianLine::const_iterator it = result.begin(); it != result.end(); ++it)
     {
-        PointID p = it->first;
+        PointID p = it->center;
         BOOST_REQUIRE_EQUAL(p.y, 20);
         check[p.x] += 1;
     }

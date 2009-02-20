@@ -117,7 +117,7 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
         MedianLine::const_iterator median_it;
         PointSet median_points;
         for (median_it = c.median.begin(); median_it != c.median.end(); ++median_it)
-            median_points.insert(median_it->first);
+            median_points.insert(median_it->center);
         markPoints(median_points, xSize, color_image, colors[corridor_idx]);
     }
 

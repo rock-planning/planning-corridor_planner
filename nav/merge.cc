@@ -100,16 +100,16 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
     current_owner = LEFT_SIDE; // used by pushAccumulator to mark the ownership of new corridors
     for (MedianLine::const_iterator left_slice = left.median.begin(); left_slice != left.median.end(); ++left_slice)
     {
-        PointID left_p = left_slice->first;
+        PointID left_p = left_slice->center;
         // Find the median point in +right+ that is closest to left_p
 
         MedianLine::const_iterator min_slice = right.median.begin();
         MedianLine::const_iterator right_slice = min_slice;
-        PointID right_p = right_slice->first;
+        PointID right_p = right_slice->center;
         float distance = left_p.distance2(right_p);
         for (; min_slice != right.median.end(); ++min_slice)
         {
-            PointID p   = min_slice->first;
+            PointID p   = min_slice->center;
             float d = left_p.distance2(p);
             if (d < distance)
             {
@@ -121,8 +121,8 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
         distance = sqrt(distance);
 
         // Now, check the principal direction of both the points
-        Point<float> left_dir  = left_slice->second.direction();
-        Point<float> right_dir = right_slice->second.direction();
+        Point<float> left_dir  = left_slice->direction();
+        Point<float> right_dir = right_slice->direction();
 
         float cos_angle = fabs(left_dir * right_dir);
         cerr << left_p << " " << right_p << " left_dir=" << left_dir << " right_dir=" << right_dir << "\n"
@@ -152,8 +152,8 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
 
         // OK, the two slices are more or less parallel. Check that they also
         // intersect
-        float left_w = left_slice->second.width;
-        float right_w = right_slice->second.width;
+        float left_w = left_slice->width;
+        float right_w = right_slice->width;
 
         if ((right_w - (left_w - para_distance)) / right_w > 1 - coverage_threshold)
             pushSingle(left_idx, left_slice);
@@ -163,7 +163,7 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
         {
             did_merge = true;
             pushMerged(left_idx, left_slice, right_idx, right_slice,
-                    left_slice->first, left_slice->second);
+                    left_slice->center, *left_slice);
         }
     }
 
@@ -181,7 +181,7 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
     current_owner = RIGHT_SIDE; // used by pushAccumulator to mark the ownership of new corridors
     for (MedianLine::const_iterator right_slice = right.median.begin(); right_slice != right.median.end(); ++right_slice)
     {
-        if (merged_points.count(right_slice->first))
+        if (merged_points.count(right_slice->center))
         {
             if (mode == SINGLE)
             {
@@ -225,7 +225,7 @@ void PlanMerge::pushAccumulator()
 
 void PlanMerge::pushSingle(int source_idx, MedianLine::const_iterator point)
 {
-    PointID median_point = point->first;
+    PointID median_point = point->center;
     PtMappingTuple new_mapping = make_tuple(source_idx, median_point, corridors.size(), median_point);
 
     cerr << "NOT MERGING" << endl << endl;
@@ -240,7 +240,7 @@ void PlanMerge::pushSingle(int source_idx, MedianLine::const_iterator point)
     // In point_mapping, we gather the mapping before the original point (in the
     // original corridor) and the point added to the accumulator. Both are, of
     // course, the same here but both points are different in case of a merge.
-    accumulated_point_mappings[ make_pair(source_idx, point->first) ] = make_pair(corridors.size(), point->first);
+    accumulated_point_mappings[ make_pair(source_idx, point->center) ] = make_pair(corridors.size(), point->center);
     accumulator.add(*point);
     last_point[0] = new_mapping;
 }
@@ -251,8 +251,8 @@ void PlanMerge::pushMerged(
         PointID const& p, MedianPoint const& median)
 {
     int new_idx = corridors.size();
-    PointID left_point  = left_p->first;
-    PointID right_point = right_p->first;
+    PointID left_point  = left_p->center;
+    PointID right_point = right_p->center;
     PtMappingTuple from_left  = make_tuple(left_idx,  left_point,  corridors.size(), p);
     PtMappingTuple from_right = make_tuple(right_idx, right_point, corridors.size(), p);
 

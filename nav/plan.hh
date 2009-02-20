@@ -116,8 +116,6 @@ namespace Nav
         void moveConnections(int into_idx, int from_idx);
 
         void addAdjacentBorders(MedianPoint const& p0, MedianPoint const& p1, std::set<PointID>& result) const;
-        void findAdjacentBorders(PointID p, Corridor const& corridor, std::set<PointID>& seen, std::set<PointID>& result) const;
-        void buildCrossroads() const;
 
         /** Simplify the plan by removing useless corridors and merging
          * corridors that have a simple connections (i.e. remove crossroads that

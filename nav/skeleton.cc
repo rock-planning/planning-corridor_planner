@@ -152,8 +152,9 @@ MedianLine SkeletonExtraction::process()
     for (CandidateSet::const_iterator it = skeleton.begin(); it != skeleton.end(); ++it)
     {
         PointID p = pointFromPtr(*it);
-        MedianPoint& info = result[p];
-        info = parents[*it];
+        result.push_back(parents[*it]);
+        MedianPoint& info = result.back();
+        info.center = p;
         info.width = **it;
     }
 
@@ -293,7 +294,7 @@ void SkeletonExtraction::registerConnections(PointID source_point, int source_id
     }
 }
 
-void SkeletonExtraction::buildPlan(Plan& result, MedianLine points)
+void SkeletonExtraction::buildPlan(Plan& result, MedianLine const& points)
 {
     result.width  = width;
     result.height = height;
@@ -310,14 +311,14 @@ void SkeletonExtraction::buildPlan(Plan& result, MedianLine points)
     // set. This set will be used to finalize the connections (but they won't be
     // part of any corridors).
     list<PointSet> crossroads;
-    for (MedianLine::iterator it = points.begin(); it != points.end(); )
+    typedef map< PointID, MedianLine::const_iterator > MedianMap;
+    MedianMap median_map;
+    for (MedianLine::const_iterator it = points.begin(); it != points.end(); ++it)
     {
-        if (it->second.borders.size() > 2)
-        {
-            updateConnectedSets(crossroads, it->first);
-            points.erase(it++);
-        }
-        else ++it;
+        if (it->borders.size() > 2)
+            updateConnectedSets(crossroads, it->center);
+        else
+            median_map.insert( make_pair(it->center, it) );
     }
 
     // To build the corridor set, we consider a point in the point set and
@@ -327,20 +328,23 @@ void SkeletonExtraction::buildPlan(Plan& result, MedianLine points)
     //     take p out of propagation
     //     add in propagation the points P for which border(P) is neighbouring border(p)
     //   end
-    while (! points.empty())
+    while (! median_map.empty())
     {
-        PointID seed = points.begin()->first;
-
         corridors.push_back(Corridor());
         Corridor& corridor = corridors.back();
         int corridor_idx = corridors.size() - 1;
 
-        PointSet propagation;
-        propagation.insert(seed);
+        list<MedianLine::const_iterator> propagation;
+        propagation.push_back(median_map.begin()->second);
+        median_map.erase(median_map.begin());
+
         while (!propagation.empty())
         {
-            PointID p = *propagation.begin();
-            corridor.add(p, points[p]);
+            MedianLine::const_iterator p_it = propagation.front();
+            propagation.pop_front();
+            corridor.add(*p_it);
+
+            PointID const p = p_it->center;
 
             // Find out if this point is connecting the corridor being built to
             // an already defined corridor. This creates a symmetric connection
@@ -348,9 +352,6 @@ void SkeletonExtraction::buildPlan(Plan& result, MedianLine points)
             ConnectionMap::iterator p_conn = connections.find(p);
             if (p_conn != connections.end())
                 registerConnections(corridor_idx, p_conn, corridors);
-
-            points.erase(p);
-            propagation.erase(propagation.begin());
 
             for (int dy = -1; dy < 2; ++dy)
             {
@@ -367,16 +368,20 @@ void SkeletonExtraction::buildPlan(Plan& result, MedianLine points)
                         continue;
                     }
 
-                    MedianLine::iterator neighbour_it = points.find(neighbour);
-                    if (neighbour_it == points.end())
+                    MedianMap::iterator neighbour_map_it = median_map.find(neighbour);
+                    if (neighbour_map_it == median_map.end())
                         continue;
 
-                    if (corridor.isBorderAdjacent(neighbour_it->second))
-                        propagation.insert(neighbour_it->first);
+                    MedianLine::const_iterator neighbour_it = neighbour_map_it->second;
+                    if (corridor.isBorderAdjacent(*neighbour_it))
+                    {
+                        propagation.push_back(neighbour_it);
+                        median_map.erase(neighbour_map_it);
+                    }
                     else
                     {
-                        if (!connections[p].count(neighbour_it->first))
-                            connections[neighbour_it->first][p] = corridor_idx;
+                        if (!connections[p].count(neighbour_it->center))
+                            connections[neighbour_it->center][p] = corridor_idx;
                     }
                 }
             }

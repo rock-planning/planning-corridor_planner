@@ -29,6 +29,8 @@ namespace Nav
         BoundingBox bbox;
         typedef std::list< PointVector > BorderList;
 
+        PointID center;
+
         /** MedianPoint maintains a list of borders, each borders being a set of
          * adjacent points. This means that:
          * <ul>
@@ -61,7 +63,7 @@ namespace Nav
         bool isBorderAdjacent(PointID const& p) const;
     };
     std::ostream& operator << (std::ostream& io, MedianPoint const& p);
-    typedef std::map<PointID, MedianPoint> MedianLine;
+    typedef std::list<MedianPoint> MedianLine;
 
     struct Corridor : public MedianPoint
     {
@@ -86,12 +88,14 @@ namespace Nav
         void clear();
         bool operator == (Corridor const& other) const;
 
+        /** Add the given median point to the corridor, and then change its
+         * center point to the one given */
+        void add(PointID const& p, MedianPoint const& median);
+
         /** Add a median point to the corridor, updating its border and bouding
          * box */
-        void add(PointID const& p, MedianPoint const& descriptor);
-        /** Add a median point to the corridor, updating its border and bouding
-         * box */
-        void add(std::pair<PointID, MedianPoint> const& p);
+        void add(MedianPoint const& p);
+
         /** Merge \c corridor into this one, updating its border, median line
          * and bounding box
          */

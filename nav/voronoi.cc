@@ -152,9 +152,14 @@ static void displayPoint(ostream& io, MedianLine const& median_set, PointSet con
     else
         io << "  ";
 
-    if (median_set.count(PointID(x, y)))
-        io << 1;
-    else if (border_set.count(PointID(x, y)))
+    for (MedianLine::const_iterator it = median_set.begin(); it != median_set.end(); ++it)
+        if (it->center == PointID(x, y))
+        {
+            io << 1;
+            return;
+        }
+
+    if (border_set.count(PointID(x, y)))
         io << 0;
     else
         io << "-";
@@ -166,7 +171,7 @@ void Nav::displayMedianLine(ostream& io, MedianLine const& skel, int xmin, int x
     PointSet border_all;
     for (MedianLine::const_iterator it = skel.begin(); it != skel.end(); ++it)
     {
-        MedianPoint::BorderList const& borders = it->second.borders;
+        MedianPoint::BorderList const& borders = it->borders;
         for (MedianPoint::BorderList::const_iterator border = borders.begin(); border != borders.end(); ++border)
             border_all.insert(border->begin(), border->end());
     }
@@ -187,25 +192,28 @@ void Nav::displayMedianLine(ostream& io, MedianLine const& skel, int xmin, int x
     for (MedianLine::const_iterator it = skel.begin(); it != skel.end(); ++it)
     {
         io << endl;
-        io << "    " << it->first << " " << it->second;
+        io << "    " << *it << endl;
     }
     io << endl;
 }
 
-void Corridor::add(PointID const& p, MedianPoint const& descriptor)
-{ return add(make_pair(p, descriptor)); }
-
-void Corridor::add(std::pair<PointID, MedianPoint> const& p)
+void Corridor::add(PointID const& p, MedianPoint const& median)
 {
-    if (p.second.borders.size() != 2)
+    add(median);
+    this->median.back().center = p;
+}
+
+void Corridor::add(MedianPoint const& p)
+{
+    if (p.borders.size() != 2)
     {
         //throw std::runtime_error("cannot add a point with a connectivity not 2 in a corridor");
         return;
     }
 
-    median.insert(p);
-    median_bbox.update(p.first);
-    mergeBorders(p.second);
+    median.push_back(p);
+    median_bbox.update(p.center);
+    mergeBorders(p);
 }
 
 bool Corridor::isConnectedTo(int other_corridor) const
@@ -232,7 +240,7 @@ void Corridor::removeConnectionsTo(int other_corridor)
 void Corridor::merge(Corridor const& corridor)
 {
     // Force the overload selection on Corridor::add
-    void (Corridor::*add)(pair<PointID, MedianPoint> const&) = &Corridor::add;
+    void (Corridor::*add)(MedianPoint const&) = &Corridor::add;
     for_each(corridor.median.begin(), corridor.median.end(), bind(mem_fn(add), this, _1));
 }
 
@@ -259,7 +267,7 @@ bool Corridor::isMedianNeighbour(PointID const& p) const
         return false;
 
     for (MedianLine::const_iterator it = median.begin(); it != median.end(); ++it)
-        if (it->first.isNeighbour(p))
+        if (it->center.isNeighbour(p))
             return true;
 
     return false;
@@ -290,8 +298,8 @@ PointID Corridor::adjacentEndpoint(PointID const& p) const
 {
     for (MedianLine::const_iterator it = median.begin(); it != median.end(); ++it)
     {
-        if (it->first.isNeighbour(p))
-            return it->first;
+        if (it->center.isNeighbour(p))
+            return it->center;
     }
     return PointID();
 }

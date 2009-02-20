@@ -85,7 +85,7 @@ namespace Nav
         MedianLine process();
 
         /** Creates a graph out of a set of median points */
-        void buildPlan(Plan& result, MedianLine points);
+        void buildPlan(Plan& result, MedianLine const& points);
         void buildPixelMap(Plan& result) const;
 
         std::vector<height_t> getHeightmap() const { return heightmap; }
