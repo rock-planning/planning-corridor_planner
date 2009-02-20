@@ -125,6 +125,11 @@ void Plan::simplify()
     {
         removeBackToBackConnections();
 
+        vector<int> useful_corridors;
+        useful_corridors.resize(corridors.size(), 0);
+        useful_corridors[0] = USEFUL;
+        markEndpointCorridors(useful_corridors);
+
         markUselessCorridors(useful_corridors);
         removeUselessCorridors(useful_corridors);
         mergeSimpleCrossroads_directed();
