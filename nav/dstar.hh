@@ -11,6 +11,7 @@
 #include <set>
 #include <list>
 #include <iosfwd>
+#include "pool_allocator.hh"
 
 namespace Nav {
     /** Basic tools for maps which are regular grids */
@@ -412,9 +413,11 @@ namespace Nav {
         /** The current goal */
         int m_goal_x, m_goal_y;
 
-        typedef std::multimap<Cost, PointID> OpenFromCost;
+        typedef std::multimap<Cost, PointID, std::less<Cost>,
+                pool_allocator< std::pair<Cost, PointID> > > OpenFromCost;
         OpenFromCost m_open_from_cost;
-        typedef std::map<PointID, Cost> OpenFromNode;
+        typedef std::map<PointID, Cost, std::less<PointID>,
+                pool_allocator< std::pair<PointID, Cost> > > OpenFromNode;
         OpenFromNode m_open_from_node;
 
     public:
