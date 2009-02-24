@@ -882,9 +882,15 @@ void Plan::mergeSimpleCrossroads_directed()
         out_connectivity[i] = connectivity.size();
     }
 
-    vector<bool> simple_corridor(corridors.size());
-    for (size_t i = 0; i < corridors.size(); ++i) 
-        simple_corridor[i] = (!corridors[i].isSingleton() && out_connectivity[i] <= 1 && in_connectivity[i] <= 1);
+    for (int i = corridors.size() - 1; i >= 0; --i)
+    {
+        if (out_connectivity[i] == 0 && in_connectivity[i] == 0)
+        {
+            removeCorridor(i);
+            in_connectivity.erase(in_connectivity.begin() + i);
+            out_connectivity.erase(out_connectivity.begin() + i);
+        }
+    }
 
     for (int i = 0; i < (int)corridors.size(); ++i)
     {
