@@ -141,7 +141,10 @@ pair<PointID, PointID> Plan::split(int corridor_idx, MedianLine::iterator it)
     }
 
     for (MedianLine::iterator median_it = corr.median.begin(); median_it != corr.median.end(); ++median_it)
+    {
         ownerships[median_it->center] |= 2;
+        corr.mergeBorders(*median_it);
+    }
 
     // Update the connection that go to +corridor_idx+
     for (size_t i = 0; i < corridors.size(); ++i)
