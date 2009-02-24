@@ -284,11 +284,11 @@ void Corridor::add(PointID const& p, MedianPoint const& descriptor, bool ordered
     {
 	PointID front_point = median.front().center;
 	PointID back_point  = median.back().center;
-	bool front_n = front_point.isNeighbour(p);
-	bool back_n = back_point.isNeighbour(p);
+	bool front_n  = front_point.isNeighbour(p);
+	bool back_n   = back_point.isNeighbour(p);
 
-	if (ordered)
-	    insert_place = median.end();
+        if (ordered)
+            insert_place = median.end();
 	else if (front_n && back_n)
 	{
 	    float d_front = p.distance2(front_point);
@@ -298,67 +298,36 @@ void Corridor::add(PointID const& p, MedianPoint const& descriptor, bool ordered
 	    else
 		insert_place = median.end();
 	}
-	else if (front_n)
-	    insert_place = median.begin();
-	else if (back_n)
-	    insert_place = median.end();
-	else
-	{
-	    float d_front = p.distance2(front_point);
-	    float d_back  = p.distance2(back_point);
-	    // First, try to find the right place for the point (if possible)
-	    if (d_front < d_back)
-	    {
-		for (MedianLine::iterator left = median.begin(); left != median.end(); ++left)
-		{
-		    if (left->center.isNeighbour(p))
-		    {
-			insert_place = left;
-			break;
-		    }
-		}
-	    }
-	    else
-	    {
-		for (MedianLine::iterator left = --median.end(); left != median.begin(); --left)
-		{
-		    if (left->center.isNeighbour(p))
-		    {
-			insert_place = ++left;
-			break;
-		    }
-		}
-	    }
-
-	    if (insert_place == median.end())
-	    {
-		if (d_front < d_back)
-		    insert_place = median.begin();
-		else
-		    insert_place = median.end();
-	    }
-	}
-
-	// On which side of insert_place should we insert ?
-	MedianLine::iterator before = insert_place, after = insert_place;
-	if (insert_place == median.begin())
-	{
-	    if ((++after)->center.isNeighbour(p))
-		insert_place = after;
-	}
-	else if (insert_place == median.end())
-	{
-	    if ((--(--before))->center.isNeighbour(p))
-		insert_place = before;
-	}
-	else
-	{
-	    --before; ++after;
-	    float d_before = before->center.distance2(p);
-	    float d_after  = after->center.distance2(p);
-	    if (d_before > d_after)
-		++insert_place;
-	}
+        else if (front_n)
+            insert_place = median.begin();
+        else if (back_n)
+            insert_place = median.end();
+        else
+        {
+            MedianLine::iterator next_front = ++median.begin();
+            MedianLine::iterator next_back  = --(--median.end());
+            if (next_front->center.isNeighbour(p))
+            {
+                median.push_front(*next_front);
+                median.erase(next_front);
+                insert_place = median.begin();
+            }
+            else if (next_back->center.isNeighbour(p))
+            {
+                median.push_back(*next_back);
+                median.erase(next_back);
+                insert_place = median.end();
+            }
+            else
+            {
+                float d_front = p.distance2(front_point);
+                float d_back  = p.distance2(back_point);
+                if (d_front < d_back)
+                    insert_place = median.begin();
+                else
+                    insert_place = median.end();
+            }
+        }
     }
 
     insert_place = median.insert(insert_place, descriptor);
@@ -383,9 +352,26 @@ bool Corridor::checkConsistency() const
         if (!it->center.isNeighbour(last_point))
         {
             result = false;
-            cerr << "median ordering: " << last_point << " " << it->center << endl;
+            cerr << name << ", error in median ordering: " << last_point << " " << it->center << endl;
         }
         last_point = it->center;
+    }
+
+    if (!result)
+    {
+        cerr << name << " median line is:";
+        int line_count = 0;
+        for (MedianLine::const_iterator median_it = median.begin();
+                median_it != median.end(); ++median_it)
+        {
+            if (++line_count > 5)
+            {
+                cerr << endl << "    ";
+                line_count = 0;
+            }
+            cerr << " " << median_it->center;
+        }
+        cerr << endl;
     }
 
     // Verify that all connection points are in the median line
@@ -436,6 +422,31 @@ Corridor::Connections::iterator Corridor::findConnectionTo(int target_idx, Point
 Corridor::Connections::const_iterator Corridor::findConnectionTo(int target_idx, PointID const& p) const
 { return ::findConnectionTo(connections.begin(), connections.end(), target_idx, p); }
 
+template<typename T>
+void reverseList(list<T>& l)
+{
+    if (l.size() < 2)
+        return;
+
+    typename list<T>::iterator
+        end = l.end(),
+        it = l.end();
+
+    // Get one element before the last element
+    --it; --it;
+    while (it != l.begin())
+        l.splice(l.end(), l, it--);
+
+    l.splice(l.end(), l, l.begin());
+}
+
+void Corridor::reverse()
+{
+    reverseList(median);
+    swap(end_types[0], end_types[1]);
+    swap(end_regions[0], end_regions[1]);
+}
+
 void Corridor::addConnection(PointID const& source_p, int target_idx, PointID const& target_p)
 {
     for (Connections::const_iterator it = connections.begin(); it != connections.end(); ++it)
@@ -470,22 +481,37 @@ void Corridor::removeConnectionsTo(int other_corridor)
     }
 }
 
-void Corridor::merge(Corridor const& corridor)
+void Corridor::merge(Corridor& corridor)
 {
-    // To force the overload selection on Corridor::add
-    void (Corridor::*add)(MedianPoint const&, bool) = &Corridor::add;
-
+    // It is assumed that both corridors are ordered FRONT => BACK. After the
+    // merge, the ordering is therefore kept.
+    //
+    // Still, we need to update the end regions
     PointID this_front = median.front().center;
+    PointID this_back  = median.back().center;
     PointID other_front = corridor.median.front().center;
     PointID other_back  = corridor.median.back().center;
 
-    float d_ff = this_front.distance2(other_front);
-    float d_fb = this_front.distance2(other_back);
+    if (bidirectional && corridor.bidirectional)
+        throw runtime_error("don't know how to merge bidirectional corridors");
+    else if (bidirectional || corridor.bidirectional)
+        throw runtime_error("cannot merge a bidirectional corridor with a non-bidirectional one");
 
-    if (d_ff < d_fb)
-        for_each(corridor.median.begin(), corridor.median.end(), bind(mem_fn(add), this, _1, true));
+    float a_then_b = this_back.distance2(other_front);
+    float b_then_a = other_back.distance2(this_front);
+ 
+    for (MedianLine::const_iterator median_it = corridor.median.begin(); median_it != corridor.median.end(); ++median_it)
+    {
+        mergeBorders(*median_it);
+        median_bbox.update(median_it->center);
+    }
+
+    if (a_then_b < b_then_a)
+        median.splice(median.end(), corridor.median);
     else
-        for_each(corridor.median.rbegin(), corridor.median.rend(), bind(mem_fn(add), this, _1, true));
+        median.splice(median.begin(), corridor.median);
+
+    checkConsistency();
 }
 
 bool Corridor::contains(PointID const& p) const

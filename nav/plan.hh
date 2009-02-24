@@ -65,26 +65,24 @@ namespace Nav
 
         typedef std::map< std::pair<int, int>, int > ConnectionTypes; 
 	typedef std::map< Corridor::ConnectionDescriptor const*, int > EndpointTypes;
-	typedef std::map< int, std::list<Corridor::ConnectionDescriptor> > InboundConnections;
 
-	template<typename It>
-	std::pair<int, int> findEndpointType(
-		ConnectionTypes const& dfs_types,
-		EndpointTypes   const& cost_types,
-		InboundConnections const& inbound_connections,
-		size_t corridor_idx, It begin, It end) const;
+	//template<typename It>
+	//std::pair<int, int> findEndpointType(
+	//	ConnectionTypes const& dfs_types,
+	//	EndpointTypes   const& cost_types,
+	//	InboundConnections const& inbound_connections,
+	//	size_t corridor_idx, It begin, It end) const;
 
-	std::vector<bool> reach_flag;
+	std::vector<bool>  reach_flag;
 	std::vector<float> reach_min_cost;
+        std::vector<int>   orientations;
+
 	bool markDirections_DFS(std::set< boost::tuple<int, PointID, int, PointID> >& result,
 		std::vector<int>& stack, int in_side, int idx, int end_idx,
 		float accumulated_cost_overhead, float cost_margin);
-	void markDirections_cost(std::set<int> const& bidir,
-		ConnectionTypes const& dfs_types,
-		EndpointTypes& endpoint_types);
+	void markDirections_cost();
         void removeBackToBackConnections();
-	void reorientMedianLines(ConnectionTypes const& types, EndpointTypes const& endpoint_types,
-		InboundConnections const& inbound_connections);
+	void reorientMedianLines();
 
 	void checkConsistency() const;
 

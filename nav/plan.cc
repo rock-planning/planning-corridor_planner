@@ -202,8 +202,7 @@ void Plan::simplify()
     markUselessCorridors(useful_corridors);
     removeUselessCorridors(useful_corridors);
 
-    //mergeSimpleCrossroads();
-    cerr << "simplification pass" << endl;
+    cerr << "after simplification pass on undirected graph" << endl;
     checkConsistency();
 
     // We changed something. Re-run the simplification process.
@@ -266,7 +265,6 @@ void Plan::simplify()
 	    moveConnections(corridors.size() - 1, new_corridor);
 	    removeCorridor(new_corridor);
 	}
-
         cerr << "created start and end corridors" << endl;
 
 	cerr << "end regions:" << endl;
@@ -296,49 +294,14 @@ void Plan::simplify()
 		cerr << "    " << corridors[i].end_regions[j] << endl;
 	}
 
-        checkConsistency();
-
         removeBackToBackConnections();
-
-        cerr << "removed back-to-back connections" << endl;
-        checkConsistency();
-
-        //vector<int> useful_corridors;
-        //useful_corridors.resize(corridors.size(), 0);
-        //useful_corridors[ findStartCorridor() ] = USEFUL;
-        //useful_corridors[ findEndCorridor() ] = USEFUL;
-
-        //markUselessCorridors(useful_corridors);
-        //removeUselessCorridors(useful_corridors);
-
-        //cerr << "removed useless corridors" << endl;
-        //checkConsistency();
 
         mergeSimpleCrossroads_directed();
 
         cerr << "merged simple crossroads" << endl;
-        //checkConsistency();
+        checkConsistency();
     }
 }
-
-template<typename T>
-void reverseList(list<T>& l)
-{
-    if (l.size() < 2)
-        return;
-
-    typename list<T>::iterator
-        end = l.end(),
-        it = l.end();
-
-    // Get one element before the last element
-    --it; --it;
-    while (it != l.begin())
-        l.splice(l.end(), l, it--);
-
-    l.splice(l.end(), l, l.begin());
-}
-
 
 bool Plan::markDirections_DFS(std::set< tuple<int, PointID, int, PointID> >& result, 
 	std::vector<int>& stack, int in_side, int idx, int end_idx,
@@ -428,6 +391,26 @@ bool Plan::markDirections_DFS(std::set< tuple<int, PointID, int, PointID> >& res
 	    cerr << indent << "keeping connection to " << it->get<2>() << endl;
 	    result.insert( make_tuple(idx, it->get<0>(), target_idx, it->get<2>()) );
 
+            int& orientation = orientations[2 * idx + out_side];
+            if (ENDPOINT_UNKNOWN == orientation)
+                orientation = ENDPOINT_FRONT;
+            else if (ENDPOINT_BACK == orientation)
+            {
+                corridor.bidirectional = true;
+                orientations[2 * idx + in_side] = ENDPOINT_BIDIR;
+                orientation = ENDPOINT_BIDIR;
+            }
+
+            int& target_orientation = orientations[2 * target_idx + target_side];
+            if (ENDPOINT_UNKNOWN == target_orientation)
+                target_orientation = ENDPOINT_BACK;
+            else if (ENDPOINT_FRONT == target_orientation)
+            {
+                target_corridor.bidirectional = true;
+                target_orientation = ENDPOINT_BIDIR;
+                orientations[2 * target_idx + !target_side] = ENDPOINT_BIDIR;
+            }
+
 	    float min_cost = reach_min_cost[2 * target_idx + target_side];
 	    if (backwards)
 		min_cost += (out_cost - in_cost);
@@ -440,12 +423,6 @@ bool Plan::markDirections_DFS(std::set< tuple<int, PointID, int, PointID> >& res
 	}
     }
 
-    if (reach_flag[2 * idx + in_side] && backwards)
-    {
-	cerr << indent << corridor.name << " is bidirectional" << endl;
-	corridor.bidirectional = true;
-    }
-
     stack.pop_back();
 
     indent.resize(indent.size() - 2);
@@ -453,13 +430,13 @@ bool Plan::markDirections_DFS(std::set< tuple<int, PointID, int, PointID> >& res
     return reach_flag[2 * idx + in_side];
 }
 
-template<typename It>
-pair<int, int> Plan::findEndpointType(
-        ConnectionTypes const& dfs_types,
-        EndpointTypes   const& cost_types,
-        InboundConnections const& inbound_connections,
-        size_t corridor_idx, It begin, It end) const
-{
+//template<typename It>
+//pair<int, int> Plan::findEndpointType(
+//        ConnectionTypes const& dfs_types,
+//        EndpointTypes   const& cost_types,
+//        InboundConnections const& inbound_connections,
+//        size_t corridor_idx, It begin, It end) const
+//{
     //Corridor const& corridor = corridors[corridor_idx];
     //for (It it = begin; it != end; ++it)
     //{
@@ -495,12 +472,10 @@ pair<int, int> Plan::findEndpointType(
     //        return make_pair(dfs_type, cost_type);
     //    }
     //}
-    throw runtime_error("cannot find type for endpoint");
-}
+//    throw runtime_error("cannot find type for endpoint");
+//}
 
-void Plan::markDirections_cost(set<int> const& bidir,
-        ConnectionTypes const& dfs_types,
-        EndpointTypes& endpoint_types)
+void Plan::markDirections_cost()
 {
     // Now, try to determine the leftovers (i.e. the bidirectional corridors) by
     // looking at the cost map. Namely, we look at the maximal cost difference
@@ -546,92 +521,32 @@ void Plan::markDirections_cost(set<int> const& bidir,
     }
 }
 
-void Plan::reorientMedianLines(ConnectionTypes const& types, EndpointTypes const& endpoint_types,
-        InboundConnections const& inbound_connections)
+void Plan::reorientMedianLines()
 {
-//    for (size_t corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
-//    {
-//        Corridor& corridor = corridors[corridor_idx];
-//        Corridor::Connections& connections = corridor.connections;
-//
-//        cerr << "looking at corridor " << corridor.name << endl;
-//
-//        int dfs_front_type  = CONNECTION_UNKNOWN,
-//            dfs_back_type   = CONNECTION_UNKNOWN,
-//            cost_front_type = CONNECTION_UNKNOWN,
-//            cost_back_type  = CONNECTION_UNKNOWN;
-//
-//        tie(dfs_front_type, cost_front_type) =
-//            findEndpointType(types, endpoint_types, inbound_connections, corridor_idx,
-//                    corridor.median.begin(), corridor.median.end());
-//        cerr << "  front connection: dfs_type=" << dfs_front_type << ", cost_type=" << cost_front_type << endl;
-//
-//        tie(dfs_back_type, cost_back_type) =
-//            findEndpointType(types, endpoint_types, inbound_connections, corridor_idx,
-//                    corridor.median.rbegin(), corridor.median.rend());
-//        cerr << "  back connection: dfs_type=" << dfs_back_type << ", cost_type=" << cost_back_type << endl;
-//
-//
-//        // Use cost-based determination only when necessary, as the DFS method
-//        // is much more robust.
-//        int front_type, back_type;
-//        if (dfs_front_type == CONNECTION_BIDIR && dfs_back_type == CONNECTION_BIDIR)
-//        {
-//            front_type = cost_front_type;
-//            back_type  = cost_back_type;
-//        }
-//        else
-//        {
-//            front_type = dfs_front_type;
-//            back_type  = dfs_back_type;
-//        }
-//
-//
-//        if (front_type == CONNECTION_UNKNOWN && back_type == CONNECTION_UNKNOWN)
-//        {
-//            cerr << "  cannot know its orientation (unknown)" << endl;
-//            continue;
-//        }
-//        else if (front_type == CONNECTION_BIDIR && back_type == CONNECTION_BIDIR)
-//        {
-//            cerr << "  cannot know its orientation (bidir)" << endl;
-//            throw runtime_error("unknown orientation");
-//            continue;
-//        }
-//        else if (front_type == back_type)
-//        {
-//            cerr << "  median: ";
-//            int i = 0;
-//            for (MedianLine::const_iterator median_it = corridor.median.begin();
-//                    median_it != corridor.median.end(); ++median_it)
-//            {
-//                if (++i > 10)
-//                {
-//                    cerr << endl << "    ";
-//                    i = 0;
-//                }
-//                cerr << " " << median_it->center;
-//            }
-//            cerr << endl;
-//
-//            Corridor::Connections::const_iterator conn_it;
-//            cerr << "  connections:" << endl;
-//            for (conn_it = connections.begin(); conn_it != connections.end(); ++conn_it)
-//            {
-//                cerr << "    " << conn_it->get<0>() << " => " << corridors[conn_it->get<1>()].name << " " << conn_it->get<2>() << " of type " << types.find( make_pair(corridor_idx, conn_it->get<1>()) )->second << endl;
-//            }
-//
-//            cerr << "  cannot know its orientation (" << front_type << ")" << endl;
-//            throw runtime_error("unknown orientation");
-//            continue;
-//        }
-//        else if (front_type != CONNECTION_BACK_TO_FRONT && back_type != CONNECTION_FRONT_TO_BACK)
-//        {
-//            cerr << "  inverting order" << endl;
-//            reverseList(corridor.median);
-//            cerr << "  new order: " << corridor.median.front().center << " " << corridor.median.back().center << endl;
-//        }
-//    }
+    for (size_t i = 0; i < corridors.size(); ++i)
+    {
+        Corridor& corridor = corridors[i];
+        if (orientations[2 * i] == ENDPOINT_BACK && orientations[2 * i + 1] == ENDPOINT_FRONT)
+        {
+            cerr << corridor.name << " is oriented BACK[" << corridor.median.front().center << "] => FRONT[" << corridor.median.back().center << "]" << endl;
+        }
+        else if (orientations[2 * i] == ENDPOINT_FRONT && orientations[2 * i + 1] == ENDPOINT_BACK)
+        {
+            corridor.reverse();
+            cerr << corridor.name << " is oriented FRONT[" << corridor.median.front().center << "] <= BACK[" << corridor.median.back().center << "]" << endl;
+        }
+        else if (corridor.bidirectional)
+            cerr << corridor.name << " is bidirectional" << endl;
+        else
+            cerr << "error in orientation for " << corridor.name << endl;
+
+        if (!corridor.bidirectional)
+        {
+            corridor.end_types[0] = ENDPOINT_BACK;
+            corridor.end_types[1] = ENDPOINT_FRONT;
+        }
+    }
+
 }
 
 void Plan::removeBackToBackConnections()
@@ -639,26 +554,17 @@ void Plan::removeBackToBackConnections()
     size_t start_idx = findStartCorridor();
     size_t end_idx   = findEndCorridor();
 
-    set<int> bidir; // this set will hold the corridors whose orientation cannot
-                    // be determined by the DFS part
+    markDirections_cost();
 
-    // this map will hold the information we get out of the cost-based method.
-    // Are included onlu the endpoints of the corridors that are undetermined
-    // after the DFS part
-    ConnectionTypes types;
-    EndpointTypes endpoint_types;
-    markDirections_cost(bidir, types, endpoint_types);
-
-    // First pass: do a DFS and mark the connections in the direction which goes
-    // to the goal. Corridors that meet the DFS stack are ignored. If two
-    // branches use the same corridor in different directions, mark the
-    // associated connections as bidirectional.
     Corridor const& start_corridor = corridors[start_idx];
     float cost_margin = m_nav_function.getValue(m_start.x, m_start.y) * 0.05;
 
     reach_flag.resize(2 * corridors.size());
     fill(reach_flag.begin(), reach_flag.end(), false);
     reach_min_cost.resize(2 * corridors.size());
+    orientations.resize(2 * corridors.size());
+    fill(orientations.begin(), orientations.end(), 0);
+
     reach_flag[2 * end_idx] = true;
     reach_flag[2 * end_idx + 1] = true;
     reach_min_cost[2 * end_idx] = 0;
@@ -672,6 +578,7 @@ void Plan::removeBackToBackConnections()
 	cerr << "initializing DFS-based DAG convertion with " << corridors[target_idx].name << " " << target_p << endl;
 	int     target_side = corridors[target_idx].findSideOf(target_p);
 
+        orientations[target_idx * 2 + target_side] = ENDPOINT_BACK;
 	result.insert( make_tuple(start_idx, it->get<0>(), target_idx, target_p) );
 
 	vector<int> stack;
@@ -690,45 +597,9 @@ void Plan::removeBackToBackConnections()
 		connections.erase(conn_it++);
 	    else ++conn_it;
 	}
-
-	//PointSet front_side, back_side;
-
-	//if (corridor.end_types[0] == ENDPOINT_FRONT)
-	//    front_side = corridor.end_regions[0];
-	//else if (corridor.end_types[1] == ENDPOINT_FRONT)
-	//    front_side = corridor.end_regions[1];
-
-	//if (corridor.end_types[0] == ENDPOINT_BACK)
-	//    back_side = corridor.end_regions[0];
-	//else if (corridor.end_types[1] == ENDPOINT_BACK)
-	//    back_side = corridor.end_regions[1];
-
-	//Corridor::Connections& connections = corridor.connections;
-        //Corridor::connection_iterator conn_it = connections.begin(),
-        //    end = connections.end();
-        //while (conn_it != end)
-        //{
-	//    PointID src_p          = conn_it->get<0>();
-
-        //    if (conn_it->get<1>() == corridor_idx)
-        //        connections.erase(conn_it++);
-	//    else if (back_side.count(src_p))
-	//	connections.erase(conn_it++);
-	//    else if (front_side.count(src_p))
-	//    {
-	//	Corridor const& target = corridors[conn_it->get<1>()];
-	//	PointID target_p       = conn_it->get<2>();
-	//	int target_side = target.findSideOf(conn_it->get<2>());
-	//	int target_type = target.end_types[target_side];
-	//	if (target_type == ENDPOINT_FRONT)
-	//	    connections.erase(conn_it++);
-	//	else ++conn_it;
-	//    }
-	//    else ++conn_it;
-	//}
     }
 
-    //reorientMedianLines(types, endpoint_types, inbound_connections);
+    reorientMedianLines();
 }
 
 void Plan::markNullCorridors(vector<int>& useful)
@@ -898,9 +769,10 @@ void Plan::mergeSimpleCrossroads_directed()
 	if (out_connectivity[i] != 1) continue;
 
         int target_idx = corridors[i].connections.front().get<1>();
+        if (corridors[target_idx].isSingleton()) continue;
         if (in_connectivity[target_idx] > 1) continue;
 
-        Corridor const& source = corridors[i];
+        Corridor& source = corridors[i];
         Corridor& target = corridors[target_idx];
         cerr << "merging " << target.name << " + " << source.name << " out=" << out_connectivity[i] << " in=" << in_connectivity[target_idx] << endl;
         target.merge(source);
@@ -1075,6 +947,7 @@ void Plan::checkConsistency() const
     for (size_t i = 0; i < corridors.size(); ++i)
     {
         Corridor const& corridor = corridors[i];
+        corridor.checkConsistency();
 
 	//size_t end_regions = corridor.endRegions().size();
 	//if (!corridor.isSingleton() && end_regions != 2)
@@ -1092,7 +965,7 @@ void Plan::checkConsistency() const
         {
             size_t target_idx = it->get<1>();
             if (target_idx == i)
-                cerr << "  " << corridor.name << " is looping on itself" << target_idx << endl;
+                cerr << "  " << corridor.name << " is looping on itself" << endl;
 
             if (target_idx < 0 || target_idx >= corridors.size())
                 cerr << "  wrong target index in connection from " << corridor.name << ": " << target_idx << endl;

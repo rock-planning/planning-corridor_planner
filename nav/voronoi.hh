@@ -111,10 +111,12 @@ namespace Nav
 
 	int findSideOf(PointID const& p) const;
 
+        void reverse();
+
         /** Merge \c corridor into this one, updating its border, median line
          * and bounding box
          */
-        void merge(Corridor const& corridor);
+        void merge(Corridor& corridor);
 
         /** Returns the set of corridors this one is connected to */
         std::set<int> connectivity() const;
