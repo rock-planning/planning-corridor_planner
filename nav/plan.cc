@@ -314,7 +314,7 @@ void Plan::simplify()
         //cerr << "removed useless corridors" << endl;
         //checkConsistency();
 
-        //mergeSimpleCrossroads_directed();
+        mergeSimpleCrossroads_directed();
 
         cerr << "merged simple crossroads" << endl;
         //checkConsistency();
