@@ -111,6 +111,23 @@ struct Profile
     }
 };
 
+string colorToDot(RGBColor const& color)
+{
+    ostringstream stream;
+
+    stream << "#" << hex;
+
+#define DISPLAY_COLOR_CODE(io, code) \
+        if ((code) < 16) \
+            io << 0; \
+        io << (int)(code);
+
+    DISPLAY_COLOR_CODE(stream, color.r);
+    DISPLAY_COLOR_CODE(stream, color.g);
+    DISPLAY_COLOR_CODE(stream, color.b);
+    return stream.str();
+}
+
 void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<uint8_t> const& image, Plan const& plan)
 {
     vector<RGBColor> color_image;
@@ -141,22 +158,39 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
     cerr << "  saving result in " << dot_out << endl;
     ofstream dot(dot_out.c_str());
     dot << "digraph {\n";
+    dot << "  rankdir=LR;\n";
     for (size_t corridor_idx = 0; corridor_idx < plan.corridors.size(); ++corridor_idx)
     {
         RGBColor color = colors[corridor_idx];
 
-        string corridor_name = plan.corridors[corridor_idx].name;
+        Corridor const& corridor = plan.corridors[corridor_idx];
+        string corridor_name = corridor.name;
 
-        dot << "  c" << corridor_idx << "[color=\"#" << hex;
-#define DISPLAY_COLOR_CODE(io, code) \
-        if ((code) < 16) \
-            io << 0; \
-        dot << (int)(code);
+        if (corridor.isSingleton())
+        {
+            dot << "  c" << corridor_idx << "_0 "
+                << "[label=\"" << corridor_name << "\", color=\""
+                << colorToDot(color) << "\"]\n";
+        }
+        else
+        {
+            ostringstream node_setup;
+            node_setup << "[fixedsize=true, width=0.1, height=0.1, label=\"\", style=filled, shape=circle, "
+                << "color=\"" << colorToDot(color) << "\"];\n";
 
-        DISPLAY_COLOR_CODE(dot, color.r);
-        DISPLAY_COLOR_CODE(dot, color.g);
-        DISPLAY_COLOR_CODE(dot, color.b);
-        dot << "\", label=\"" << corridor_name << "\"];\n" << dec;
+            dot << "  c" << corridor_idx << "_0 " << node_setup.str();
+            dot << "  c" << corridor_idx << "_1 " << node_setup.str();
+            dot << "  c" << corridor_idx << "_0 -> c" << corridor_idx
+                << "_1 [label=\"" << corridor_name << "\", color=\""
+                << colorToDot(color) << "\"]\n";
+
+            if (corridor.bidirectional)
+            {
+                dot << "  c" << corridor_idx << "_1 -> c" << corridor_idx << "_0 [color=\""
+                    << colorToDot(color) << "\"]\n";
+            }
+        }
+
 
         std::set<int> seen;
         Corridor::Connections const& connections = plan.corridors[corridor_idx].connections;
@@ -164,9 +198,15 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
         for (conn_it = connections.begin(); conn_it != connections.end(); ++conn_it)
         {
             int target_idx = conn_it->get<1>();
+            Corridor const& target = plan.corridors[target_idx];
+
             if (!seen.count(target_idx))
             {
-                dot << "  c" << corridor_idx << " -> c" << target_idx << ";\n";
+                int in_side  = corridor.findSideOf(conn_it->get<0>());
+                int out_side = target.findSideOf(conn_it->get<2>());
+
+                dot << "  c" << corridor_idx << "_" << in_side
+                    << " -> c" << target_idx << "_" << out_side << " [weight=3];\n";
                 seen.insert(target_idx);
             }
         }
