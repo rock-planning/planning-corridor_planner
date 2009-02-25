@@ -470,6 +470,23 @@ void Corridor::reverse()
     swap(end_regions[0], end_regions[1]);
 }
 
+void Corridor::buildTangent()
+{
+    MedianLine::const_iterator left  = median.end();
+    MedianLine::const_iterator right = ++median.begin();
+    for (MedianLine::iterator it = median.begin(); it != median.end(); ++it, ++left, ++right)
+    {
+        if (left != median.end() && right != median.end())
+            it->tangent = Point<float>(right->center - left->center).normalize();
+        else if (left != median.end())
+            it->tangent = Point<float>(it->center - left->center).normalize();
+        else if (right != median.end())
+            it->tangent = Point<float>(right->center - it->center).normalize();
+        else
+            it->tangent = Point<float>();
+    }
+}
+
 void Corridor::addConnection(PointID const& source_p, int target_idx, PointID const& target_p)
 {
     for (Connections::const_iterator it = connections.begin(); it != connections.end(); ++it)

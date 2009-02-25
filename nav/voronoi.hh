@@ -31,6 +31,8 @@ namespace Nav
 
         PointID center;
 
+        Point<float> tangent;
+
         /** MedianPoint maintains a list of borders, each borders being a set of
          * adjacent points. This means that:
          * <ul>
@@ -79,6 +81,8 @@ namespace Nav
         typedef std::list<ConnectionDescriptor> Connections;
         typedef Connections::iterator connection_iterator;
         Connections connections;
+
+        void buildTangent();
 
 	PointSet end_regions[2];
 	int end_types[2];
@@ -152,6 +156,11 @@ namespace Nav
          * not remove them on \c other_corridor
          */
         void removeConnectionsTo(int other_corridor);
+
+        MedianLine::iterator begin() { return median.begin(); }
+        MedianLine::iterator end() { return median.begin(); }
+        MedianLine::const_iterator begin() const { return median.begin(); }
+        MedianLine::const_iterator end() const { return median.begin(); }
 
         /** Returns a point of the median line which is adjacent to \c p */
         PointID adjacentEndpoint(PointID const& p) const;

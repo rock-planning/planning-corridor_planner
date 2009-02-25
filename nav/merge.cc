@@ -42,6 +42,7 @@ void PlanMerge::merge(Plan const& left, Plan const& right, float coverage_thresh
     ownership.resize(corridors.size());
     fill(ownership.begin(), ownership.begin() + left.corridors.size(), LEFT_SIDE);
     fill(ownership.begin() + left.corridors.size(), ownership.end(), RIGHT_SIDE);
+    for_each(corridors.begin(), corridors.end(), bind(&Corridor::buildTangent, _1));
     process(coverage_threshold, angular_threshold);
 
     vector<int> useful_corridors;
@@ -180,13 +181,13 @@ bool PlanMerge::canMerge(MedianPoint const& left_slice, MedianPoint const& right
         float distance, float coverage_threshold, float cos_angular_threshold) const
 {
     // Now, check the principal direction of both the points
-    Point<float> left_dir  = left_slice.direction();
-    Point<float> right_dir = right_slice.direction();
+    Point<float> left_tg  = left_slice.tangent;
+    Point<float> right_tg = right_slice.tangent;
 
     PointID left_p  = left_slice.center;
     PointID right_p = right_slice.center;
 
-    float cos_angle = fabs(left_dir * right_dir);
+    float cos_angle = fabs(left_tg * right_tg);
     //cerr << left_p << " " << right_p << " left_dir=" << left_dir << " right_dir=" << right_dir << "\n" << " angle=" << cos_angle << "\n";
 
     if (cos_angle < cos_angular_threshold)
@@ -197,8 +198,8 @@ bool PlanMerge::canMerge(MedianPoint const& left_slice, MedianPoint const& right
     //    the corridor main direction)
     //  - that the two corridors overlap (along the corridor main direction)
     Point<float> dist_dir = left_p - right_p;
-    float para_distance  = fabs(dist_dir * left_dir);
-    float ortho_distance = fabs(sqrt(distance * distance - para_distance * para_distance));
+    float ortho_distance = fabs(dist_dir * left_tg);
+    float para_distance = fabs(sqrt(distance * distance - ortho_distance * ortho_distance));
 
     //cerr << " d=" << distance << " para_distance=" << para_distance << " ortho_distance=" << ortho_distance << endl;
 
