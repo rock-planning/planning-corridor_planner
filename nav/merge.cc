@@ -397,9 +397,18 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
                 pair<int, PointID> last_mapping = point_mapping[ make_pair(right_idx, last_merge->center) ];
                 corridors[right_last_corridor].addConnection(
                         last_mapping.second, mapped.first, mapped.second);
-                if (right_last_corridor + 2 == mapped.first)
+                if (right_last_corridor + 2 == mapped.first && ownership[right_last_corridor + 1] != TO_DELETE)
                 {
-                    cerr << "  cancelling useless left corridor " << corridors[right_last_corridor + 1].name << endl;
+                    Corridor& merge = corridors[right_last_corridor];
+                    Corridor& cancelled = corridors[right_last_corridor + 1];
+                    cerr << "  cancelling useless left corridor " << cancelled.name << endl;
+
+                    for (MedianLine::const_iterator it = cancelled.begin(); it != cancelled.end(); ++it)
+                    {
+                        point_mapping[ make_pair(right_last_corridor + 1, it->center) ].first = right_last_corridor;
+                        merge.add(*it, true);
+                    }
+
                     ownership[right_last_corridor + 1] = TO_DELETE;
                 }
             }
@@ -409,6 +418,7 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
                 if (corridors[mapped.first].isConnectedTo(corridors.size()))
                 {
                     cerr << "going back into the same merge corridor, cancelling " << accumulator.name << endl;
+                    corridors[mapped.first].removeConnectionsTo(corridors.size());
                     accumulator.clear();
                 }
                 else
