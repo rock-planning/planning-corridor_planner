@@ -65,7 +65,6 @@ void PlanMerge::merge(Plan const& left, Plan const& right, float coverage_thresh
 
 void PlanMerge::process(float coverage_threshold, float angular_threshold)
 {
-    size_t original_corridor_size = corridors.size();
     for (size_t i = 0; i < corridors.size(); ++i)
     {
         if (ownership[i] == TO_DELETE || ownership[i] == MERGED)
@@ -275,7 +274,7 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
         if (right_slice != right.median.end())
         {
             did_merge = true;
-            MedianPoint merged = *right_slice;
+            MedianPoint merged = *left_slice;
             //PointID diff = right_p - left_p;
             //merged.offset((right_p - left_p) / 2);
 
@@ -545,7 +544,7 @@ void PlanMerge::pushMerged(
         cerr << "starting to merge at " << left_p->center << " (" << right_p->center << ")" << endl;
 
     if (mode != MERGING)
-        accumulator.name = "(" + corridors[left_idx].name + "|" + corridors[right_idx].name + ")" + boost::lexical_cast<std::string>(corridors.size());
+        accumulator.name = "(" + corridors[left_idx].name + "|" + corridors[right_idx].name + ")" + "." + boost::lexical_cast<std::string>(corridors.size());
 
     mode = MERGING;
     accumulator.add(p, median, true);
@@ -555,6 +554,15 @@ void PlanMerge::pushMerged(
     last_point[1] = from_right;
     merged_points.insert(right_point);
     point_mapping[ make_pair(right_idx, right_point) ] = make_pair(new_idx, p);
+}
+
+pair<int, PointID> PlanMerge::getEndpointMapping(PointID const& p, Corridor const& orig, size_t first_idx, size_t last_idx) const
+{
+    int side = orig.findSideOf(p);
+    if (side == ENDPOINT_FRONT)
+        return make_pair(last_idx, corridors[last_idx].median.back().center);
+    else
+        return make_pair(first_idx, corridors[first_idx].median.front().center);
 }
 
 void PlanMerge::finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_t start_idx,
@@ -578,18 +586,65 @@ void PlanMerge::finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_
     // are either directed and in the same order than the corridors or
     // bidirectional if the left corridor is bidirectional.
     size_t left_sequence_end = find(ownership.begin() + start_idx, ownership.end(), RIGHT_SIDE) - ownership.begin();
+    int left_first_corridor = -1, left_last_corridor = -1;
 
     bool left_is_bidir  = orig_left.bidirectional;
     bool right_is_bidir = orig_right.bidirectional;
     bool merge_is_bidir = left_is_bidir || right_is_bidir;
-    size_t last_left_corridor = start_idx;
+    size_t previous_left_corridor = -1;
     for (size_t i = start_idx; i < left_sequence_end; ++i)
     {
-        if (ownership[i] == TO_DELETE)
-            continue;
-
-        last_left_corridor = i;
         Corridor& corridor = corridors[i];
+
+        // This corridor has been marked as bridged by the RIGHT pass of
+        // mergeCorridors. Ignore it.
+        if (ownership[i] == TO_DELETE)
+        {
+            cerr << "  left corridor " << corridor.name << " is already cancelled" << endl;
+            continue;
+        }
+
+        if (corridor.median.size() < 4 && ownership[i] == LEFT_SIDE)
+        {
+            cerr << "  cancelling small corridor " << corridor.name << endl;
+            ownership[i] = TO_DELETE;
+            continue;
+        }
+
+        if (ownership[i] == MERGED && previous_left_corridor != -1)
+        {
+            Corridor& prev = corridors[previous_left_corridor];
+            if (ownership[previous_left_corridor] == MERGED)
+            {
+                cerr << "  merging " << corridor.name << " into " << prev.name << endl;
+                corridor.bidirectional = prev.bidirectional; // mark the bidirectional flag to make Corridor::merge happy
+                prev.merge(corridor);
+                prev.end_regions[1].clear();
+                prev.end_regions[1].insert(prev.median.back().center);
+
+                // Copy the outbound connections (to right corridors)
+                prev.connections.insert( prev.connections.end(), corridor.connections.begin(), corridor.connections.end() );
+                // ... then fix the inbound connections from the right corridors
+                // as well
+                for (size_t right_idx = left_sequence_end; right_idx < corridors.size(); ++right_idx)
+                {
+                    if (prev.isConnectedTo(right_idx) && corridors[right_idx].isConnectedTo(i))
+                        prev.removeConnectionsTo(right_idx);
+                    else
+                        corridors[right_idx].moveConnections(i, previous_left_corridor);
+                }
+                if (right_last_corridor == i)
+                    right_last_corridor = previous_left_corridor;
+
+                ownership[i] = TO_DELETE;
+                continue;
+            }
+        }
+
+        if (left_first_corridor == -1)
+            left_first_corridor = i;
+        left_last_corridor = i;
+
         if (ownership[i] == MERGED)
             corridor.bidirectional = merge_is_bidir;
         else
@@ -597,34 +652,39 @@ void PlanMerge::finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_
 
         corridor.end_regions[0].insert(corridor.median.front().center);
         corridor.end_regions[1].insert(corridor.median.back().center);
-        if (i < left_sequence_end - 1)
-            corridor.addConnection(corridor.median.back().center, i + 1, corridors[i + 1].median.back().center);
-
-        if (i < left_sequence_end - 1)
+        if (previous_left_corridor != -1)
         {
-           if (!corridor.isConnectedTo(i + 1))
-               cerr << "problem in left<->merge sequence: " << corridors[i].name << " is not connected to " << corridors[i + 1].name << endl;
-           else if (ownership[i] == ownership[i + 1])
-               cerr << "problem in left<->merge sequence: " << corridors[i].name << " and " << corridors[i + 1].name << " have the same ownership" << endl;
+            cerr << "  connecting " << corridors[previous_left_corridor].name << " to " << corridors[i].name << endl;
+            corridors[previous_left_corridor].addConnection(corridors[previous_left_corridor].median.back().center, i, corridors[i].median.front().center);
+        }
+        // Always connect from the previous item in the sequence (if this is not
+        // the first)
+        //if (previous_left_corridor != start_idx)
+        //    corridor.addConnection(corridors[previous_left_corridor].median.back().center, i, corridor.median.front().center);
+
+        if (previous_left_corridor != -1)
+        {
+           if (!corridors[previous_left_corridor].isConnectedTo(i))
+               cerr << "problem in left<->merge sequence: " << corridors[previous_left_corridor].name << " is not connected to " << corridors[i].name << endl;
+           else if (ownership[i] == LEFT_SIDE && ownership[previous_left_corridor] == LEFT_SIDE)
+               cerr << "problem in left<->merge sequence: " << corridors[i].name << " and " << corridors[i + 1].name << " are both owned by LEFT" << endl;
         }
 
         if (corridor.bidirectional)
         {
-            corridor.end_types[0] = ENDPOINT_BIDIR;
-            corridor.end_types[1] = ENDPOINT_BIDIR;
-            if (i > start_idx)
-                corridor.addConnection(corridor.median.front().center, last_left_corridor, corridors[last_left_corridor].median.back().center);
+            if (previous_left_corridor != -1)
+            {
+                cerr << "  creating reverse connection (bidir): " << corridor.name << " => " << corridors[previous_left_corridor].name << endl;
+                corridor.addConnection(corridor.median.front().center, previous_left_corridor, corridors[previous_left_corridor].median.back().center);
+            }
+            //if (previous_left_corridor != start_idx)
+            //    corridor.addConnection(corridor.median.front().center, previous_left_corridor, corridors[previous_left_corridor].median.back().center);
         }
-        else
-        {
-            corridor.end_types[0] = ENDPOINT_BACK;
-            corridor.end_types[1] = ENDPOINT_FRONT;
-        }
+        previous_left_corridor = i;
     }
 
     // Then we manage the RIGHT corridors. Right now, we should only have
     // connections from right to merged
-    
     for (size_t right_idx = left_sequence_end; right_idx < corridors.size(); ++right_idx)
     {
         Corridor& corridor = corridors[right_idx];
@@ -636,40 +696,19 @@ void PlanMerge::finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_
         if (right_idx != right_last_corridor)
             corridor.end_types[1] = ENDPOINT_FRONT;
         if (right_is_bidir)
-        {
             corridor.bidirectional = right_is_bidir;
-            corridor.end_types[0] = ENDPOINT_BIDIR;
-            corridor.end_types[1] = ENDPOINT_BIDIR;
-        }
     }
-
-    size_t right_idx = right_first_corridor;
-    int right_in_side = -1, right_out_side = -1;
-    {
-        pair<int, PointID> mapped = point_mapping[ make_pair(orig_right_idx, orig_right.median.front().center) ];
-        cerr << "original right in-point " << orig_right.median.front().center;
-        right_in_side = corridors[mapped.first].findSideOf(mapped.second);
-        cerr << " is mapped to " << mapped.second << endl;
-
-        cerr << "right going in " << corridors[mapped.first].name << "[" << right_in_side << "]" << endl;
-
-        mapped = point_mapping[ make_pair(orig_right_idx, orig_right.median.back().center) ];
-        cerr << "original right out-point " << orig_right.median.back().center;
-        right_out_side = corridors[mapped.first].findSideOf(mapped.second);
-        cerr << " is mapped to " << mapped.second << endl;
-        cerr << "right leaving out " << corridors[mapped.first].name << "[" << right_out_side << "]" << endl;
-    }
-
-    vector<bool> seen;
-    seen.resize(corridors.size(), false);
 
     cerr << "fixing connections for right side" << endl;
     cerr << "  right side is starting at " << corridors[right_first_corridor].name << " (" << right_first_corridor << ")" << endl;
     cerr << "  right side is finishing at " << corridors[right_last_corridor].name <<" (" << right_last_corridor << ")" <<  endl;
+    int previous_right_idx = -1;
+    vector<bool> seen;
+    seen.resize(corridors.size(), false);
+    size_t right_idx = right_first_corridor;
     while (right_idx != right_last_corridor)
     {
         Corridor& corridor = corridors[right_idx];
-        cerr << "  " << corridor.name << endl;
         seen[right_idx] = true;
 
         int target_idx = -1;
@@ -699,24 +738,7 @@ void PlanMerge::finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_
             throw runtime_error("error in right sequence: cannot reach end corridor");
 
         Corridor& target = corridors[target_idx];
-        cerr << "    next right corridor is " << target.name << endl;
-
-        // For the first corridor, we obviously cannot use the inbound
-        // connection, so we have to use a special case and check the outbound
-        // connection.
-        if (right_idx == right_first_corridor)
-        {
-            int in_side = corridor.findSideOf(conn_it->get<0>());
-            //right_in_side = !in_side;
-
-            if (!corridor.bidirectional && ownership[right_idx] == MERGED)
-            {
-                if (in_side == 0)
-                    corridor.bidirectional = true;
-            }
-        }
-        //if (target_idx == right_last_corridor)
-        //    right_out_side = target.findSideOf(conn_it->get<2>());
+        cerr << "    looking at " << corridor.name << ", next right corridor is " << target.name << endl;
 
         if (!target.bidirectional && ownership[target_idx] == MERGED)
         { 
@@ -724,14 +746,48 @@ void PlanMerge::finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_
             // Check that left and right are traversing the merged corridors in
             // the same direction.
             int target_side = target.findSideOf(conn_it->get<2>());
-            if (target_side == 1)
+            if (target_side == ENDPOINT_FRONT)
+            {
+                cerr << "  corridor " << corridor.name << " is traversed in both directions, marking as bidirectional" << endl;
                 target.bidirectional = true;
+            }
         }
 
         if (right_is_bidir)
+        {
+            cerr << "  adding connection " << target.name << " => " << corridor.name << " (bidir)" << endl;
             target.addConnection( conn_it->get<2>(), right_idx, conn_it->get<0>() );
+        }
+
+        // Cancel small corridors. Note that it HAS to be done AFTER we fix the
+        // bidirectional flag for the connection target, otherwise that flag
+        // won't get updated properly.
+        if (ownership[right_idx] == RIGHT_SIDE && corridor.median.size() < 4)
+        {
+            if (previous_right_idx != -1)
+            {
+                corridors[previous_right_idx].moveConnections(right_idx, target_idx);
+                corridors[previous_right_idx].connections.insert(
+                        corridors[previous_right_idx].connections.begin(),
+                        corridor.connections.begin(), corridor.connections.end());
+            }
+
+            if (right_idx == right_first_corridor)
+                right_first_corridor = target_idx;
+            // right_idx cannot be right_last_corridor
+
+            ownership[right_idx] = TO_DELETE;
+        }
+        else
+            previous_right_idx = right_idx;
 
         right_idx = target_idx;
+    }
+    seen[right_last_corridor] = true;
+    if (ownership[right_last_corridor] == RIGHT_SIDE && corridors[right_last_corridor].median.size() < 4)
+    {
+        ownership[right_last_corridor] = TO_DELETE;
+        right_last_corridor = previous_right_idx;
     }
 
     for (size_t corridor_idx = left_sequence_end; corridor_idx < corridors.size(); ++corridor_idx)
@@ -739,6 +795,13 @@ void PlanMerge::finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_
         if (!seen[corridor_idx])
             cerr << "error in right sequence: " << corridors[corridor_idx].name << " is not included" << endl;
     }
+
+    size_t right_in_side  = corridors[right_first_corridor].findSideOf(orig_right.median.front().center);
+    size_t right_out_side = corridors[right_last_corridor].findSideOf(orig_right.median.back().center);
+    if (right_in_side == ENDPOINT_FRONT)
+        corridors[right_first_corridor].bidirectional = true;
+    if (right_out_side == ENDPOINT_BACK)
+        corridors[right_last_corridor].bidirectional = true;
 
     for (size_t corridor_idx = start_idx; corridor_idx < corridors.size(); ++corridor_idx)
     {
@@ -754,10 +817,11 @@ void PlanMerge::finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_
             corridor.end_types[1] = ENDPOINT_FRONT;
         }
     }
-    
+
     // Copy the necessary info from the original corridors
-    corridors[start_idx].end_regions[0]       = orig_left.end_regions[0];
-    corridors[left_sequence_end - 1].end_regions[1] = orig_left.end_regions[1];
+    corridors[left_first_corridor].end_regions[0] = orig_left.end_regions[0];
+    corridors[left_last_corridor].end_regions[1]  = orig_left.end_regions[1];
+
     corridors[right_first_corridor].end_regions[right_in_side].insert(
             orig_right.end_regions[0].begin(), orig_right.end_regions[0].end() );
     corridors[right_last_corridor].end_regions[right_out_side].insert(
@@ -767,19 +831,25 @@ void PlanMerge::finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_
     Corridor::Connections::const_iterator conn_it;
     for (conn_it = orig_left.connections.begin(); conn_it != orig_left.connections.end(); ++conn_it)
     {
-        pair<int, PointID> mapping = 
-            point_mapping[ make_pair(orig_left_idx, conn_it->get<0>()) ];
-        corridors[mapping.first].addConnection( mapping.second, conn_it->get<1>(), conn_it->get<2>() );
+        pair<int, PointID> mapping = getEndpointMapping(conn_it->get<0>(), orig_left, left_first_corridor, left_last_corridor);
+        cerr << "  copying connection " 
+            << "(" << orig_left.name << ", " << conn_it->get<0>() << ", " << corridors[conn_it->get<1>()].name << ", " << conn_it->get<2>() << ")"
+            << " to "
+            << "(" << corridors[mapping.first].name << ", " << mapping.second << ", " << corridors[conn_it->get<1>()].name << ", " << conn_it->get<2>() << ")" << endl;
+        corridors[mapping.first].addConnection( mapping.second, conn_it->get<1>(), conn_it->get<2>());
     }
     for (conn_it = orig_right.connections.begin(); conn_it != orig_right.connections.end(); ++conn_it)
     {
-        pair<int, PointID> mapping = 
-            point_mapping[ make_pair(orig_right_idx, conn_it->get<0>()) ];
-        corridors[mapping.first].addConnection( mapping.second, conn_it->get<1>(), conn_it->get<2>() );
+        pair<int, PointID> mapping = getEndpointMapping(conn_it->get<0>(), orig_right, right_first_corridor, right_last_corridor);
+        cerr << "  copying connection " 
+            << "(" << orig_right.name << ", " << conn_it->get<0>() << ", " << corridors[conn_it->get<1>()].name << ", " << conn_it->get<2>() << ")"
+            << " to "
+            << "(" << corridors[mapping.first].name << ", " << mapping.second << ", " << corridors[conn_it->get<1>()].name << ", " << conn_it->get<2>() << ")" << endl;
+        corridors[mapping.first].addConnection( mapping.second, conn_it->get<1>(), conn_it->get<2>());
     }
 
     // And finally update the inbound connections
-    for (size_t i = 0; i < corridors.size(); ++i)
+    for (size_t i = 0; i < start_idx; ++i)
     {
         Corridor::Connections& conn = corridors[i].connections;
         Corridor::Connections::iterator conn_it;
@@ -789,8 +859,15 @@ void PlanMerge::finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_
             if (target_idx != orig_left_idx && target_idx != orig_right_idx)
                 continue;
 
-            pair<int, PointID> mapping = 
-                point_mapping[ make_pair(target_idx, conn_it->get<2>()) ];
+            pair<int, PointID> mapping;
+            if (target_idx == orig_left_idx)
+                mapping = getEndpointMapping(conn_it->get<2>(), orig_left, left_first_corridor, left_last_corridor);
+            else
+                mapping = getEndpointMapping(conn_it->get<2>(), orig_right, right_first_corridor, right_last_corridor);
+
+            cerr << "  updating inbound connection "
+                << "(" << corridors[i].name << ", " << conn_it->get<0>() << ", " << corridors[conn_it->get<1>()].name << ", " << conn_it->get<2>() << ")"
+                << " to " << corridors[mapping.first].name << " " << mapping.second << endl;
             conn_it->get<1>() = mapping.first;
             conn_it->get<2>() = mapping.second;
         }
@@ -798,37 +875,42 @@ void PlanMerge::finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_
 
     // Now, try to do a bit of cleanup. Namely, small intermediate left or right
     // corridors are removed.
-    for (size_t i = 0; i < corridors.size(); ++i)
-    {
-        Corridor& corridor = corridors[i];
-        Corridor::Connections& conn = corridors[i].connections;
-        if (ownership[i] != MERGED)
-            continue;
+    //for (size_t i = 0; i < corridors.size(); ++i)
+    //{
+    //    Corridor& corridor = corridors[i];
+    //    Corridor::Connections& conn = corridors[i].connections;
+    //    if (ownership[i] != MERGED)
+    //        continue;
 
-        Corridor::Connections::iterator conn_it = conn.begin();
-        for (conn_it = conn.begin(); conn_it != conn.end(); ++conn_it)
-        {
-            int target_idx = conn_it->get<1>();
-            if (target_idx < start_idx || ownership[target_idx] == MERGED)
-                continue;
+    //    Corridor::Connections::iterator conn_it = conn.begin();
+    //    for (conn_it = conn.begin(); conn_it != conn.end(); ++conn_it)
+    //    {
+    //        int target_idx = conn_it->get<1>();
+    //        if (target_idx < start_idx || ownership[target_idx] == MERGED)
+    //            continue;
 
-            Corridor& target = corridors[target_idx];
-            if (target.median.size() > 4)
-                continue;
+    //        if (target_idx >= corridors.size())
+    //            cerr << "connection found to non-existing corridor " << target_idx << endl;
 
-            int target_side = corridor.findSideOf(conn_it->get<0>());
-            PointID new_source;
-            if (target_side == 0)
-                new_source = corridor.median.front().center;
-            else
-                new_source = corridor.median.back().center;
-            ownership[target_idx] = TO_DELETE;
+    //        Corridor& target = corridors[target_idx];
+    //        if (target.median.size() > 4)
+    //            continue;
 
-            Corridor::Connections::iterator target_conn_it = target.connections.begin();
-            for (; target_conn_it != target.connections.end(); ++target_conn_it)
-                corridor.addConnection(new_source, target_conn_it->get<1>(), target_conn_it->get<2>());
-        }
-    }
+    //        int target_side = corridor.findSideOf(conn_it->get<0>());
+    //        PointID new_source;
+    //        if (target_side == 0)
+    //            new_source = corridor.median.back().center;
+    //        else
+    //            new_source = corridor.median.front().center;
+
+    //        cerr << "  cancelling corridor " << target.name << endl;
+    //        ownership[target_idx] = TO_DELETE;
+
+    //        Corridor::Connections::iterator target_conn_it = target.connections.begin();
+    //        for (; target_conn_it != target.connections.end(); ++target_conn_it)
+    //            corridor.addConnection(new_source, target_conn_it->get<1>(), target_conn_it->get<2>());
+    //    }
+    //}
 
     point_mapping.clear();
 

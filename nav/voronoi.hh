@@ -157,6 +157,13 @@ namespace Nav
          */
         void removeConnectionsTo(int other_corridor);
 
+        void moveConnections(size_t prev_idx, size_t new_idx);
+
+        MedianPoint& front() { return median.front(); }
+        MedianPoint& back()  { return median.back(); }
+        MedianPoint const& front() const { return median.front(); }
+        MedianPoint const& back() const  { return median.back(); }
+
         MedianLine::iterator begin() { return median.begin(); }
         MedianLine::iterator end() { return median.begin(); }
         MedianLine::const_iterator begin() const { return median.begin(); }

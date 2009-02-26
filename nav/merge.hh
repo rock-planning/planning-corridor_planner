@@ -47,6 +47,7 @@ namespace Nav
         void pushMerged(int left_idx, MedianLine::const_iterator left_p,
                 int right_idx, MedianLine::const_iterator right_p,
                 PointID const& p, MedianPoint const& median);
+        std::pair<int, PointID> getEndpointMapping(PointID const& p, Corridor const& orig, size_t first_idx, size_t last_idx) const;
 
     public:
         PlanMerge();

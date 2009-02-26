@@ -193,7 +193,10 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
 
 
         std::set<int> seen;
-        Corridor::Connections const& connections = plan.corridors[corridor_idx].connections;
+        if (corridor.median.size() == 1)
+            cerr << " corridor " << corridor.name << " is of size 1" << endl;
+
+        Corridor::Connections const& connections = corridor.connections;
         Corridor::Connections::const_iterator conn_it;
         for (conn_it = connections.begin(); conn_it != connections.end(); ++conn_it)
         {

@@ -510,6 +510,16 @@ bool Corridor::isConnectedTo(int other_corridor) const
     return false;
 }
 
+void Corridor::moveConnections(size_t prev_idx, size_t new_idx)
+{
+    for (Connections::iterator it = connections.begin(); it != connections.end(); ++it)
+    {
+        int& target_idx = it->get<1>();
+        if (target_idx == (int)prev_idx)
+            target_idx = new_idx;
+    }
+}
+
 void Corridor::removeConnectionsTo(int other_corridor)
 {
     Connections::iterator it = connections.begin();
@@ -532,9 +542,7 @@ void Corridor::merge(Corridor& corridor)
     PointID other_front = corridor.median.front().center;
     PointID other_back  = corridor.median.back().center;
 
-    if (bidirectional && corridor.bidirectional)
-        throw runtime_error("don't know how to merge bidirectional corridors");
-    else if (bidirectional || corridor.bidirectional)
+    if (bidirectional ^ corridor.bidirectional)
         throw runtime_error("cannot merge a bidirectional corridor with a non-bidirectional one");
 
     float a_then_b = this_back.distance2(other_front);
