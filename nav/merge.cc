@@ -68,7 +68,7 @@ void PlanMerge::process(float coverage_threshold, float angular_threshold)
     size_t original_corridor_size = corridors.size();
     for (size_t i = 0; i < corridors.size(); ++i)
     {
-        if (ownership[i] == TO_DELETE)
+        if (ownership[i] == TO_DELETE || ownership[i] == MERGED)
             continue;
 
         cerr << "looking at corridor " << corridors[i].name << endl;
