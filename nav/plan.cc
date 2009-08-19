@@ -155,8 +155,9 @@ void Plan::simplify(PointID start, PointID end)
     size_t original_count = corridors.size();
 
     markEndpointCorridors(useful_corridors, start, end);
-    markNullCorridors(useful_corridors);
-    removeUselessCorridors(useful_corridors);
+    //markNullCorridors(useful_corridors);
+    //removeUselessCorridors(useful_corridors);
+
     markUselessCorridors(useful_corridors);
     removeUselessCorridors(useful_corridors);
 
@@ -170,13 +171,19 @@ void Plan::simplify(PointID start, PointID end)
 void Plan::simplify(PointID start, PointID end, GridGraph const& navmap)
 {
     simplify(start, end);
-    removeBackToBackConnections(start, end, navmap);
-    vector<int> useful_corridors;
-    useful_corridors.resize(corridors.size(), 0);
-    useful_corridors[0] = USEFUL;
-    markEndpointCorridors(useful_corridors, start, end);
-    markUselessCorridors(useful_corridors);
-    removeUselessCorridors(useful_corridors);
+    //removeBackToBackConnections(start, end, navmap);
+
+    //size_t start_idx = findEndpointCorridor(start);
+    //size_t end_idx = findEndpointCorridor(end);
+    //cerr << "start is " << start << ", start corridor is " << start_idx << endl;
+    //cerr << "end is " << end << ", end corridor is " << end_idx << endl;
+
+    //vector<int> useful_corridors;
+    //useful_corridors.resize(corridors.size(), 0);
+    //useful_corridors[0] = USEFUL;
+    //markEndpointCorridors(useful_corridors, start, end);
+    //markUselessCorridors(useful_corridors);
+    //removeUselessCorridors(useful_corridors);
 }
 
 void Plan::removeBackToBackConnections(PointID start, PointID end, GridGraph const& navmap)
