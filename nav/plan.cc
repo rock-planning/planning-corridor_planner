@@ -194,6 +194,7 @@ void Plan::removeBackToBackConnections(PointID start, PointID end, GridGraph con
 
     static const int FRONT_LINE = 0;
     static const int BACK_LINE = 1;
+    static const int BIDIR_LINE = 2;
     size_t start_idx = findEndpointCorridor(start);
     size_t end_idx   = findEndpointCorridor(end);
 
@@ -246,15 +247,23 @@ void Plan::removeBackToBackConnections(PointID start, PointID end, GridGraph con
         for (list< tuple<int, PointID, float> >::const_iterator it = endpoint_costs.begin(); it != endpoint_costs.end(); ++it)
         {
             float cost = it->get<2>();
+
+            int type = -1;
             if (cost < min_bound)
-                types[ make_pair(it->get<0>(), it->get<1>()) ] = FRONT_LINE;
+                type = FRONT_LINE;
             else if (cost > max_bound)
-                types[ make_pair(it->get<0>(), it->get<1>()) ] = BACK_LINE;
+                type = BACK_LINE;
             else
             {
                 cerr << "min_bound = " << min_bound << ", max_bound = " << max_bound << ", cost = " << cost << endl;
                 throw std::runtime_error("cost in [min_bound, max_bound]");
             }
+            EndpointTypemap::key_type tuple = make_pair(it->get<0>(), it->get<1>());
+            EndpointTypemap::iterator type_it = types.find(tuple);
+            if (type_it == types.end())
+                types[tuple] = type;
+            else if (type_it->second != type)
+                type_it->second = BIDIR_LINE;
         }
     }
 
