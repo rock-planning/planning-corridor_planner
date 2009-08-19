@@ -235,9 +235,9 @@ void Plan::removeBackToBackConnections(PointID start, PointID end, GridGraph con
             float cost = it->get<2>();
             cerr << min_bound << " " << cost << " " << max_bound << " " << it->get<1>() << endl;
             if (cost < min_bound)
-                types[ make_pair(it->get<0>(), it->get<1>()) ] = BACK_LINE;
-            else if (cost > max_bound)
                 types[ make_pair(it->get<0>(), it->get<1>()) ] = FRONT_LINE;
+            else if (cost > max_bound)
+                types[ make_pair(it->get<0>(), it->get<1>()) ] = BACK_LINE;
             else
             {
                 cerr << "min_bound = " << min_bound << ", max_bound = " << max_bound << ", cost = " << cost << endl;
