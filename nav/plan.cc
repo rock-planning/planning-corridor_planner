@@ -183,7 +183,9 @@ void Plan::removeBackToBackConnections(PointID start, PointID end, GridGraph con
     static const int BACK_LINE = 1;
     size_t start_idx = findEndpointCorridor(start);
     size_t end_idx   = findEndpointCorridor(end);
-    map< pair<int, PointID>, int> types;
+
+    typedef map< pair<int, PointID>, int> EndpointTypemap; 
+    EndpointTypemap types;
 
     {
         Corridor& corridor = corridors[start_idx];
@@ -218,18 +220,20 @@ void Plan::removeBackToBackConnections(PointID start, PointID end, GridGraph con
               max_value = std::numeric_limits<float>::min();
         for (; it != end; ++it)
         {
-            PointID p = it->get<0>();
-            float value = navmap.getValue(p.x, p.y);
-            endpoint_costs.push_back(make_tuple( it->get<1>(), it->get<0>(), value));
+            PointID target_p = it->get<2>();
+            float value = navmap.getValue(target_p.x, target_p.y);
+
+            endpoint_costs.push_back(make_tuple( corridor_idx, it->get<0>(), value));
             min_value = min(value, min_value);
             max_value = max(value, max_value);
         }
 
-        float min_bound = (max_value + 3 * min_value) / 4;
-        float max_bound = (3 * max_value + min_value) / 4;
+        float min_bound = (max_value +  min_value) / 2;
+        float max_bound = (max_value + min_value) / 2;
         for (list< tuple<int, PointID, float> >::const_iterator it = endpoint_costs.begin(); it != endpoint_costs.end(); ++it)
         {
             float cost = it->get<2>();
+            cerr << min_bound << " " << cost << " " << max_bound << " " << it->get<1>() << endl;
             if (cost < min_bound)
                 types[ make_pair(it->get<0>(), it->get<1>()) ] = BACK_LINE;
             else if (cost > max_bound)
@@ -237,7 +241,40 @@ void Plan::removeBackToBackConnections(PointID start, PointID end, GridGraph con
             else
             {
                 cerr << "min_bound = " << min_bound << ", max_bound = " << max_bound << ", cost = " << cost << endl;
-                throw std::runtime_error("cost not in [min_bound, max_bound]");
+                throw std::runtime_error("cost in [min_bound, max_bound]");
+            }
+        }
+    }
+
+    for (size_t corridor_idx = 1; corridor_idx < corridors.size(); ++corridor_idx)
+    {
+        Corridor& corridor = corridors[corridor_idx];
+        Corridor::Connections& connections = corridor.connections;
+        Corridor::connection_iterator it = connections.begin(),
+            end = connections.end();
+
+        while (it != end)
+        {
+            PointID endpoint = it->get<0>();
+            int type = types[ make_pair(corridor_idx, endpoint) ];
+
+            if (type == FRONT_LINE)
+                cerr << corridor_idx << " " << endpoint << " is on the front line" << endl;
+            else
+                cerr << corridor_idx << " " << endpoint << " is on the back line" << endl;
+
+            if (type == BACK_LINE)
+                connections.erase(it++);
+            else
+            {
+                // Check the direction of the other endpoint. If it is also
+                // front, then remove
+                int target_idx = it->get<1>();
+                PointID target_endpoint = it->get<2>();
+                if (types[ make_pair(target_idx, target_endpoint) ] == FRONT_LINE)
+                    connections.erase(it++);
+                else
+                    ++it;
             }
         }
     }
