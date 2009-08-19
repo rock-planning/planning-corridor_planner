@@ -71,10 +71,7 @@ BOOST_AUTO_TEST_CASE( test_simple_corridor_set )
 
     cerr << "Corridor set:" << endl;
     Plan corridors = skel.buildPlan(result);
-    PointSet endpoints;
-    endpoints.insert( PointID( 5, 20 ) );
-    endpoints.insert( PointID( 34, 20 ) );
-    corridors.simplify(endpoints);
+    corridors.simplify( PointID( 5, 20 ),  PointID( 34, 20 ) );
     cerr << corridors << endl;
 
     // One corridor and the corridor 0 which represents the outside
@@ -147,10 +144,7 @@ BOOST_AUTO_TEST_CASE( test_crossroad )
     Plan corridors = skel.buildPlan(result);
     cerr << corridors << endl;
 
-    PointSet endpoints;
-    endpoints.insert( PointID( 5, 20 ) );
-    endpoints.insert( PointID( 29, 20 ) );
-    corridors.simplify(endpoints);
+    corridors.simplify( PointID( 5, 20 ),  PointID( 29, 20 ) );
     cerr << corridors << endl;
 
     // Four corridors and the corridor 0 which represents the outside
