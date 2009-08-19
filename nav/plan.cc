@@ -246,7 +246,6 @@ void Plan::removeBackToBackConnections(PointID start, PointID end, GridGraph con
         for (list< tuple<int, PointID, float> >::const_iterator it = endpoint_costs.begin(); it != endpoint_costs.end(); ++it)
         {
             float cost = it->get<2>();
-            cerr << min_bound << " " << cost << " " << max_bound << " " << it->get<1>() << endl;
             if (cost < min_bound)
                 types[ make_pair(it->get<0>(), it->get<1>()) ] = FRONT_LINE;
             else if (cost > max_bound)
@@ -270,11 +269,6 @@ void Plan::removeBackToBackConnections(PointID start, PointID end, GridGraph con
         {
             PointID endpoint = it->get<0>();
             int type = types[ make_pair(corridor_idx, endpoint) ];
-
-            if (type == FRONT_LINE)
-                cerr << corridor_idx << " " << endpoint << " is on the front line" << endl;
-            else
-                cerr << corridor_idx << " " << endpoint << " is on the back line" << endl;
 
             if (type == BACK_LINE)
                 connections.erase(it++);
@@ -304,7 +298,6 @@ void Plan::markNullCorridors(vector<int>& useful)
             continue;
         else if (corridor.connections.size() <= 1)
         {
-            //cerr << "  " << corridor_idx << " is a null corridor" << endl;
             useful[corridor_idx] = NOT_USEFUL;
         }
         else
