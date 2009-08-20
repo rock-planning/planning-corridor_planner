@@ -27,7 +27,7 @@ namespace Nav
     struct MedianPoint
     {
         BoundingBox bbox;
-        typedef std::list< PointSet > BorderList;
+        typedef std::list< PointVector > BorderList;
 
         /** MedianPoint maintains a list of borders, each borders being a set of
          * adjacent points. This means that:

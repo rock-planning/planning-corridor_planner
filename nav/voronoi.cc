@@ -60,21 +60,24 @@ void MedianPoint::addBorderPoint(PointID const& p)
 
     if (it == borders.end())
     {
-        borders.push_back( PointSet() );
-        borders.rbegin()->insert( p );
+        borders.push_back( PointVector() );
+        borders.rbegin()->push_back( p );
     }
     else
     {
-        PointSet& adjacent_border = *(it++);
-        adjacent_border.insert(p);
-        while (it != borders.end())
+        PointVector& adjacent_border = *(it++);
+        if (find(adjacent_border.begin(), adjacent_border.end(), p) == adjacent_border.end())
         {
-            if (p.isNeighbour(*it))
+            adjacent_border.push_back(p);
+            while (it != borders.end())
             {
-                adjacent_border.insert(it->begin(), it->end());
-                borders.erase(it++);
+                if (p.isNeighbour(*it))
+                {
+                    adjacent_border.insert(adjacent_border.end(), it->begin(), it->end());
+                    borders.erase(it++);
+                }
+                else ++it;
             }
-            else ++it;
         }
     }
 }
@@ -87,7 +90,7 @@ void MedianPoint::mergeBorders(MedianPoint const& p)
 
 bool MedianPoint::isBorderAdjacent(PointID const& p) const
 {
-    BorderList::const_iterator adjacent_border = find_if(borders.begin(), borders.end(), boost::bind( boost::mem_fn(&PointID::isNeighbour<PointSet>), p, _1));
+    BorderList::const_iterator adjacent_border = find_if(borders.begin(), borders.end(), boost::bind( boost::mem_fn(&PointID::isNeighbour<PointVector>), p, _1));
     return (adjacent_border != borders.end());
 }
 
@@ -99,7 +102,7 @@ bool MedianPoint::isBorderAdjacent(MedianPoint const& p) const
 
     for (BorderList::const_iterator border = borders.begin(); border != borders.end(); ++border)
     {
-        PointSet::const_iterator point;
+        PointVector::const_iterator point;
         for (point = border->begin(); point != border->end(); ++point)
         {
             if (p.isBorderAdjacent(*point))
@@ -131,11 +134,11 @@ bool MedianPoint::operator == (MedianPoint const& other) const
 
 ostream& Nav::operator << (ostream& io, MedianPoint const& p)
 {
-    typedef std::list< PointSet > BorderList;
+    typedef std::list< PointVector > BorderList;
     for (BorderList::const_iterator it = p.borders.begin(); it != p.borders.end(); ++it)
     {
         io << " (";
-        for (PointSet::const_iterator p = it->begin(); p != it->end(); ++p)
+        for (PointVector::const_iterator p = it->begin(); p != it->end(); ++p)
             io << " " << *p;
         io << ")";
     }

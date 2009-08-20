@@ -421,7 +421,7 @@ void SkeletonExtraction::buildPixelMap(Plan& result) const
         MedianPoint::BorderList const& borders = result.corridors[corridor_idx].borders;
 
         for (MedianPoint::BorderList::const_iterator it = borders.begin(); it != borders.end(); ++it)
-            for (PointSet::const_iterator point = it->begin(); point != it->end(); ++point)
+            for (PointVector::const_iterator point = it->begin(); point != it->end(); ++point)
             {
                 uint8_t& owner = result.pixel_map[point->x + point->y * width];
                 if (owner == NO_OWNER)
@@ -446,7 +446,7 @@ void SkeletonExtraction::buildPixelMap(Plan& result) const
         int owner = NO_OWNER;
         MedianPoint::BorderList const& borders = borders_it->second.borders;
         for (MedianPoint::BorderList::const_iterator it = borders.begin(); it != borders.end(); ++it)
-            for (PointSet::const_iterator point = it->begin(); point != it->end(); ++point)
+            for (PointVector::const_iterator point = it->begin(); point != it->end(); ++point)
             {
                 int border_owner = result.pixel_map[point->x + point->y * width];
                 if (owner == NO_OWNER)

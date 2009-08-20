@@ -44,9 +44,9 @@ void Plan::removeCorridor(int idx)
 
 void Plan::addAdjacentBorders(MedianPoint const& p0, MedianPoint const& p1, set<PointID>& result) const
 {
-    for (list<PointSet>::const_iterator p0_border_it = p0.borders.begin(); p0_border_it != p0.borders.end(); ++p0_border_it)
+    for (list<PointVector>::const_iterator p0_border_it = p0.borders.begin(); p0_border_it != p0.borders.end(); ++p0_border_it)
     {
-        for (PointSet::const_iterator p0_it = p0_border_it->begin(); p0_it != p0_border_it->end(); ++p0_it)
+        for (PointVector::const_iterator p0_it = p0_border_it->begin(); p0_it != p0_border_it->end(); ++p0_it)
         {
             if (p1.isBorderAdjacent(*p0_it))
                 result.insert(*p0_it);

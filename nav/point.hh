@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <set>
+#include <vector>
 #include <cmath>
 #include <stdlib.h>
 
@@ -96,7 +97,8 @@ namespace Nav {
             return false;
         }
     };
-    typedef std::set<PointID> PointSet;
+    typedef std::set<PointID>    PointSet;
+    typedef std::vector<PointID> PointVector;
 
     template<typename T>
     std::ostream& operator << (std::ostream& io, Point<T> const& p)
@@ -104,18 +106,28 @@ namespace Nav {
         io << "{ " << p.x << ", " << p.y << " }";
         return io;
     }
-    inline std::ostream& operator << (std::ostream& io, PointSet const& set)
+    template<typename Collection>
+    void outputPointCollection(std::ostream& io, Collection const& set)
     {
         if (set.empty())
             io << "{ }";
         else
         {
-            PointSet::const_iterator it = set.begin();
+            typename Collection::const_iterator it = set.begin();
             io << "{ " << *it;
             for (++it; it != set.end(); ++it)
                 io << ", " << *it;
             io << " }";
         }
+    }
+    inline std::ostream& operator << (std::ostream& io, PointVector const& set)
+    {
+        outputPointCollection(io, set);
+        return io;
+    }
+    inline std::ostream& operator << (std::ostream& io, PointSet const& set)
+    {
+        outputPointCollection(io, set);
         return io;
     }
 
