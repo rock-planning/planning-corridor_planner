@@ -293,10 +293,9 @@ void SkeletonExtraction::registerConnections(PointID source_point, int source_id
     }
 }
 
-Plan SkeletonExtraction::buildPlan(MedianLine points)
+void SkeletonExtraction::buildPlan(Plan& result, MedianLine points)
 {
-    Plan result;
-    result.width = width;
+    result.width  = width;
     result.height = height;
     vector<Corridor>& corridors = result.corridors;
     corridors.push_back(Corridor());
@@ -404,7 +403,7 @@ Plan SkeletonExtraction::buildPlan(MedianLine points)
     for (ConnectionMap::const_iterator it = in_out.begin(); it != in_out.end(); ++it)
         registerConnections(0, it, corridors);
 
-    return result;
+    result.simplify();
 }
 
 void SkeletonExtraction::buildPixelMap(Plan& result) const

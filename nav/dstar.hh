@@ -20,9 +20,11 @@ namespace Nav {
         size_t m_xsize, m_ysize;
 
     public:
-        GridMap(size_t xsize, size_t ysize)
+        explicit GridMap(size_t xsize = 0, size_t ysize = 0)
             : m_xsize(xsize), m_ysize(ysize) { }
 
+        /** True if one of the dimensions is of zero size */
+        bool empty() const { return m_xsize == 0 || m_ysize == 0; }
 
         /** The size, in cells, in the X direction */
         size_t xSize() const { return m_xsize; }
@@ -296,7 +298,7 @@ namespace Nav {
         std::vector<float> m_values;
 
     public:
-        GridGraph(size_t width, size_t height, float value = 0);
+        explicit GridGraph(size_t width = 0, size_t height = 0, float value = 0);
 
         /** Clears all edges in the graph, and initialize the floating-point
          * value to the given \c new_value */
@@ -495,8 +497,6 @@ namespace Nav {
         /** Checks that the current solution is consistent. It raises internal_error
          * if it is not the case */
         bool checkSolutionConsistency() const;
-
-        void appendPathFrom(PointSet& result, PointID const& start_id, PointSet const& into) const;
     };
 }
 

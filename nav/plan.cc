@@ -16,10 +16,21 @@ using namespace std;
 using namespace Nav;
 using namespace boost;
 
+Plan::Plan() {}
+Plan::Plan(PointID start, PointID end, GridGraph const& nav_function)
+    : m_start(start), m_end(end), m_nav_function(nav_function) {}
+
+PointID Plan::getStartPoint() const { return m_start; }
+PointID Plan::getEndPoint() const { return m_end; }
+GridGraph const& Plan::getNavigationFunction() const { return m_nav_function; }
+
+void Plan::setStartPoint(PointID const& p) { m_start = p; }
+void Plan::setEndPoint(PointID const& p) { m_end = p; }
+void Plan::setNavigationFunction(GridGraph const& nav_function)
+{ m_nav_function = nav_function; }
+
 void Plan::clear()
-{
-    corridors.clear();
-}
+{ corridors.clear(); }
 
 void Plan::removeCorridor(int idx)
 {
@@ -146,7 +157,7 @@ void Plan::moveConnections(int into_idx, int from_idx)
     }
 }
 
-void Plan::simplify(PointID start, PointID end)
+void Plan::simplify()
 {
     vector<int> useful_corridors;
     useful_corridors.resize(corridors.size(), 0);
@@ -154,9 +165,9 @@ void Plan::simplify(PointID start, PointID end)
 
     size_t original_count = corridors.size();
 
-    markEndpointCorridors(useful_corridors, start, end);
-    //markNullCorridors(useful_corridors);
-    //removeUselessCorridors(useful_corridors);
+    markEndpointCorridors(useful_corridors);
+    markNullCorridors(useful_corridors);
+    removeUselessCorridors(useful_corridors);
 
     markUselessCorridors(useful_corridors);
     removeUselessCorridors(useful_corridors);
@@ -165,28 +176,17 @@ void Plan::simplify(PointID start, PointID end)
 
     // We changed something. Re-run the simplification process.
     if (original_count != corridors.size())
-        simplify(start, end);
+        simplify();
+    else if (!m_nav_function.empty())
+    {
+        removeBackToBackConnections();
+
+        markUselessCorridors(useful_corridors);
+        removeUselessCorridors(useful_corridors);
+    }
 }
 
-void Plan::simplify(PointID start, PointID end, GridGraph const& navmap)
-{
-    simplify(start, end);
-    //removeBackToBackConnections(start, end, navmap);
-
-    //size_t start_idx = findEndpointCorridor(start);
-    //size_t end_idx = findEndpointCorridor(end);
-    //cerr << "start is " << start << ", start corridor is " << start_idx << endl;
-    //cerr << "end is " << end << ", end corridor is " << end_idx << endl;
-
-    //vector<int> useful_corridors;
-    //useful_corridors.resize(corridors.size(), 0);
-    //useful_corridors[0] = USEFUL;
-    //markEndpointCorridors(useful_corridors, start, end);
-    //markUselessCorridors(useful_corridors);
-    //removeUselessCorridors(useful_corridors);
-}
-
-void Plan::removeBackToBackConnections(PointID start, PointID end, GridGraph const& navmap)
+void Plan::removeBackToBackConnections()
 {
     // Mark, for each corridor, which endpoints are "front" and which are "back"
     // based on the cost. Note that endpoint corridors have either all front or
@@ -195,8 +195,8 @@ void Plan::removeBackToBackConnections(PointID start, PointID end, GridGraph con
     static const int FRONT_LINE = 0;
     static const int BACK_LINE = 1;
     static const int BIDIR_LINE = 2;
-    size_t start_idx = findEndpointCorridor(start);
-    size_t end_idx   = findEndpointCorridor(end);
+    size_t start_idx = findStartCorridor();
+    size_t end_idx   = findEndCorridor();
 
     typedef map< pair<int, PointID>, int> EndpointTypemap; 
     EndpointTypemap types;
@@ -235,7 +235,7 @@ void Plan::removeBackToBackConnections(PointID start, PointID end, GridGraph con
         for (; it != end; ++it)
         {
             PointID target_p = it->get<2>();
-            float value = navmap.getValue(target_p.x, target_p.y);
+            float value = m_nav_function.getValue(target_p.x, target_p.y);
 
             endpoint_costs.push_back(make_tuple( corridor_idx, it->get<0>(), value));
             min_value = min(value, min_value);
@@ -359,14 +359,28 @@ void Plan::markNullCorridors(vector<int>& useful)
     }
 }
 
-int Plan::findEndpointCorridor(PointID const& endp)
+int Plan::findStartCorridor() const
+{
+    int owner = findCorridorOf(m_start);
+    if (owner == -1)
+        throw runtime_error("no corridor for start point");
+    return owner;
+}
+int Plan::findEndCorridor() const
+{
+    int owner = findCorridorOf(m_end);
+    if (owner == -1)
+        throw runtime_error("no corridor for end point");
+    return owner;
+}
+int Plan::findCorridorOf(PointID const& endp) const
 {
     float min_distance = -1;
     int owner = -1;
 
     for (size_t i = 1; i < corridors.size(); ++i)
     {
-        Corridor& corridor = corridors[i];
+        Corridor const& corridor = corridors[i];
         if (!corridor.bbox.isNeighbour(endp))
             continue;
 
@@ -383,16 +397,15 @@ int Plan::findEndpointCorridor(PointID const& endp)
     return owner;
 }
 
-void Plan::markEndpointCorridors(vector<int>& useful, PointID start, PointID end)
+void Plan::markEndpointCorridors(vector<int>& useful)
 {
     // Mark as useful the corridors that contain endpoints. What we assume here
     // is that there is at most one corridor which contains the endpoints.
-    PointID endpoints[2] = { start, end };
+    PointID endpoints[2] = { m_start, m_end };
     for (int endp_idx = 0; endp_idx < 2; ++endp_idx)
     {
         PointID endp = endpoints[endp_idx];
-        int owner = findEndpointCorridor(endp);
-
+        int owner = findCorridorOf(endp);
         if (owner == -1)
             throw std::runtime_error("no owner for endpoint " + lexical_cast<string>(endp));
 

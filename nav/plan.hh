@@ -9,6 +9,15 @@ namespace Nav
     class MergeResult;
     class Plan
     {
+    protected:
+        /** The start point for this plan */
+        PointID m_start;
+        /** The end point for this plan */
+        PointID m_end;
+
+        /** The navigation function on which this plan is defined */
+        GridGraph m_nav_function;
+
         /** Removes corridors that don't provide any meaningful information in
          * the plan, i.e. corridors with only one connection or null-sized
          * corridors which connects corridors that are already connected
@@ -38,7 +47,7 @@ namespace Nav
         /** Mark in \c useful the corridors that contains the endpoints in \c
          * endpoints
          */
-        void markEndpointCorridors(std::vector<int>& useful, PointID start, PointID end);
+        void markEndpointCorridors(std::vector<int>& useful);
 
         /** This method is used by removeUselessCorridors to search for useless
          * corridors. We use for that a DFS, where
@@ -54,9 +63,11 @@ namespace Nav
          */
         int markNextCorridors(std::vector<int>& stack, int corridor_idx, std::vector<int>& useful) const;
 
-        void removeBackToBackConnections(PointID start, PointID end, GridGraph const& navmap);
+        void removeBackToBackConnections();
 
-        int findEndpointCorridor(PointID const& endp);
+        int findStartCorridor() const;
+        int findEndCorridor() const;
+        int findCorridorOf(PointID const& endp) const;
 
         /** Remove crossroads that simply connects two corridors (i.e. not real
          * crossroads)
@@ -64,6 +75,16 @@ namespace Nav
         void mergeSimpleCrossroads();
 
     public:
+        Plan();
+        Plan(PointID start, PointID end, GridGraph const& nav_function = GridGraph());
+
+        PointID getStartPoint() const;
+        PointID getEndPoint() const;
+        GridGraph const& getNavigationFunction() const;
+        void setStartPoint(PointID const& p);
+        void setEndPoint(PointID const& p);
+        void setNavigationFunction(GridGraph const& nav_function);
+
         /** The set of corridors in this plan, including the connections between
          * them */
         std::vector<Corridor> corridors;
@@ -107,8 +128,7 @@ namespace Nav
          *
          * @arg endpoints the set of endpoints
          */
-        void simplify(PointID start, PointID end, GridGraph const& navmap);
-        void simplify(PointID start, PointID end);
+        void simplify();
     };
     std::ostream& operator << (std::ostream& io, Plan const& plan);
 }

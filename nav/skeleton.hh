@@ -22,7 +22,6 @@ namespace Nav
         ParentMap parents;
         PointSet border;
 
-        void initializeHeightMap(PointSet const& inside);
         PointID pointFromPtr(height_t const* ptr) const;
         
         typedef std::map<PointID, std::map<PointID, int> > ConnectionMap;
@@ -86,7 +85,7 @@ namespace Nav
         MedianLine process();
 
         /** Creates a graph out of a set of median points */
-        Plan buildPlan(MedianLine points);
+        void buildPlan(Plan& result, MedianLine points);
         void buildPixelMap(Plan& result) const;
 
         std::vector<height_t> getHeightmap() const { return heightmap; }

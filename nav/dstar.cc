@@ -553,18 +553,3 @@ void DStar::update()
     }
 }
 
-void DStar::appendPathFrom(PointSet& result, PointID const& start_id, PointSet const& into) const
-{
-    NeighbourConstIterator next_it = m_graph.parentsBegin(start_id.x, start_id.y);
-
-    while(!next_it.isEnd())
-    {
-        PointID p = PointID(next_it.x(), next_it.y());
-        if (result.count(p) || into.count(p))
-            return;
-
-        result.insert(p);
-        next_it = m_graph.parentsBegin(p.x, p.y);
-    }
-}
-
