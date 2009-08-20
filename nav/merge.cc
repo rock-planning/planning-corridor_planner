@@ -65,7 +65,7 @@ void PlanMerge::merge(Plan const& left, Plan const& right, float coverage_thresh
 void PlanMerge::process(float coverage_threshold, float angular_threshold)
 {
     size_t original_corridor_size = corridors.size();
-    for (size_t i = 0; i < original_corridor_size; ++i)
+    for (size_t i = 0; i < corridors.size(); ++i)
     {
         if (ownership[i] == TO_DELETE)
             continue;
@@ -108,6 +108,7 @@ void PlanMerge::process(float coverage_threshold, float angular_threshold)
         else
             ++i;
     }
+    mergeSimpleCrossroads_directed();
 }
 
 //pair<false,  PlanMerge::findMergeCandidate(MedianPoint const& left_slice, Corridor const& right,
@@ -172,7 +173,7 @@ void PlanMerge::process(float coverage_threshold, float angular_threshold)
 bool PlanMerge::canMerge(MedianPoint const& left_p, MedianPoint const& right_p,
         float coverage_threshold, float cos_angular_threshold) const
 {
-    return canMerge(left_p, right_p, sqrt(left_p.center.distance(right_p.center)), coverage_threshold, cos_angular_threshold);
+    return canMerge(left_p, right_p, left_p.center.distance(right_p.center), coverage_threshold, cos_angular_threshold);
 }
 
 bool PlanMerge::canMerge(MedianPoint const& left_slice, MedianPoint const& right_slice,
@@ -186,8 +187,7 @@ bool PlanMerge::canMerge(MedianPoint const& left_slice, MedianPoint const& right
     PointID right_p = right_slice.center;
 
     float cos_angle = fabs(left_dir * right_dir);
-    //cerr << left_p << " " << right_p << " left_dir=" << left_dir << " right_dir=" << right_dir << "\n"
-    //    << " angle=" << cos_angle << "\n";
+    //cerr << left_p << " " << right_p << " left_dir=" << left_dir << " right_dir=" << right_dir << "\n" << " angle=" << cos_angle << "\n";
 
     if (cos_angle < cos_angular_threshold)
         return false;
@@ -202,7 +202,7 @@ bool PlanMerge::canMerge(MedianPoint const& left_slice, MedianPoint const& right
 
     //cerr << " d=" << distance << " para_distance=" << para_distance << " ortho_distance=" << ortho_distance << endl;
 
-    if (ortho_distance > 3)
+    if (ortho_distance > 4)
         return false;
 
     // OK, the two slices are more or less parallel. Check that they also
@@ -242,7 +242,7 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
 
     // There is a copy here because of an initial (bad) decision to refer to
     // other corridors using indexes. Therefore, when we add new corridors to
-    // vector<>, left and right may get invalidated ...
+    // vector<>, left and right may get invalidated, fucking up the loop
     Corridor left  = corridors[left_idx];
     Corridor right = corridors[right_idx];
 
@@ -254,69 +254,33 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
         PointID left_p = left_slice->center;
 
         // Find the median point in +right+ that is closest to left_p
-        MedianLine::const_iterator min_slice = right.median.begin();
-        MedianLine::const_iterator right_slice = min_slice;
-        PointID right_p = right_slice->center;
-        float distance = left_p.distance2(right_p);
-        for (; min_slice != right.median.end(); ++min_slice)
+        MedianLine::const_iterator right_slice = right.median.end();
+        float distance = -1;
+        MedianLine::const_iterator min_slice;
+        for (min_slice = right.median.begin(); min_slice != right.median.end(); ++min_slice)
         {
-            PointID p   = min_slice->center;
-            float d = left_p.distance2(p);
-            if (d < distance)
+            PointID p = min_slice->center;
+            float d   = left_p.distance(p);
+            if (!canMerge(*left_slice, *min_slice, d, coverage_threshold, cos_angular_threshold))
+                continue;
+
+            if (right_slice == right.median.end() || d < distance)
             {
-                right_p = p;
                 right_slice = min_slice;
                 distance = d;
             }
         }
-        distance = sqrt(distance);
 
-        if (canMerge(*left_slice, *right_slice, distance, coverage_threshold, cos_angular_threshold))
+        if (right_slice != right.median.end())
         {
             did_merge = true;
-            MedianPoint merged = *left_slice;
-            PointID diff = right_p - left_p;
-            merged.offset((right_p - left_p) / 2);
+            MedianPoint merged = *right_slice;
+            //PointID diff = right_p - left_p;
+            //merged.offset((right_p - left_p) / 2);
 
             cerr << "adding " << merged.center << " to merge " << left_slice->center << " and " << right_slice->center << endl;
             pushMerged(left_idx, left_slice, right_idx, right_slice,
                     merged.center, merged);
-
-            // Now, we're getting a little assymetry here ...
-            //
-            // We prefer 'left' to 'right' for merging. While we're going (probably) to
-            // lose some data, we insert in merged_points and point_mapping
-            // the neighbours of right_p that can also be merged with left_p. The goal
-            // is that, when the pass on the remains of the right corridor is done, we
-            // don't consider that some slices that have been skipped by the merging
-            // pass cannot be merged.
-            MedianLine::const_iterator other_it = right_slice;
-            for (++other_it; other_it != right.median.end(); ++other_it)
-            {
-                if (merged_points.count(other_it->center))
-                    break;
-                if (canMerge(*left_slice, *other_it, coverage_threshold, cos_angular_threshold))
-                {
-                    cerr << "  also merges " << other_it->center << endl;
-                    point_mapping[ make_pair(right_idx, other_it->center) ] =
-                        make_pair(corridors.size(), merged.center);
-                    merged_points.insert(other_it->center);
-                } else break;
-            }
-
-            other_it = right_slice;
-            for (--other_it; right_slice != right.median.begin() && other_it != right.median.begin(); --other_it)
-            {
-                if (merged_points.count(other_it->center))
-                    break;
-                if (canMerge(*left_slice, *other_it, coverage_threshold, cos_angular_threshold))
-                {
-                    cerr << "  also merges " << other_it->center << endl;
-                    point_mapping[ make_pair(right_idx, other_it->center) ] =
-                        make_pair(corridors.size(), merged.center);
-                    merged_points.insert(other_it->center);
-                } else break;
-            }
         }
         else
         {
@@ -345,11 +309,63 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
     // This is used to initialize end_regions, end_types and to move the
     // connections
     int right_first_corridor = -1, right_last_corridor = -1;
+    MedianLine::const_iterator last_merge = right.median.end(),
+        next_merge = right.median.begin();
     for (MedianLine::const_iterator right_slice = right.median.begin(); right_slice != right.median.end(); ++right_slice)
     {
-        if (merged_points.count(right_slice->center))
+        bool merged = merged_points.count(right_slice->center);
+        if (merged)
         {
-            cerr << right_slice->center << " is already merged" << endl;
+            // DO NOT update last_merge here. The right last_merge value is
+            // needed in the merge part
+            //
+            // we use begin() to mark not-initialized and end() if there is no next merge
+            next_merge = right.median.begin(); 
+        }
+        else
+        {
+            // Check that this point should actually not be merged. We do that
+            // by looking at the last point that has been merged (if there is
+            // one) and/or the next point that is merged.
+            if (next_merge == right.median.begin())
+            {
+                for (next_merge = right_slice;
+                        !merged_points.count(next_merge->center) && next_merge != right.median.end();
+                        ++next_merge);
+            }
+
+            pair<int, PointID> mapping;
+            if (last_merge != right.median.end() || next_merge != right.median.end())
+            {
+                if (last_merge != right.median.end())
+                {
+                    mapping = point_mapping[ make_pair(right_idx, last_merge->center) ];
+                    MedianLine::const_iterator median_it =
+                        corridors[mapping.first].findMedianPoint(mapping.second);
+                    merged = canMerge(*median_it, *right_slice, coverage_threshold, cos_angular_threshold);
+                }
+
+                if (!merged && next_merge != right.median.end())
+                {
+                    mapping = point_mapping[ make_pair(right_idx, next_merge->center) ];
+                    MedianLine::const_iterator median_it =
+                        corridors[mapping.first].findMedianPoint(mapping.second);
+                    merged = canMerge(*median_it, *right_slice, coverage_threshold, cos_angular_threshold);
+                }
+            }
+
+            if (merged)
+            {
+                point_mapping[ make_pair(right_idx, right_slice->center) ] = mapping;
+
+                cerr << "  using " << mapping.second << " as merge point for " << right_slice->center << endl;
+                merged_points.insert(right_slice->center);
+            }
+        }
+        
+        if (merged)
+        {
+            // if this is the first slice, we need to initialize right_first_corridor and right_last_corridor
             if (last_slice == right.median.end())
             {
                 PtMapping::const_iterator map_it
@@ -363,6 +379,8 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
                 right_first_corridor = right_last_corridor = mapped.first;
             }
 
+            // Then get the mapping for the point and update some tracking
+            // variables
             PtMapping::const_iterator map_it
                 = point_mapping.find( make_pair(right_idx, right_slice->center) );
             if (map_it == point_mapping.end())
@@ -372,20 +390,41 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
             }
 
             pair<int, PointID> mapped = map_it->second;
-            right_last_corridor = mapped.first;
-
-            if (mode == SINGLE)
+            if (mode == NONE && last_slice != right.median.end() && mapped.first != right_last_corridor)
             {
-                pushAccumulator();
-
-                Corridor& right_corridor = corridors.back();
-                right_corridor.addConnection(last_slice->center, mapped.first, mapped.second);
+                cerr << "  right side is bridging " << corridors[right_last_corridor].name << " => " << corridors[mapped.first].name << ", adding the necessary connection" << endl;
+                pair<int, PointID> last_mapping = point_mapping[ make_pair(right_idx, last_merge->center) ];
+                corridors[right_last_corridor].addConnection(
+                        last_mapping.second, mapped.first, mapped.second);
+                if (right_last_corridor + 2 == mapped.first)
+                {
+                    cerr << "  cancelling useless left corridor " << corridors[right_last_corridor + 1].name << endl;
+                    ownership[right_last_corridor + 1] = TO_DELETE;
+                }
+            }
+            else if (mode == SINGLE)
+            {
+                // Check first that we're not looping on the same merge corridor
+                if (corridors[mapped.first].isConnectedTo(corridors.size()))
+                {
+                    cerr << "going back into the same merge corridor, cancelling " << accumulator.name << endl;
+                    accumulator.clear();
+                }
+                else
+                {
+                    pushAccumulator();
+                    Corridor& right_corridor = corridors.back();
+                    right_corridor.addConnection(last_slice->center, mapped.first, mapped.second);
+                    cerr << "  new right->merge connection " << right_corridor.name << " => " <<
+                        corridors[mapped.first].name << " " << mapped.second << endl;
+                }
 
                 mode = NONE;
-
-                cerr << "new right->merge connection " << right_corridor.name << " => " <<
-                    corridors[mapped.first].name << " " << mapped.second << endl;
             }
+
+            last_merge = right_slice;
+            right_last_corridor = mapped.first;
+            cerr << "  " << right_slice->center << " is already merged in " << corridors[mapped.first].name << " as " << mapped.second << endl;
         }
         else
         {
@@ -495,7 +534,7 @@ void PlanMerge::pushMerged(
         cerr << "starting to merge at " << left_p->center << " (" << right_p->center << ")" << endl;
 
     if (mode != MERGING)
-        accumulator.name = "(" + corridors[left_idx].name + "|" + corridors[right_idx].name + ")." + boost::lexical_cast<std::string>(corridors.size());
+        accumulator.name = "(" + corridors[left_idx].name + "|" + corridors[right_idx].name + ")" + boost::lexical_cast<std::string>(corridors.size());
 
     mode = MERGING;
     accumulator.add(p, median, true);
@@ -532,8 +571,13 @@ void PlanMerge::finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_
     bool left_is_bidir  = orig_left.bidirectional;
     bool right_is_bidir = orig_right.bidirectional;
     bool merge_is_bidir = left_is_bidir || right_is_bidir;
+    size_t last_left_corridor = start_idx;
     for (size_t i = start_idx; i < left_sequence_end; ++i)
     {
+        if (ownership[i] == TO_DELETE)
+            continue;
+
+        last_left_corridor = i;
         Corridor& corridor = corridors[i];
         if (ownership[i] == MERGED)
             corridor.bidirectional = merge_is_bidir;
@@ -558,7 +602,7 @@ void PlanMerge::finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_
             corridor.end_types[0] = ENDPOINT_BIDIR;
             corridor.end_types[1] = ENDPOINT_BIDIR;
             if (i > start_idx)
-                corridor.addConnection(corridor.median.front().center, i - 1, corridors[i - 1].median.back().center);
+                corridor.addConnection(corridor.median.front().center, last_left_corridor, corridors[last_left_corridor].median.back().center);
         }
         else
         {
@@ -740,6 +784,41 @@ void PlanMerge::finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_
             conn_it->get<2>() = mapping.second;
         }
     }
+
+    // Now, try to do a bit of cleanup. Namely, small intermediate left or right
+    // corridors are removed.
+    for (size_t i = 0; i < corridors.size(); ++i)
+    {
+        Corridor& corridor = corridors[i];
+        Corridor::Connections& conn = corridors[i].connections;
+        if (ownership[i] != MERGED)
+            continue;
+
+        Corridor::Connections::iterator conn_it = conn.begin();
+        for (conn_it = conn.begin(); conn_it != conn.end(); ++conn_it)
+        {
+            int target_idx = conn_it->get<1>();
+            if (target_idx < start_idx || ownership[target_idx] == MERGED)
+                continue;
+
+            Corridor& target = corridors[target_idx];
+            if (target.median.size() > 4)
+                continue;
+
+            int target_side = corridor.findSideOf(conn_it->get<0>());
+            PointID new_source;
+            if (target_side == 0)
+                new_source = corridor.median.front().center;
+            else
+                new_source = corridor.median.back().center;
+            ownership[target_idx] = TO_DELETE;
+
+            Corridor::Connections::iterator target_conn_it = target.connections.begin();
+            for (; target_conn_it != target.connections.end(); ++target_conn_it)
+                corridor.addConnection(new_source, target_conn_it->get<1>(), target_conn_it->get<2>());
+        }
+    }
+
     point_mapping.clear();
 
 }

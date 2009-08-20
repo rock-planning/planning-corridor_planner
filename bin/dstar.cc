@@ -302,7 +302,12 @@ int main(int argc, char** argv)
     int xSize, ySize; vector<uint8_t> image;
     Plan original;
     tie(original, xSize, ySize, image) = do_terrain('a', out_basename, terrain_file + ".tif", classes, x0, y0, x1, y1, expand);
-    Plan blocked = do_terrain('b', out_basename + "-blocked", terrain_file + "-blocked.tif", classes, x0, y0, x1, y1, expand).get<0>();
+    Plan blocked = do_terrain('b', out_basename + "-blocked", terrain_file + "-blocked.tif", classes, 446, 328, x1, y1, expand).get<0>();
+
+    for (size_t i = 0; i < original.corridors.size(); ++i)
+        original.corridors[i].name = string("a") + boost::lexical_cast<std::string>(i);
+    for (size_t i = 0; i < blocked.corridors.size(); ++i)
+        blocked.corridors[i].name = string("b") + boost::lexical_cast<std::string>(i);
 
     //int original_idx = original.findEndpointCorridor( PointID(76, 140) );
     //int blocked_idx  = blocked.findEndpointCorridor( PointID(76, 140) );
@@ -339,10 +344,15 @@ int main(int argc, char** argv)
     //while (blocked.corridors.size() != 3)
     //    blocked.removeCorridor(3);
 
-    //outputPlan(xSize, ySize, out_basename + "-left", image, original);
-    //outputPlan(xSize, ySize, out_basename + "-right", image, blocked);
 
-    merger.merge(original, blocked, 0.5, 0.1);
+    outputPlan(xSize, ySize, out_basename + "-left", image, original);
+    outputPlan(xSize, ySize, out_basename + "-right", image, blocked);
+
+    merger.merge(original, blocked, 0.5, 0.2);
+    //for (int i = merger.corridors.size(); i >= 0; --i)
+    //    if (merger.corridors[i].name[0] == 'a')
+    //        merger.removeCorridor(i);
+
     cerr << merger.corridors.size() << " corridors in merged plan" << endl;
     outputPlan(xSize, ySize, out_basename + "-merge", image, merger);
     return 0;

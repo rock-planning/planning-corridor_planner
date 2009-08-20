@@ -772,11 +772,15 @@ void Plan::mergeSimpleCrossroads_directed()
         if (corridors[target_idx].isSingleton()) continue;
         if (in_connectivity[target_idx] > 1) continue;
 
+        if (corridors[i].bidirectional || corridors[target_idx].bidirectional)
+            continue;
+
         Corridor& source = corridors[i];
         Corridor& target = corridors[target_idx];
         cerr << "merging " << target.name << " + " << source.name << " out=" << out_connectivity[i] << " in=" << in_connectivity[target_idx] << endl;
         target.merge(source);
-        target.name = target.name + "+" + source.name;
+        if (target.name != source.name)
+            target.name = target.name + "+" + source.name;
         moveConnections(target_idx, i);
         removeCorridor(i);
 

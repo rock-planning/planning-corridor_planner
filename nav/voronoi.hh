@@ -156,6 +156,9 @@ namespace Nav
         /** Returns a point of the median line which is adjacent to \c p */
         PointID adjacentEndpoint(PointID const& p) const;
 
+        MedianLine::iterator findMedianPoint(PointID const& p);
+        MedianLine::const_iterator findMedianPoint(PointID const& p) const;
+
         /** Returns an interator on the point of the median nearest to \c p */
         MedianLine::iterator findNearestMedian(PointID const& p);
         MedianLine::const_iterator findNearestMedian(PointID const& p) const;

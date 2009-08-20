@@ -256,6 +256,21 @@ MedianLine::iterator Corridor::findNearestMedian(PointID const& p)
 MedianLine::const_iterator Corridor::findNearestMedian(PointID const& p) const
 { return findNearest(median.begin(), median.end(), p); }
 
+template<typename _It>
+_It findMedianPoint(_It begin, _It end, PointID const& p)
+{
+    for (_It it = begin; it != end; ++it)
+    {
+        if (it->center == p)
+            return it;
+    }
+    return end;
+}
+MedianLine::iterator Corridor::findMedianPoint(PointID const& p)
+{ return ::findMedianPoint(median.begin(), median.end(), p); }
+MedianLine::const_iterator Corridor::findMedianPoint(PointID const& p) const
+{ return ::findMedianPoint(median.begin(), median.end(), p); }
+
 int Corridor::findSideOf(PointID const& p) const
 {
     if (end_regions[0].count(p))
@@ -264,6 +279,14 @@ int Corridor::findSideOf(PointID const& p) const
 	return 1;
     else
     {
+        PointID front = median.front().center;
+        PointID back  = median.back().center;
+	float d_front = front.distance2(p);
+	float d_back  = back.distance2(p);
+        if (d_front > d_back)
+            return 1;
+        else return 0;
+
 	cerr << name << " " << p << " is not in an end region" << endl;
 	throw runtime_error("given point is not in one of the end regions");
     }
