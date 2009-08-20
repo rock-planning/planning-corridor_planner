@@ -194,6 +194,12 @@ void Corridor::add(PointID const& p, MedianPoint const& descriptor)
 
 void Corridor::add(std::pair<PointID, MedianPoint> const& p)
 {
+    if (p.second.borders.size() != 2)
+    {
+        //throw std::runtime_error("cannot add a point with a connectivity not 2 in a corridor");
+        return;
+    }
+
     median.insert(p);
     median_bbox.update(p.first);
     mergeBorders(p.second);
