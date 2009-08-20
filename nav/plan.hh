@@ -44,11 +44,6 @@ namespace Nav
         static const int USEFUL = 1;
         static const int NOT_USEFUL = 2;
 
-        /** Mark in \c useful the corridors that contains the endpoints in \c
-         * endpoints
-         */
-        void markEndpointCorridors(std::vector<int>& useful);
-
         /** This method is used by removeUselessCorridors to search for useless
          * corridors. We use for that a DFS, where
          * <ul>
@@ -61,9 +56,37 @@ namespace Nav
          * corridor_idx whose usefulness is still undetermined. If one child is
          * useful, then the corridor is useful as well.
          */
-        int markNextCorridors(std::vector<int>& stack, int corridor_idx, std::vector<int>& useful) const;
+        int markNextCorridors(std::set<int>& stack, int corridor_idx, std::vector<int>& useful) const;
 
+        static const int ENDPOINT_UNKNOWN = 0;
+        static const int ENDPOINT_FRONT   = 1;
+        static const int ENDPOINT_BACK    = 2;
+        static const int ENDPOINT_BIDIR   = 3;
+
+        typedef std::map< std::pair<int, int>, int > ConnectionTypes; 
+	typedef std::map< Corridor::ConnectionDescriptor const*, int > EndpointTypes;
+	typedef std::map< int, std::list<Corridor::ConnectionDescriptor> > InboundConnections;
+
+	template<typename It>
+	std::pair<int, int> findEndpointType(
+		ConnectionTypes const& dfs_types,
+		EndpointTypes   const& cost_types,
+		InboundConnections const& inbound_connections,
+		size_t corridor_idx, It begin, It end) const;
+
+	std::vector<bool> reach_flag;
+	std::vector<float> reach_min_cost;
+	bool markDirections_DFS(std::set< boost::tuple<int, PointID, int, PointID> >& result,
+		std::vector<int>& stack, int in_side, int idx, int end_idx,
+		float accumulated_cost_overhead, float cost_margin);
+	void markDirections_cost(std::set<int> const& bidir,
+		ConnectionTypes const& dfs_types,
+		EndpointTypes& endpoint_types);
         void removeBackToBackConnections();
+	void reorientMedianLines(ConnectionTypes const& types, EndpointTypes const& endpoint_types,
+		InboundConnections const& inbound_connections);
+
+	void checkConsistency() const;
 
         int findStartCorridor() const;
         int findEndCorridor() const;
@@ -74,6 +97,7 @@ namespace Nav
          */
         void mergeSimpleCrossroads();
         void mergeSimpleCrossroads_directed();
+        std::pair<PointID, PointID> split(int corridor_idx, MedianLine::iterator it);
 
     public:
         Plan();
@@ -105,7 +129,7 @@ namespace Nav
          * updates all indexes in the other corridor connections, and removes
          * any connection that were existing towards the removed corridor
          */
-        void removeCorridor(int idx, int replace_by = -1);
+        void removeCorridor(int idx);
 
         /** Move all connections that are defined on \c from_idx into the
          * corridor \c into_idx, updating the other end of the connection as
@@ -114,7 +138,7 @@ namespace Nav
          * Of course, this method completely ignores the connections between
          * into_idx and from_idx
          */
-        void moveConnections(int into_idx, int from_idx);
+        void moveConnections(size_t into_idx, size_t from_idx);
 
         void addAdjacentBorders(MedianPoint const& p0, MedianPoint const& p1, std::set<PointID>& result) const;
 

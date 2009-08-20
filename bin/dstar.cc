@@ -14,6 +14,8 @@
 #include <nav/dstar.hh>
 #include <nav/skeleton.hh>
 #include <nav/merge.hh>
+#include <boost/lambda/lambda.hpp>
+#include <boost/bind.hpp>
 
 using namespace std;
 using DFKI::Time;
@@ -61,24 +63,34 @@ vector<RGBColor> allocateColors(size_t count)
     vector<RGBColor> result;
     if (count == 1)
         result.push_back(RGBColor(100, 100, 255));
-    else if (count == 2)
+    else if (count < 4)
     {
         result.push_back(RGBColor(100, 100, 255));
         result.push_back(RGBColor(255, 100, 100));
     }
     else if (count > 2)
     {
-        float step = 155.0 / (count / 2);
-        for (size_t i = 0; i < count / 2; ++i)
-            result.push_back(RGBColor(100, 100 + step * i, 255 - step * i));
+        // result:
+        //   100, 100, 255
+        //   100, 255, 100
+        //   255, 100, 100
+        //   100, 255, 255
+        //   255, 100, 255
 
-        step = 155.0 / (count - count / 2);
-        for (size_t i = 0; i < count - count / 2; ++i)
-            result.push_back(RGBColor(100 + step * i, 255 - step * i, 100 + step * i));
+        size_t   gradient_size = (count + 5) / 6;
+        float step = 155.0 / gradient_size;
+        for (size_t i = 0; i < gradient_size; ++i)
+        {
+            result.push_back(RGBColor(100, 100 + step * i, 255 - step * i));
+            result.push_back(RGBColor(100 + step * i, 255 - step * i, 100));
+            result.push_back(RGBColor(255 - step * i, 100 + step * i, 100 + step * i));
+
+            result.push_back(RGBColor(0, step * i, 155 - step * i));
+            result.push_back(RGBColor(step * i, 155 - step * i, 0));
+            result.push_back(RGBColor(155 - step * i, step * i, step * i));
+        }
     }
 
-    for (int i = 0; i < 20; ++i)
-        random_shuffle(result.begin(), result.end());
     return result;
 }
 
@@ -132,15 +144,25 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
     for (size_t corridor_idx = 0; corridor_idx < plan.corridors.size(); ++corridor_idx)
     {
         RGBColor color = colors[corridor_idx];
-        dot << "  c" << corridor_idx << "[color=\"#" << hex
-            << (int)color.r << (int)color.g << (int)color.b << "\"];\n" << dec;
+
+        string corridor_name = plan.corridors[corridor_idx].name;
+
+        dot << "  c" << corridor_idx << "[color=\"#" << hex;
+#define DISPLAY_COLOR_CODE(io, code) \
+        if ((code) < 16) \
+            io << 0; \
+        dot << (int)(code);
+
+        DISPLAY_COLOR_CODE(dot, color.r);
+        DISPLAY_COLOR_CODE(dot, color.g);
+        DISPLAY_COLOR_CODE(dot, color.b);
+        dot << "\", label=\"" << corridor_name << "\"];\n" << dec;
 
         std::set<int> seen;
         Corridor::Connections const& connections = plan.corridors[corridor_idx].connections;
         Corridor::Connections::const_iterator conn_it;
         for (conn_it = connections.begin(); conn_it != connections.end(); ++conn_it)
         {
-
             int target_idx = conn_it->get<1>();
             if (!seen.count(target_idx))
             {
@@ -153,7 +175,9 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
 }
 
 
-tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(std::string const& basename, std::string const& terrain, TerrainClasses const& terrain_classes,
+tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(
+        char name_prefix,
+        std::string const& basename, std::string const& terrain, TerrainClasses const& terrain_classes,
         int x0, int y0, int x1, int y1, float expand)
 {
     // Load the file and run D*
@@ -218,6 +242,8 @@ tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(std::string const& 
     { Profile profiler("computing plan");
         skel.buildPlan(plan, result);
     }
+    for (size_t i = 0; i < plan.corridors.size(); ++i)
+        plan.corridors[i].name = name_prefix + plan.corridors[i].name;
 
     cerr << plan.corridors.size() << " corridors found" << endl;
 
@@ -275,8 +301,8 @@ int main(int argc, char** argv)
 
     int xSize, ySize; vector<uint8_t> image;
     Plan original;
-    tie(original, xSize, ySize, image) = do_terrain(out_basename, terrain_file + ".tif", classes, x0, y0, x1, y1, expand);
-    Plan blocked = do_terrain(out_basename + "-blocked", terrain_file + "-blocked.tif", classes, x0, y0, x1, y1, expand).get<0>();
+    tie(original, xSize, ySize, image) = do_terrain('a', out_basename, terrain_file + ".tif", classes, x0, y0, x1, y1, expand);
+    Plan blocked = do_terrain('b', out_basename + "-blocked", terrain_file + "-blocked.tif", classes, x0, y0, x1, y1, expand).get<0>();
 
     //int original_idx = original.findEndpointCorridor( PointID(76, 140) );
     //int blocked_idx  = blocked.findEndpointCorridor( PointID(76, 140) );
@@ -284,22 +310,38 @@ int main(int argc, char** argv)
     //{
     //    for (int j = 0; j < blocked.corridors.size(); ++j)
     //    {
-            //int i = 4;
-            //int j = 43;
-            //PlanMerge merger;
-            //Plan left, right;
-            //left.corridors.push_back(original.corridors[i]);
-            //left.corridors[0].connections.clear();
-            //right.corridors.push_back(blocked.corridors[4]);
-            //right.corridors[0].connections.clear();
+          //PlanMerge merger;
+          //Plan left, right;
+          //left.corridors.push_back(original.corridors[27]);
+          //left.corridors[0].connections.clear();
+          //outputPlan(xSize, ySize, out_basename + "-left", image, left);
+          //right.corridors.push_back(blocked.corridors[24]);
+          //right.corridors[0].connections.clear();
+          //outputPlan(xSize, ySize, out_basename + "-right", image, right);
 
-            //merger.merge(left, right, 0.5, 0.45);
+          //merger.merge(left, right, 0.7, 0.45);
     //    }
     //}
-    PlanMerge merger;
-    merger.merge(original, blocked, 0.5, 0.1);
-    cerr << merger.corridors.size() << " corridors in merged plan" << endl;
-    outputPlan(xSize, ySize, out_basename + "-merge", image, merger);
+
+    //while (original.corridors[0].name.find("a90") == string::npos)
+    //    original.removeCorridor(0);
+    //while (original.corridors.size() != 1)
+    //    original.removeCorridor(1);
+
+    //while (blocked.corridors[0].name != "b134")
+    //    blocked.removeCorridor(0);
+    //while (blocked.corridors[1].name != "b137")
+    //    blocked.removeCorridor(1);
+    //while (blocked.corridors.size() != 3)
+    //    blocked.removeCorridor(3);
+
+    //outputPlan(xSize, ySize, out_basename + "-left", image, original);
+    //outputPlan(xSize, ySize, out_basename + "-right", image, blocked);
+
+    //PlanMerge merger;
+    //merger.merge(original, blocked, 0.5, 0.1);
+    //cerr << merger.corridors.size() << " corridors in merged plan" << endl;
+    //outputPlan(xSize, ySize, out_basename + "-merge", image, merger);
     return 0;
 }
 

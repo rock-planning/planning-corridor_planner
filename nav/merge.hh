@@ -17,7 +17,6 @@ namespace Nav
         typedef boost::tuple<int, PointID, int, PointID> PtMappingTuple;
         typedef std::map< std::pair<int, PointID>, std::pair<int, PointID> > PtMapping;
         PtMapping point_mapping, accumulated_point_mappings;
-        std::vector<PtMappingTuple> merging_endpoints;
 
         PtMappingTuple last_point[2];
 
@@ -32,6 +31,14 @@ namespace Nav
         std::vector<OWNERSHIP> ownership;
         OWNERSHIP current_owner;
 
+        /** Returns true if +left_p+ and +right_p+ can be merged */
+        bool canMerge(MedianPoint const& left_p, MedianPoint const& right_p,
+                float coverage_threshold, float cos_angular_threshold) const;
+
+        /** Returns true if +left_p+ and +right_p+ can be merged */
+        bool canMerge(MedianPoint const& left_p, MedianPoint const& right_p,
+                float distance, float coverage_threshold, float cos_angular_threshold) const;
+
         void copyConnections();
 
         void pushAccumulator();
@@ -39,8 +46,6 @@ namespace Nav
         void pushMerged(int left_idx, MedianLine::const_iterator left_p,
                 int right_idx, MedianLine::const_iterator right_p,
                 PointID const& p, MedianPoint const& median);
-
-        void finalizeMerge();
 
     public:
         PlanMerge();

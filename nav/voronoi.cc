@@ -7,9 +7,8 @@
 
 #include <iostream>
 
-using boost::bind;
-using boost::mem_fn;
 using namespace std;
+using namespace boost;
 using namespace Nav;
 
 list<PointSet>::iterator Nav::updateConnectedSets(std::list<PointSet>& sets, PointID p)
@@ -45,6 +44,17 @@ list<PointSet>::iterator Nav::updateConnectedSets(std::list<PointSet>& sets, Poi
     }
 
     return added_in;
+}
+
+void MedianPoint::offset(PointID const& v)
+{
+    center += v;
+    for (list<PointVector>::iterator it = borders.begin(); it != borders.end(); ++it)
+    {
+        PointVector& border = *it;
+        for (size_t i = 0; i < border.size(); ++i)
+            border[i] += v;
+    }
 }
 
 void MedianPoint::addBorderPoint(PointID const& p)
@@ -114,8 +124,12 @@ bool MedianPoint::isBorderAdjacent(MedianPoint const& p) const
     return true;
 }
 
+bool MedianPoint::isSingleton() const { return borders.size() == 0; }
+
 Point<float> MedianPoint::direction() const
 {
+    if (borders.size() == 0)
+        return Point<float>();
     if (borders.size() != 2)
         throw std::runtime_error("found more than two borders in MedianPoint::direction()");
 
@@ -197,23 +211,242 @@ void Nav::displayMedianLine(ostream& io, MedianLine const& skel, int xmin, int x
     io << endl;
 }
 
-void Corridor::add(PointID const& p, MedianPoint const& median)
+Corridor::Corridor()
+    : bidirectional(false)
 {
-    add(median);
-    this->median.back().center = p;
+    end_types[0] = end_types[1] = 0;
 }
 
-void Corridor::add(MedianPoint const& p)
+Corridor Corridor::singleton(PointID const& p, std::string const& name)
 {
-    if (p.borders.size() != 2)
+    Corridor c;
+    c.name = name;
+
+    MedianPoint m;
+    m.center = p;
+    m.bbox.update(p);
+    c.median.push_back(m);
+
+    c.center = p;
+    c.end_regions[0].insert(p);
+    c.bbox.update(p);
+    c.median_bbox.update(p);
+    return c;
+}
+
+template<typename _It>
+_It findNearest(_It begin, _It end, PointID const& p)
+{
+    float min_distance = -1;
+    _It result;
+    for (_It it = begin; it != end; ++it)
+    {
+        float d = p.distanceTo2(it->center);
+        if (min_distance == -1 || min_distance > d)
+        {
+            min_distance = d;
+            result = it;
+        }
+    }
+    return result;
+}
+
+MedianLine::iterator Corridor::findNearestMedian(PointID const& p)
+{ return findNearest(median.begin(), median.end(), p); }
+MedianLine::const_iterator Corridor::findNearestMedian(PointID const& p) const
+{ return findNearest(median.begin(), median.end(), p); }
+
+int Corridor::findSideOf(PointID const& p) const
+{
+    if (end_regions[0].count(p))
+	return 0;
+    else if (end_regions[1].count(p))
+	return 1;
+    else
+    {
+	cerr << name << " " << p << " is not in an end region" << endl;
+	throw runtime_error("given point is not in one of the end regions");
+    }
+}
+
+void Corridor::add(PointID const& p, MedianPoint const& descriptor, bool ordered)
+{
+    if (descriptor.borders.size() != 2)
     {
         //throw std::runtime_error("cannot add a point with a connectivity not 2 in a corridor");
         return;
     }
 
-    median.push_back(p);
-    median_bbox.update(p.center);
-    mergeBorders(p);
+    MedianLine::iterator insert_place = median.end();
+    if (median.size() <= 1)
+	insert_place = median.end();
+    else
+    {
+	PointID front_point = median.front().center;
+	PointID back_point  = median.back().center;
+	bool front_n = front_point.isNeighbour(p);
+	bool back_n = back_point.isNeighbour(p);
+
+	if (ordered)
+	    insert_place = median.end();
+	else if (front_n && back_n)
+	{
+	    float d_front = p.distance2(front_point);
+	    float d_back  = p.distance2(back_point);
+	    if (d_front < d_back)
+		insert_place = median.begin();
+	    else
+		insert_place = median.end();
+	}
+	else if (front_n)
+	    insert_place = median.begin();
+	else if (back_n)
+	    insert_place = median.end();
+	else
+	{
+	    float d_front = p.distance2(front_point);
+	    float d_back  = p.distance2(back_point);
+	    // First, try to find the right place for the point (if possible)
+	    if (d_front < d_back)
+	    {
+		for (MedianLine::iterator left = median.begin(); left != median.end(); ++left)
+		{
+		    if (left->center.isNeighbour(p))
+		    {
+			insert_place = left;
+			break;
+		    }
+		}
+	    }
+	    else
+	    {
+		for (MedianLine::iterator left = --median.end(); left != median.begin(); --left)
+		{
+		    if (left->center.isNeighbour(p))
+		    {
+			insert_place = ++left;
+			break;
+		    }
+		}
+	    }
+
+	    if (insert_place == median.end())
+	    {
+		if (d_front < d_back)
+		    insert_place = median.begin();
+		else
+		    insert_place = median.end();
+	    }
+	}
+
+	// On which side of insert_place should we insert ?
+	MedianLine::iterator before = insert_place, after = insert_place;
+	if (insert_place == median.begin())
+	{
+	    if ((++after)->center.isNeighbour(p))
+		insert_place = after;
+	}
+	else if (insert_place == median.end())
+	{
+	    if ((--(--before))->center.isNeighbour(p))
+		insert_place = before;
+	}
+	else
+	{
+	    --before; ++after;
+	    float d_before = before->center.distance2(p);
+	    float d_after  = after->center.distance2(p);
+	    if (d_before > d_after)
+		++insert_place;
+	}
+    }
+
+    insert_place = median.insert(insert_place, descriptor);
+    insert_place->center = p;
+    median_bbox.update(p);
+    mergeBorders(descriptor);
+}
+
+void Corridor::add(MedianPoint const& p, bool ordered)
+{
+    add(p.center, p, ordered);
+}
+
+bool Corridor::checkConsistency() const
+{
+    bool result = true;
+
+    // Check that the median line is ordered properly
+    PointID last_point = median.front().center;
+    for (MedianLine::const_iterator it = median.begin(); it != median.end(); ++it)
+    {
+        if (!it->center.isNeighbour(last_point))
+        {
+            result = false;
+            cerr << "median ordering: " << last_point << " " << it->center << endl;
+        }
+        last_point = it->center;
+    }
+
+    // Verify that all connection points are in the median line
+    Corridor::Connections::const_iterator conn_it;
+    for (conn_it = connections.begin(); conn_it != connections.end(); ++conn_it)
+    {
+        PointID p = conn_it->get<0>();
+        if (find_if(median.begin(), median.end(),
+                    bind(&MedianPoint::center, _1) == p) == median.end())
+        {
+            result = false;
+            //cerr << "connection point " << p << " is not in the median" << endl;
+        }
+    }
+
+    return result;
+}
+
+template<typename It>
+static It findConnectionFrom(It begin, It end, PointID const& p)
+{
+    for (It it = begin; it != end; ++it)
+    {
+        if (it->get<0>() == p)
+            return it;
+    }
+    return end;
+}
+
+Corridor::Connections::iterator Corridor::findConnectionFrom(PointID const& p)
+{ return ::findConnectionFrom(connections.begin(), connections.end(), p); }
+Corridor::Connections::const_iterator Corridor::findConnectionFrom(PointID const& p) const
+{ return ::findConnectionFrom(connections.begin(), connections.end(), p); }
+
+template<typename It>
+static It findConnectionTo(It begin, It end, int target_idx, PointID const& target_p)
+{
+    for (It it = begin; it != end; ++it)
+    {
+        if (it->get<1>() == target_idx && it->get<2>() == target_p)
+            return it;
+    }
+    return end;
+}
+
+Corridor::Connections::iterator Corridor::findConnectionTo(int target_idx, PointID const& p)
+{ return ::findConnectionTo(connections.begin(), connections.end(), target_idx, p); }
+Corridor::Connections::const_iterator Corridor::findConnectionTo(int target_idx, PointID const& p) const
+{ return ::findConnectionTo(connections.begin(), connections.end(), target_idx, p); }
+
+void Corridor::addConnection(PointID const& source_p, int target_idx, PointID const& target_p)
+{
+    for (Connections::const_iterator it = connections.begin(); it != connections.end(); ++it)
+    {
+        if (it->get<1>() == target_idx &&
+                it->get<2>() == target_p &&
+                it->get<0>() == source_p)
+            return;
+    }
+
+    connections.push_back( make_tuple(source_p, target_idx, target_p));
 }
 
 bool Corridor::isConnectedTo(int other_corridor) const
@@ -239,9 +472,20 @@ void Corridor::removeConnectionsTo(int other_corridor)
 
 void Corridor::merge(Corridor const& corridor)
 {
-    // Force the overload selection on Corridor::add
-    void (Corridor::*add)(MedianPoint const&) = &Corridor::add;
-    for_each(corridor.median.begin(), corridor.median.end(), bind(mem_fn(add), this, _1));
+    // To force the overload selection on Corridor::add
+    void (Corridor::*add)(MedianPoint const&, bool) = &Corridor::add;
+
+    PointID this_front = median.front().center;
+    PointID other_front = corridor.median.front().center;
+    PointID other_back  = corridor.median.back().center;
+
+    float d_ff = this_front.distance2(other_front);
+    float d_fb = this_front.distance2(other_back);
+
+    if (d_ff < d_fb)
+        for_each(corridor.median.begin(), corridor.median.end(), bind(mem_fn(add), this, _1, true));
+    else
+        for_each(corridor.median.rbegin(), corridor.median.rend(), bind(mem_fn(add), this, _1, true));
 }
 
 bool Corridor::contains(PointID const& p) const
@@ -292,6 +536,27 @@ set<int> Corridor::connectivity() const
     for (Connections::const_iterator it = connections.begin(); it != connections.end(); ++it)
         result.insert(it->get<1>());
     return result;
+}
+
+void Corridor::buildEndRegions()
+{
+    end_regions[0].clear();
+    end_regions[1].clear();
+    PointID front = median.front().center;
+    PointID back  = median.back().center;
+
+    for (Connections::const_iterator conn_it = connections.begin(); conn_it != connections.end(); ++conn_it)
+    {
+	if (name == "60")
+	    cerr << conn_it->get<0>() << endl;
+
+	float d_front = front.distance2(conn_it->get<0>());
+	float d_back  = back.distance2(conn_it->get<0>());
+	if (d_front <= d_back)
+	    end_regions[0].insert(conn_it->get<0>());
+	else
+	    end_regions[1].insert(conn_it->get<0>());
+    }
 }
 
 list<PointSet> Corridor::endRegions() const

@@ -51,6 +51,9 @@ namespace Nav
         bool operator == (MedianPoint const& other) const;
 
         Point<float> direction() const;
+        bool isSingleton() const;
+
+        void offset(PointID const& v);
 
         /** Add \c p to the borders. See borders for more details */
         void addBorderPoint(PointID const& p);
@@ -65,14 +68,24 @@ namespace Nav
     std::ostream& operator << (std::ostream& io, MedianPoint const& p);
     typedef std::list<MedianPoint> MedianLine;
 
-    struct Corridor : public MedianPoint
+    class Corridor : public MedianPoint
     {
+    public:
         MedianLine median;
         BoundingBox median_bbox;
+        std::string name;
 
-        typedef std::list< boost::tuple<PointID, int, PointID> > Connections;
+        typedef boost::tuple<PointID, int, PointID> ConnectionDescriptor;
+        typedef std::list<ConnectionDescriptor> Connections;
         typedef Connections::iterator connection_iterator;
         Connections connections;
+
+	PointSet end_regions[2];
+	int end_types[2];
+	bool bidirectional;
+	void buildEndRegions();
+
+	Corridor();
 
         /** Returns true if \c p is contained in this corridor */
         bool contains(PointID const& p) const;
@@ -90,11 +103,13 @@ namespace Nav
 
         /** Add the given median point to the corridor, and then change its
          * center point to the one given */
-        void add(PointID const& p, MedianPoint const& median);
+        void add(PointID const& p, MedianPoint const& median, bool ordered = false);
 
-        /** Add a median point to the corridor, updating its border and bouding
+        /** Add a median point to the corridor, updating its border and bounding
          * box */
-        void add(MedianPoint const& p);
+        void add(MedianPoint const& p, bool ordered = false);
+
+	int findSideOf(PointID const& p) const;
 
         /** Merge \c corridor into this one, updating its border, median line
          * and bounding box
@@ -109,6 +124,28 @@ namespace Nav
          */
         bool isConnectedTo(int other_corridor) const;
 
+        void addConnection(PointID const& source_p, int target_idx, PointID const& target_p);
+
+        /** Returns the iterator in \c connections whose source is \c p
+         * or connections.end() if \c p is not an endpoint
+         */
+        Connections::iterator findConnectionFrom(PointID const& p);
+
+        /** Returns the iterator in \c connections whose source is \c p
+         * or connections.end() if \c p is not an endpoint
+         */
+        Connections::const_iterator findConnectionFrom(PointID const& p) const;
+
+        /** Returns the iterator in \c connections whose target is \c p
+         * or connections.end() if \c p is not an endpoint
+         */
+        Connections::iterator findConnectionTo(int corridor_idx, PointID const& p);
+
+        /** Returns the iterator in \c connections whose target is \c p
+         * or connections.end() if \c p is not an endpoint
+         */
+        Connections::const_iterator findConnectionTo(int corridor_idx, PointID const& p) const;
+
         /** Removes all connections that point to \c other_corridor. It does
          * not remove them on \c other_corridor
          */
@@ -116,7 +153,18 @@ namespace Nav
 
         /** Returns a point of the median line which is adjacent to \c p */
         PointID adjacentEndpoint(PointID const& p) const;
+
+        /** Returns an interator on the point of the median nearest to \c p */
+        MedianLine::iterator findNearestMedian(PointID const& p);
+        MedianLine::const_iterator findNearestMedian(PointID const& p) const;
+
+        /** Returns true if the corridor invariants are met, and false otherwise
+         */
+        bool checkConsistency() const;
+
+        static Corridor singleton(PointID const& p, std::string const& name = "");
     };
+
     std::ostream& operator << (std::ostream& io, Corridor const& corridor);
 
     void displayMedianLine(std::ostream& io, MedianLine const& skel, int xmin, int xmax, int ymin, int ymax);

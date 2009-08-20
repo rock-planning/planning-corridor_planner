@@ -2,6 +2,8 @@
 #include <limits>
 #include <boost/bind.hpp>
 #include <algorithm>
+#include "pool_allocator.hh"
+#include <boost/lexical_cast.hpp>
 
 #include <iostream>
 #include <iomanip>
@@ -202,9 +204,9 @@ pair<PointSet, PointSet> SkeletonExtraction::getBorderAndInside() const
 
 void SkeletonExtraction::initializeFromDStar(DStar const& dstar, int x, int y, float expand)
 {
-    typedef multimap<float, PointID> OpenSet;
+    typedef multimap<float, PointID, std::less<float> > OpenSet;
     OpenSet open_from_cost;
-    map<PointID, OpenSet::iterator> is_in_open;
+    map<PointID, OpenSet::iterator, std::less<PointID> > is_in_open;
 
     border.clear();
     parents.clear();
@@ -289,8 +291,8 @@ void SkeletonExtraction::registerConnections(PointID source_point, int source_id
         int target_idx = target_it->second;
         Corridor& target = corridors[target_idx];
 
-        source.connections.push_back( make_tuple(source_point, target_idx, target_point));
-        target.connections.push_back( make_tuple(target_point, source_idx, source_point));
+        source.addConnection(source_point, target_idx, target_point);
+        target.addConnection(target_point, source_idx, source_point);
     }
 }
 
@@ -332,6 +334,7 @@ void SkeletonExtraction::buildPlan(Plan& result, MedianLine const& points)
     {
         corridors.push_back(Corridor());
         Corridor& corridor = corridors.back();
+        corridor.name = boost::lexical_cast<std::string>(corridors.size());
         int corridor_idx = corridors.size() - 1;
 
         list<MedianLine::const_iterator> propagation;

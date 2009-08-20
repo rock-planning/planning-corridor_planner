@@ -32,6 +32,9 @@ namespace Nav {
         { return Point<T>(x / v, y / v); }
 
         template<typename Other>
+        Point<T> operator += (Point<Other> p)
+        { return *this = *this + p; }
+        template<typename Other>
         Point<T> operator + (Point<Other> p) const
         { return Point<T>(x + p.x, y + p.y); }
 
@@ -58,6 +61,11 @@ namespace Nav {
         {
             return static_cast<float>(x - p.x) * static_cast<float>(x - p.x) + 
                  static_cast<float>(y - p.y) * static_cast<float>(y - p.y);
+        }
+        template<typename Other>
+        float distance(Point<Other> const& p) const
+        {
+            return std::sqrt(distance2(p));
         }
     };
 
