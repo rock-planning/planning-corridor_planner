@@ -70,8 +70,8 @@ BOOST_AUTO_TEST_CASE( test_simple_corridor_set )
     displayMedianLine(cerr, result, 0, w, 0, h);
 
     cerr << "Corridor set:" << endl;
-    Plan corridors = skel.buildPlan(result);
-    corridors.simplify( PointID( 5, 20 ),  PointID( 34, 20 ) );
+    Plan corridors( PointID( 5, 20 ),  PointID( 34, 20 ) );
+    skel.buildPlan(corridors, result);
     cerr << corridors << endl;
 
     // One corridor and the corridor 0 which represents the outside
@@ -141,10 +141,8 @@ BOOST_AUTO_TEST_CASE( test_crossroad )
     displayMedianLine(cerr, result, 0, w, 0, h);
 
     cerr << "Corridor set:" << endl;
-    Plan corridors = skel.buildPlan(result);
-    cerr << corridors << endl;
-
-    corridors.simplify( PointID( 5, 20 ),  PointID( 29, 20 ) );
+    Plan corridors(PointID( 5, 20 ),  PointID( 29, 20 ));
+    skel.buildPlan(corridors, result);
     cerr << corridors << endl;
 
     // Four corridors and the corridor 0 which represents the outside
