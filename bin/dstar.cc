@@ -322,26 +322,29 @@ int main(int argc, char** argv)
           //merger.merge(left, right, 0.7, 0.45);
     //    }
     //}
+    //
+    PlanMerge merger;
 
-    //while (original.corridors[0].name.find("a90") == string::npos)
-    //    original.removeCorridor(0);
-    //while (original.corridors.size() != 1)
-    //    original.removeCorridor(1);
+    while (original.corridors[0].name.find("a53") == string::npos)
+        original.removeCorridor(0);
+    while (original.corridors.size() != 1)
+        original.removeCorridor(1);
 
-    //while (blocked.corridors[0].name != "b134")
-    //    blocked.removeCorridor(0);
-    //while (blocked.corridors[1].name != "b137")
-    //    blocked.removeCorridor(1);
-    //while (blocked.corridors.size() != 3)
-    //    blocked.removeCorridor(3);
+    while (blocked.corridors[0].name != "b106")
+        blocked.removeCorridor(0);
+    while (blocked.corridors[1].name != "b118")
+        blocked.removeCorridor(1);
+    while (blocked.corridors[2].name != "b126")
+        blocked.removeCorridor(2);
+    while (blocked.corridors.size() != 3)
+        blocked.removeCorridor(3);
 
-    //outputPlan(xSize, ySize, out_basename + "-left", image, original);
-    //outputPlan(xSize, ySize, out_basename + "-right", image, blocked);
+    outputPlan(xSize, ySize, out_basename + "-left", image, original);
+    outputPlan(xSize, ySize, out_basename + "-right", image, blocked);
 
-    //PlanMerge merger;
-    //merger.merge(original, blocked, 0.5, 0.1);
-    //cerr << merger.corridors.size() << " corridors in merged plan" << endl;
-    //outputPlan(xSize, ySize, out_basename + "-merge", image, merger);
+    merger.merge(original, blocked, 0.5, 0.1);
+    cerr << merger.corridors.size() << " corridors in merged plan" << endl;
+    outputPlan(xSize, ySize, out_basename + "-merge", image, merger);
     return 0;
 }
 

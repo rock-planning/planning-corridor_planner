@@ -64,7 +64,6 @@ void PlanMerge::merge(Plan const& left, Plan const& right, float coverage_thresh
 
 void PlanMerge::process(float coverage_threshold, float angular_threshold)
 {
-    point_mapping.clear();
     size_t original_corridor_size = corridors.size();
     for (size_t i = 0; i < original_corridor_size; ++i)
     {
@@ -102,7 +101,6 @@ void PlanMerge::process(float coverage_threshold, float angular_threshold)
         }
     }
 
-    copyConnections();
     for (size_t i = 0, owner_i = 0; i < corridors.size(); ++owner_i)
     {
         if (ownership[owner_i] == TO_DELETE)
@@ -234,8 +232,9 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
 
     mode = NONE;
     accumulator.clear();
-    accumulated_point_mappings.clear();
+    point_mapping.clear();
     merged_points.clear();
+    size_t const original_corridor_size = corridors.size();
 
     bool did_merge = false;
     float cos_angular_threshold = cos(angular_threshold);
@@ -286,7 +285,7 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
             // Now, we're getting a little assymetry here ...
             //
             // We prefer 'left' to 'right' for merging. While we're going (probably) to
-            // lose some data, we insert in merged_points and accumulated_point_mappings
+            // lose some data, we insert in merged_points and point_mapping
             // the neighbours of right_p that can also be merged with left_p. The goal
             // is that, when the pass on the remains of the right corridor is done, we
             // don't consider that some slices that have been skipped by the merging
@@ -298,23 +297,23 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
                     break;
                 if (canMerge(*left_slice, *other_it, distance, coverage_threshold, cos_angular_threshold))
                 {
-                    accumulated_point_mappings[ make_pair(right_idx, other_it->center) ] =
-                        accumulated_point_mappings[ make_pair(right_idx, right_slice->center) ];
+                    point_mapping[ make_pair(right_idx, other_it->center) ] =
+                        make_pair(corridors.size(), merged.center);
                     merged_points.insert(other_it->center);
-                }
+                } else break;
             }
 
             other_it = right_slice;
-            for (--other_it; other_it != right.median.end(); --other_it)
+            for (--other_it; other_it != right.median.begin(); --other_it)
             {
                 if (merged_points.count(other_it->center))
                     break;
                 if (canMerge(*left_slice, *other_it, distance, coverage_threshold, cos_angular_threshold))
                 {
-                    accumulated_point_mappings[ make_pair(right_idx, other_it->center) ] =
-                        accumulated_point_mappings[ make_pair(right_idx, right_slice->center) ];
+                    point_mapping[ make_pair(right_idx, other_it->center) ] =
+                        make_pair(corridors.size(), merged.center);
                     merged_points.insert(other_it->center);
-                }
+                } else break;
             }
         }
         else
@@ -336,36 +335,80 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
     mode = NONE;
     current_owner = RIGHT_SIDE; // used by pushAccumulator to mark the ownership of new corridors
     MedianLine::const_iterator last_slice = right.median.end();
+
+    // These two indexes are the ones of the first and last corridors to
+    // actually have points that were originally owned by the right side.
+    //
+    // This is used to initialize end_regions, end_types and to move the
+    // connections
+    int right_first_corridor = -1, right_last_corridor = -1;
     for (MedianLine::const_iterator right_slice = right.median.begin(); right_slice != right.median.end(); ++right_slice)
     {
         if (merged_points.count(right_slice->center))
         {
+            cerr << right_slice->center << " is already merged" << endl;
+            if (last_slice == right.median.end())
+            {
+                PtMapping::const_iterator map_it
+                    = point_mapping.find( make_pair(right_idx, right_slice->center) );
+                if (map_it == point_mapping.end())
+                {
+                    cerr << "no point mapping found for first slice: " << corridors[right_idx].name << " " << right_slice->center << endl;
+                    throw runtime_error("cannot find a point mapping");
+                }
+                pair<int, PointID> mapped = map_it->second;
+                right_first_corridor = mapped.first;
+            }
+
             if (mode == SINGLE)
             {
                 pushAccumulator();
 
-                Corridor& new_corridor = corridors.back();
-                pair<int, PointID> mapped =
-                    point_mapping[ make_pair(right_idx, right_slice->center) ];
-                new_corridor.connections.push_back(
-                        make_tuple(last_slice->center, mapped.first, mapped.second) 
-                    );
+                PtMapping::const_iterator map_it
+                    = point_mapping.find( make_pair(right_idx, right_slice->center) );
+                if (map_it == point_mapping.end())
+                {
+                    cerr << "no point mapping found for " << corridors[right_idx].name << " " << right_slice->center << endl;
+                    throw runtime_error("cannot find a point mapping");
+                }
+
+                pair<int, PointID> mapped = map_it->second;
+
+                Corridor& right_corridor = corridors.back();
+                right_corridor.addConnection(last_slice->center, mapped.first, mapped.second);
+
+                right_last_corridor = mapped.first;
                 mode = NONE;
+
+                cerr << "new right->merge connection " << right_corridor.name << " => " <<
+                    corridors[mapped.first].name << endl;
             }
         }
         else
         {
+            if (last_slice == right.median.end())
+                right_first_corridor = corridors.size();
+            right_last_corridor = corridors.size();
+
             // If we are getting out of a merged section, create the proper
-            // connections. The only case where last_slice == end is at the
-            // beginning
+            // connections. The only case where last_slice == end is for the
+            // first RIGHT corridor
             if (mode == NONE && last_slice != right.median.end())
             {
-                pair<int, PointID> mapped =
-                    point_mapping[ make_pair(right_idx, last_slice->center) ];
+                PtMapping::const_iterator map_it
+                    = point_mapping.find( make_pair(right_idx, last_slice->center) );
+                if (map_it == point_mapping.end())
+                {
+                    cerr << "no point mapping found for " << corridors[right_idx].name << " " << last_slice->center << endl;
+                    throw runtime_error("cannot find a point mapping");
+                }
+
+                pair<int, PointID> mapped = map_it->second;
+
                 Corridor& merged_corridor = corridors[mapped.first];
-                merged_corridor.connections.push_back(
-                        make_tuple(mapped.second, corridors.size(), right_slice->center)
-                    );
+                merged_corridor.addConnection(map_it->second.second, corridors.size() - 1, right_slice->center);
+
+                cerr << "new merge->right connection from " << merged_corridor.name << endl;
             }
 
             pushSingle(right_idx, right_slice);
@@ -374,8 +417,16 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
 
         last_slice = right_slice;
     }
+
+    // Push the leftovers from the pass on RIGHT slices
     if (mode == SINGLE)
+    {
         pushAccumulator();
+        right_last_corridor = corridors.size();
+    }
+
+    finalizeMerge(left_idx, right_idx, original_corridor_size,
+            right_first_corridor, right_last_corridor);
 
     return true;
 }
@@ -387,9 +438,7 @@ void PlanMerge::pushAccumulator()
     else
         ownership.push_back(current_owner);
 
-    point_mapping.insert( accumulated_point_mappings.begin(), accumulated_point_mappings.end() );
     corridors.push_back(accumulator);
-    accumulated_point_mappings.clear();
     accumulator.clear();
 }
 
@@ -398,13 +447,7 @@ void PlanMerge::pushSingle(int source_idx, MedianLine::const_iterator point)
     PointID median_point = point->center;
     //cerr << "NOT MERGING" << endl << endl;
     if (mode == MERGING)
-    {
         pushAccumulator();
-
-        Corridor& new_corridor = corridors.back();
-        PtMappingTuple const& last_point = this->last_point[0];
-        new_corridor.connections.push_back( make_tuple(last_point.get<3>(), corridors.size(), median_point) );
-    }
 
     PtMappingTuple new_mapping = make_tuple(source_idx, median_point, corridors.size(), median_point);
 
@@ -418,7 +461,7 @@ void PlanMerge::pushSingle(int source_idx, MedianLine::const_iterator point)
     // In point_mapping, we gather the mapping before the original point (in the
     // original corridor) and the point added to the accumulator. Both are, of
     // course, the same here but both points are different in case of a merge.
-    accumulated_point_mappings[ make_pair(source_idx, point->center) ] =
+    point_mapping[ make_pair(source_idx, point->center) ] =
         make_pair(corridors.size(), point->center);
     accumulator.add(*point, true);
     last_point[0] = new_mapping;
@@ -433,18 +476,11 @@ void PlanMerge::pushMerged(
     PointID right_point = right_p->center;
 
     if (mode == SINGLE)
-    {
         pushAccumulator();
-
-        Corridor& new_corridor = corridors.back();
-        PtMappingTuple const& last_point = this->last_point[0];
-        new_corridor.connections.push_back( make_tuple(last_point.get<3>(), corridors.size(), p) );
-    }
 
     int new_idx = corridors.size();
     PtMappingTuple from_left  = make_tuple(left_idx,  left_point,  corridors.size(), p);
     PtMappingTuple from_right = make_tuple(right_idx, right_point, corridors.size(), p);
-
 
     if (mode != MERGING)
         cerr << "starting to merge at " << left_p->center << " (" << right_p->center << ")" << endl;
@@ -456,71 +492,272 @@ void PlanMerge::pushMerged(
     accumulator.add(p, median, true);
 
     last_point[0] = from_left;
-    accumulated_point_mappings[ make_pair(left_idx, left_point) ]   = make_pair(new_idx, p);
+    point_mapping[ make_pair(left_idx, left_point) ]   = make_pair(new_idx, p);
     last_point[1] = from_right;
     merged_points.insert(right_point);
-    accumulated_point_mappings[ make_pair(right_idx, right_point) ] = make_pair(new_idx, p);
-
+    point_mapping[ make_pair(right_idx, right_point) ] = make_pair(new_idx, p);
 }
 
-
-void PlanMerge::copyConnections()
+void PlanMerge::finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_t start_idx,
+        size_t right_first_corridor, size_t right_last_corridor)
 {
-    cerr << "merge: copying connections" << endl;
+    Corridor const& orig_left  = corridors[orig_left_idx];
+    Corridor const& orig_right = corridors[orig_right_idx];
 
+    // The layout of the corridors is as follows:
+    //  - first, we have a sequence of LEFT, MERGE, LEFT, MERGE, ... corridors.
+    //    This sequence is done in the same direction than the left corridor
+    //  - then, we get the set of RIGHT corridors. These corridors are oriented
+    //    in the same direction than the right corridor, which can be different
+    //    than the left corridor of course.
+    //
+    // During mergeCorridors(), the connections from merge to right are created,
+    // as they would be too hard to create here. The rest has to be done here
+    // ...
+
+    // We treat the LEFT -> MERGE sequence first. We create connections, which
+    // are either directed and in the same order than the corridors or
+    // bidirectional if the left corridor is bidirectional.
+    size_t left_sequence_end = find(ownership.begin() + start_idx, ownership.end(), RIGHT_SIDE) - ownership.begin();
+
+    bool left_is_bidir  = orig_left.bidirectional;
+    bool right_is_bidir = orig_right.bidirectional;
+    bool merge_is_bidir = left_is_bidir || right_is_bidir;
+    for (size_t i = start_idx; i < left_sequence_end; ++i)
+    {
+        Corridor& corridor = corridors[i];
+        if (ownership[i] == MERGED)
+            corridor.bidirectional = merge_is_bidir;
+        else
+            corridor.bidirectional = left_is_bidir;
+
+        if (i > start_idx)
+            corridor.end_regions[0].insert(corridor.median.front().center);
+        if (i < left_sequence_end - 1)
+        {
+            corridor.end_regions[1].insert(corridor.median.back().center);
+            corridor.addConnection(corridor.median.back().center, i + 1, corridors[i + 1].median.back().center);
+        }
+
+        if (i < left_sequence_end - 1)
+        {
+           if (!corridor.isConnectedTo(i + 1))
+               cerr << "problem in left<->merge sequence: " << corridors[i] << " is not connected to " << corridors[i + 1] << endl;
+           else if (ownership[i] == ownership[i + 1])
+               cerr << "problem in left<->merge sequence: " << corridors[i] << " and " << corridors[i + 1] << " have the same ownership" << endl;
+        }
+
+        if (corridor.bidirectional)
+        {
+            corridor.end_types[0] = ENDPOINT_BIDIR;
+            corridor.end_types[1] = ENDPOINT_BIDIR;
+            if (i > start_idx)
+                corridor.addConnection(corridor.median.front().center, i - 1, corridors[i - 1].median.back().center);
+        }
+        else
+        {
+            corridor.end_types[0] = ENDPOINT_BACK;
+            corridor.end_types[1] = ENDPOINT_FRONT;
+        }
+    }
+
+    // Then we manage the RIGHT corridors. Right now, we should only have
+    // connections from right to merged
+    size_t right_idx = right_first_corridor;
+    int right_in_side = -1, right_out_side = -1;
+    vector<bool> seen;
+    seen.resize(corridors.size(), false);
+
+    while (right_idx != right_last_corridor)
+    {
+        Corridor& corridor = corridors[right_idx];
+        seen[right_idx] = true;
+
+        int target_idx = -1;
+        Corridor::Connections::iterator conn_it;
+        for (conn_it = corridor.connections.begin(); conn_it != corridor.connections.end(); ++conn_it)
+        {
+            target_idx = conn_it->get<1>();
+            if (target_idx < start_idx)
+            {
+                cerr << "in-merge corridor " << corridors[right_idx].name << " is connected to out-merge corridor " << corridors[target_idx].name << endl;
+                throw runtime_error("found connection outside of newly generated corridors");
+            }
+            if (ownership[target_idx] == LEFT_SIDE)
+            {
+                if (ownership[right_idx] == RIGHT_SIDE)
+                    throw runtime_error("right corridor connected to left");
+                continue;
+            }
+
+            break;
+        }
+
+        if (conn_it == corridor.connections.end())
+            throw runtime_error("error in right sequence: cannot reach end corridor");
+
+        Corridor& target = corridors[target_idx];
+
+        // For the first corridor, we obviously cannot use the inbound
+        // connection, so we have to use a special case and check the outbound
+        // connection.
+        if (right_idx == right_first_corridor)
+        {
+            int in_side = corridor.findSideOf(conn_it->get<0>());
+            right_in_side = !in_side;
+
+            if (!corridor.bidirectional && ownership[right_idx] == MERGED)
+            {
+                if (in_side == 0)
+                    corridor.bidirectional = true;
+            }
+        }
+        if (target_idx == right_last_corridor)
+            right_out_side = target.findSideOf(conn_it->get<2>());
+
+        if (!target.bidirectional && ownership[target_idx] == MERGED)
+        { 
+            // merged corridors are not bidirectional ... or maybe they are.
+            // Check that left and right are traversing the merged corridors in
+            // the same direction.
+            int target_side = target.findSideOf(conn_it->get<2>());
+            if (target_side == 1)
+                target.bidirectional = true;
+        }
+
+        if (ownership[right_idx] == RIGHT_SIDE)
+            corridor.bidirectional = right_is_bidir;
+
+        if (right_is_bidir)
+            target.addConnection( conn_it->get<2>(), right_idx, conn_it->get<0>() );
+    }
+
+    if (right_out_side == -1)
+        right_out_side = right_in_side;
+
+    for (size_t corridor_idx = left_sequence_end; corridor_idx < corridors.size(); ++corridor_idx)
+    {
+        if (!seen[corridor_idx])
+            cerr << "error in right sequence: " << corridors[corridor_idx].name << " is not included" << endl;
+    }
+
+    for (size_t corridor_idx = start_idx; corridor_idx < corridors.size(); ++corridor_idx)
+    {
+        Corridor& corridor = corridors[corridor_idx];
+        if (corridor.bidirectional)
+        {
+            corridor.end_types[0] = ENDPOINT_BIDIR;
+            corridor.end_types[1] = ENDPOINT_BIDIR;
+        }
+        else
+        {
+            corridor.end_types[0] = ENDPOINT_BACK;
+            corridor.end_types[1] = ENDPOINT_FRONT;
+        }
+    }
+    
+    // Copy the necessary info from the original corridors
+    corridors[start_idx].end_regions[0]       = orig_left.end_regions[0];
+    corridors[left_sequence_end - 1].end_regions[1] = orig_left.end_regions[1];
+    corridors[right_first_corridor].end_regions[right_in_side].insert(
+            orig_right.end_regions[0].begin(), orig_right.end_regions[0].end() );
+    corridors[right_last_corridor].end_regions[right_out_side].insert(
+            orig_right.end_regions[1].begin(), orig_right.end_regions[1].end() );
+
+    // Copy the outbound connections
+    Corridor::Connections::const_iterator conn_it;
+    for (conn_it = orig_left.connections.begin(); conn_it != orig_left.connections.end(); ++conn_it)
+    {
+        pair<int, PointID> mapping = 
+            point_mapping[ make_pair(orig_left_idx, conn_it->get<0>()) ];
+        corridors[mapping.first].addConnection( mapping.second, conn_it->get<1>(), conn_it->get<2>() );
+    }
+    for (conn_it = orig_right.connections.begin(); conn_it != orig_right.connections.end(); ++conn_it)
+    {
+        pair<int, PointID> mapping = 
+            point_mapping[ make_pair(orig_right_idx, conn_it->get<0>()) ];
+        corridors[mapping.first].addConnection( mapping.second, conn_it->get<1>(), conn_it->get<2>() );
+    }
+
+    // And finally update the inbound connections
     for (size_t i = 0; i < corridors.size(); ++i)
     {
         Corridor::Connections& conn = corridors[i].connections;
         Corridor::Connections::iterator conn_it;
         for (conn_it = conn.begin(); conn_it != conn.end(); ++conn_it)
         {
-            PtMapping::const_iterator src_map = point_mapping.find( make_pair(i, conn_it->get<0>()) );
-            if (src_map == point_mapping.end())
-            {
-                if (ownership[i] == TO_DELETE)
-                {
-                    cerr << "a connection cannot be copied: " << i << " " << conn_it->get<0>() << endl;
-                    //throw std::runtime_error("a connection cannot be copied");
-                }
+            int target_idx = conn_it->get<1>();
+            if (target_idx != orig_left_idx && target_idx != orig_right_idx)
+                continue;
 
-                PtMapping::const_iterator dst_map = point_mapping.find( make_pair(conn_it->get<1>(), conn_it->get<2>()) );
-                if (dst_map != point_mapping.end())
-                {
-                    cerr << "  updating target: "
-                        << corridors[i].name << " " << conn_it->get<0>() << " -> "
-                        << corridors[conn_it->get<1>()].name << " " << conn_it->get<2>()
-                        << " moved to " << corridors[dst_map->second.first].name << " " << dst_map->second.second
-                        << endl;
-
-                    conn_it->get<1>() = dst_map->second.first;
-                    conn_it->get<2>() = dst_map->second.second;
-                }
-            }
-            else
-            {
-                int new_idx = src_map->second.first;
-                Corridor::Connections& new_conn = corridors[new_idx].connections;
-                PointID   new_point = src_map->second.second;
-                
-                PtMapping::const_iterator dst_map = point_mapping.find( make_pair(conn_it->get<1>(), conn_it->get<2>()) );
-                if (dst_map == point_mapping.end())
-                {
-                    cerr << "  new connection: "
-                        << corridors[new_idx].name << " " << new_point << " -> "
-                        << corridors[conn_it->get<1>()].name << " " << conn_it->get<2>() << endl;
-
-                    new_conn.push_back( make_tuple(new_point, conn_it->get<1>(), conn_it->get<2>()) );
-                }
-                else
-                {
-                    cerr << "  new connection: "
-                        << corridors[new_idx].name << " " << new_point << " -> "
-                        << corridors[dst_map->second.first].name << " " << dst_map->second.second << endl;
-
-                    new_conn.push_back( make_tuple(new_point, dst_map->second.first, dst_map->second.second) );
-                }
-            }
+            pair<int, PointID> mapping = 
+                point_mapping[ make_pair(target_idx, conn_it->get<2>()) ];
+            conn_it->get<1>() = mapping.first;
+            conn_it->get<2>() = mapping.second;
         }
     }
+    point_mapping.clear();
+
 }
+
+//void PlanMerge::copyConnections()
+//{
+//    cerr << "merge: copying connections" << endl;
+//
+//    for (size_t i = 0; i < corridors.size(); ++i)
+//    {
+//        Corridor::Connections& conn = corridors[i].connections;
+//        Corridor::Connections::iterator conn_it;
+//        for (conn_it = conn.begin(); conn_it != conn.end(); ++conn_it)
+//        {
+//            PtMapping::const_iterator src_map = point_mapping.find( make_pair(i, conn_it->get<0>()) );
+//            if (src_map == point_mapping.end())
+//            {
+//                if (ownership[i] == TO_DELETE)
+//                {
+//                    cerr << "a connection cannot be copied: " << i << " " << conn_it->get<0>() << endl;
+//                    //throw std::runtime_error("a connection cannot be copied");
+//                }
+//
+//                PtMapping::const_iterator dst_map = point_mapping.find( make_pair(conn_it->get<1>(), conn_it->get<2>()) );
+//                if (dst_map != point_mapping.end())
+//                {
+//                    cerr << "  updating target: "
+//                        << corridors[i].name << " " << conn_it->get<0>() << " -> "
+//                        << corridors[conn_it->get<1>()].name << " " << conn_it->get<2>()
+//                        << " moved to " << corridors[dst_map->second.first].name << " " << dst_map->second.second
+//                        << endl;
+//
+//                    conn_it->get<1>() = dst_map->second.first;
+//                    conn_it->get<2>() = dst_map->second.second;
+//                }
+//            }
+//            else
+//            {
+//                int new_idx = src_map->second.first;
+//                Corridor::Connections& new_conn = corridors[new_idx].connections;
+//                PointID   new_point = src_map->second.second;
+//                
+//                PtMapping::const_iterator dst_map = point_mapping.find( make_pair(conn_it->get<1>(), conn_it->get<2>()) );
+//                if (dst_map == point_mapping.end())
+//                {
+//                    cerr << "  new connection: "
+//                        << corridors[new_idx].name << " " << new_point << " -> "
+//                        << corridors[conn_it->get<1>()].name << " " << conn_it->get<2>() << endl;
+//
+//                    new_conn.push_back( make_tuple(new_point, conn_it->get<1>(), conn_it->get<2>()) );
+//                }
+//                else
+//                {
+//                    cerr << "  new connection: "
+//                        << corridors[new_idx].name << " " << new_point << " -> "
+//                        << corridors[dst_map->second.first].name << " " << dst_map->second.second << endl;
+//
+//                    new_conn.push_back( make_tuple(new_point, dst_map->second.first, dst_map->second.second) );
+//                }
+//            }
+//        }
+//    }
+//    point_mapping.clear();
+//}
 

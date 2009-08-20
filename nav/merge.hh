@@ -16,7 +16,7 @@ namespace Nav
 
         typedef boost::tuple<int, PointID, int, PointID> PtMappingTuple;
         typedef std::map< std::pair<int, PointID>, std::pair<int, PointID> > PtMapping;
-        PtMapping point_mapping, accumulated_point_mappings;
+        PtMapping point_mapping;
 
         PtMappingTuple last_point[2];
 
@@ -39,7 +39,8 @@ namespace Nav
         bool canMerge(MedianPoint const& left_p, MedianPoint const& right_p,
                 float distance, float coverage_threshold, float cos_angular_threshold) const;
 
-        void copyConnections();
+        void finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_t start_idx,
+                size_t right_first_corridor, size_t right_last_corridor);
 
         void pushAccumulator();
         void pushSingle(int corridor_idx, MedianLine::const_iterator point);
