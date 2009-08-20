@@ -14,18 +14,12 @@ namespace Nav
          */
         Corridor accumulator;
 
-        typedef std::list< boost::tuple<PointID, int, bool> > EndPoints;
-        EndPoints endpoints;
+        typedef boost::tuple<int, PointID, int, PointID> PtMappingTuple;
+        typedef std::map< std::pair<int, PointID>, std::pair<int, PointID> > PtMapping;
+        PtMapping point_mapping, accumulated_point_mappings;
+        std::vector<PtMappingTuple> merging_endpoints;
 
-        /** This type and this list hold the set of mapping from the given
-         * corridor into the merged ones. The tuple is
-         *  ( source_point, source_corridor, new_point )
-         */
-        typedef boost::tuple<PointID, Corridor const*, PointID> AccMappingTuple;
-        std::list<AccMappingTuple> accumulator_point_mapping;
-
-        typedef boost::tuple<PointID, int, PointID> PtMappingTuple;
-        std::list<PtMappingTuple> point_mapping;
+        PtMappingTuple last_point[2];
 
         PointSet merged_points;
 
@@ -33,20 +27,25 @@ namespace Nav
         { NONE, SINGLE, MERGING };
         MERGING_MODES mode;
 
-        void copyConnections(int target_idx, Corridor& target, PointID const& target_p,
-                Corridor const& source, PointID const& source_p);
+        enum OWNERSHIP
+        { TO_DELETE, LEFT_SIDE, RIGHT_SIDE, MERGED };
+        std::vector<OWNERSHIP> ownership;
+        OWNERSHIP current_owner;
+
+        void copyConnections();
 
         void pushAccumulator();
-        void pushSingle(Corridor const& corridor, MedianLine::const_iterator point);
-        void pushMerged(Corridor const& left, MedianLine::const_iterator left_p,
-                Corridor const& right, MedianLine::const_iterator right_p,
+        void pushSingle(int corridor_idx, MedianLine::const_iterator point);
+        void pushMerged(int left_idx, MedianLine::const_iterator left_p,
+                int right_idx, MedianLine::const_iterator right_p,
                 PointID const& p, MedianPoint const& median);
 
         void finalizeMerge();
 
     public:
         PlanMerge();
-        void merge(Plan const& left, Plan const& right);
+        void merge(Plan const& left, Plan const& right, float coverage_threshold, float angular_threshold);
+        void process(float coverage_threshold, float angular_threshold);
         bool mergeCorridors(int left_idx, int right_idx,
                 float coverage_threshold, float angular_threshold);
     };
