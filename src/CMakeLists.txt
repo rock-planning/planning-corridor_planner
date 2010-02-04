@@ -1,8 +1,12 @@
+set(SISL_INCLUDE_DIRS ${CMAKE_INSTALL_PREFIX}/include/sisl)
+set(SISL_LIBRARIES ${CMAKE_INSTALL_PREFIX}/lib/libsisl.so)
+include_directories(${SISL_INCLUDE_DIRS})
+
 find_package(GDAL)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GDAL_CFLAGS}")
 
-add_library(Nav SHARED dstar.cc voronoi.cc skeleton.cc plan.cc merge.cc)
-target_link_libraries(Nav ${GDAL_LIBRARIES})
+add_library(Nav SHARED NURBSCurve3D.cc dstar.cc voronoi.cc skeleton.cc plan.cc merge.cc)
+target_link_libraries(Nav ${SISL_LIBRARIES} ${GDAL_LIBRARIES})
 
 pkg_check_modules(BASE_TYPES REQUIRED "base-types")
 include_directories(${BASE_TYPES_INCLUDE_DIRS})
