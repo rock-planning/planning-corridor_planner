@@ -1,6 +1,6 @@
 #include <gdal.h>
 #include <gdal_priv.h>
-#include <dfki/base_types.h>
+#include <base/time.h>
 #include <vector>
 #include <iostream>
 #include <algorithm>
@@ -18,7 +18,7 @@
 #include <boost/bind.hpp>
 
 using namespace std;
-using DFKI::Time;
+using base::Time;
 using namespace boost;
 using namespace Nav;
 
@@ -345,6 +345,8 @@ int main(int argc, char** argv)
     int xSize, ySize; vector<uint8_t> image;
     Plan original;
     tie(original, xSize, ySize, image) = do_terrain('a', out_basename, terrain_file + ".tif", classes, x0, y0, x1, y1, expand);
+
+    return 0;
     Plan blocked = do_terrain('b', out_basename + "-blocked", terrain_file + "-blocked.tif", classes, 446, 328, x1, y1, expand).get<0>();
 
     for (size_t i = 0; i < original.corridors.size(); ++i)

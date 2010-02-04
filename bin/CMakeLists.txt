@@ -2,9 +2,9 @@ FIND_PACKAGE(GDAL)
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GDAL_CFLAGS}")
 
-pkg_check_modules(DFKI_TYPES REQUIRED "dfki-types")
+pkg_check_modules(BASE_TYPES REQUIRED "base-types")
 
-INCLUDE_DIRECTORIES(${DFKI_TYPES_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${BASE_TYPES_INCLUDE_DIRS})
 add_executable(dstar dstar.cc)
 target_link_libraries(dstar Nav)
 

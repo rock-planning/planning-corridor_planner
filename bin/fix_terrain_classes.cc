@@ -10,6 +10,8 @@
 #include <sstream>
 #include <boost/bind.hpp>
 #include <boost/lambda/lambda.hpp>
+#include <boost/tuple/tuple.hpp>
+#include <boost/cstdint.hpp>
 using namespace std;
 using namespace boost;
 
