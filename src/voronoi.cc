@@ -9,9 +9,9 @@
 
 using namespace std;
 using namespace boost;
-using namespace Nav;
+using namespace nav;
 
-list<PointSet>::iterator Nav::updateConnectedSets(std::list<PointSet>& sets, PointID p)
+list<PointSet>::iterator nav::updateConnectedSets(std::list<PointSet>& sets, PointID p)
 {
     list<PointSet>::iterator it;
     for (it = sets.begin(); it != sets.end(); ++it)
@@ -146,7 +146,7 @@ bool MedianPoint::operator == (MedianPoint const& other) const
     return width == other.width && borders == other.borders;
 }
 
-ostream& Nav::operator << (ostream& io, MedianPoint const& p)
+ostream& nav::operator << (ostream& io, MedianPoint const& p)
 {
     typedef std::list< PointVector > BorderList;
     for (BorderList::const_iterator it = p.borders.begin(); it != p.borders.end(); ++it)
@@ -179,7 +179,7 @@ static void displayPoint(ostream& io, MedianLine const& median_set, PointSet con
         io << "-";
 }
 
-void Nav::displayMedianLine(ostream& io, MedianLine const& skel, int xmin, int xmax, int ymin, int ymax)
+void nav::displayMedianLine(ostream& io, MedianLine const& skel, int xmin, int xmax, int ymin, int ymax)
 {
     // Build the set of points that are in the border
     PointSet border_all;
@@ -651,7 +651,7 @@ PointID Corridor::adjacentEndpoint(PointID const& p) const
     return PointID();
 }
 
-ostream& Nav::operator << (ostream& io, Corridor const& corridor)
+ostream& nav::operator << (ostream& io, Corridor const& corridor)
 {
     displayMedianLine(io, corridor.median, corridor.bbox.min.x - 1, corridor.bbox.max.x + 1, corridor.bbox.min.y - 1, corridor.bbox.max.y + 1);
 

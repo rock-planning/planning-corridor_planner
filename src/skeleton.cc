@@ -11,7 +11,7 @@
 
 using namespace boost;
 using namespace std;
-using namespace Nav;
+using namespace nav;
 
 SkeletonExtraction::SkeletonExtraction(size_t width, size_t height)
     : width(width)

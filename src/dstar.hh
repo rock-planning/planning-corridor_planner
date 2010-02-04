@@ -13,7 +13,7 @@
 #include <iosfwd>
 #include "pool_allocator.hh"
 
-namespace Nav {
+namespace nav {
     /** Basic tools for maps which are regular grids */
     class GridMap
     {

@@ -4,7 +4,7 @@
 #include <list>
 #include <vector>
 
-namespace Nav
+namespace nav
 {
     template<typename _Tp, typename _Alloc = std::allocator<_Tp> >
     class pool_allocator

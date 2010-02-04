@@ -15,7 +15,7 @@
 #include <algorithm>
 
 using namespace std;
-using namespace Nav;
+using namespace nav;
 using namespace boost::lambda;
 using boost::tie;
 using boost::uint8_t;
@@ -32,7 +32,7 @@ ostream& operator << (ostream& io, DStar::Cost const& v)
 }
 
 
-namespace Nav {
+namespace nav {
     static const int OPPOSITE_RELATIONS[] = 
         { 0,
         GridGraph::LEFT,
@@ -164,7 +164,7 @@ template<typename GC>
 float NeighbourGenericIterator<GC>::getValue() const { return m_graph->getValue(x(), y()); }
 template<typename GC>
 bool NeighbourGenericIterator<GC>::sourceIsParent() const 
-{ return m_graph->getParents(x(), y()) & Nav::OPPOSITE_RELATIONS[m_neighbour]; }
+{ return m_graph->getParents(x(), y()) & nav::OPPOSITE_RELATIONS[m_neighbour]; }
 
 template<typename GC>
 void NeighbourGenericIterator<GC>::findNextNeighbour()
@@ -179,19 +179,19 @@ void NeighbourGenericIterator<GC>::findNextNeighbour()
     }
 }
 
-template class NeighbourGenericIterator<Nav::GridGraph const>;
-template class NeighbourGenericIterator<Nav::GridGraph>;
+template class NeighbourGenericIterator<nav::GridGraph const>;
+template class NeighbourGenericIterator<nav::GridGraph>;
 
 void NeighbourIterator::setValue(float value)
 { m_graph->setValue(x(), y(), value); }
 void NeighbourIterator::setSourceAsParent()
 { 
-    m_graph->setParents(x(), y(), Nav::OPPOSITE_RELATIONS[m_neighbour]);
+    m_graph->setParents(x(), y(), nav::OPPOSITE_RELATIONS[m_neighbour]);
     m_graph->clearParent(sourceX(), sourceY(), getNeighbour());
 }
 void NeighbourIterator::setTargetAsParent()
 { 
-    m_graph->clearParent(x(), y(), Nav::OPPOSITE_RELATIONS[m_neighbour]);
+    m_graph->clearParent(x(), y(), nav::OPPOSITE_RELATIONS[m_neighbour]);
     m_graph->setParents(sourceX(), sourceY(), getNeighbour());
 }
 
@@ -262,7 +262,7 @@ NeighbourConstIterator GridGraph::getNeighbour(size_t x, size_t y, int neighbour
 { return NeighbourConstIterator(*this, x, y, neighbour); }
 
 
-namespace Nav {
+namespace nav {
     static const float COST_GROWTH_1 = 0.3;
     static const float COST_GROWTH_0 = 0.01;
     static const float DIAG_FACTOR = sqrt(2);
@@ -337,7 +337,7 @@ float DStar::costOf(NeighbourConstIterator it) const
 
     float c = m_cost_of_class[m_map.getValue(next.x(), next.y())];
     float d = m_cost_of_class[m_map.getValue(prev.x(), prev.y())];
-    return (a + b + c + d) / 2 * Nav::DIAG_FACTOR;
+    return (a + b + c + d) / 2 * nav::DIAG_FACTOR;
 }
 
 float DStar::updated(int x, int y)

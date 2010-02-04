@@ -7,7 +7,7 @@
 #include "dstar.hh"
 #include <vector>
 
-namespace Nav
+namespace nav
 {
     class SkeletonExtraction
     {

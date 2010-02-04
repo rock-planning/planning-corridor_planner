@@ -3,7 +3,7 @@
 
 #include "plan.hh"
 
-namespace Nav
+namespace nav
 {
     class PlanMerge : public Plan
     {

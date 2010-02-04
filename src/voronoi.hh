@@ -7,7 +7,7 @@
 #include <boost/tuple/tuple.hpp>
 #include "point.hh"
 
-namespace Nav
+namespace nav
 {
     /** This method updates the set of point sets \c sets by adding \c p so
      * that:

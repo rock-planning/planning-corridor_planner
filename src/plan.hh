@@ -4,7 +4,7 @@
 #include "voronoi.hh"
 #include "dstar.hh"
 
-namespace Nav
+namespace nav
 {
     class MergeResult;
     class Plan

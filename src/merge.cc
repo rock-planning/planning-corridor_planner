@@ -7,7 +7,7 @@
 #include <boost/bind.hpp>
 #include <boost/lexical_cast.hpp>
 
-using namespace Nav;
+using namespace nav;
 using namespace std;
 using namespace boost;
 

@@ -7,7 +7,7 @@
 #include <cmath>
 #include <stdlib.h>
 
-namespace Nav {
+namespace nav {
     template<typename T>
     struct Point
     {

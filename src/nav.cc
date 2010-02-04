@@ -11,16 +11,16 @@
 #include <stdexcept>
 #include <boost/tuple/tuple.hpp>
 
-#include <nav/dstar.hh>
-#include <nav/skeleton.hh>
-#include <nav/merge.hh>
+#include "dstar.hh"
+#include "skeleton.hh"
+#include "merge.hh"
 #include <boost/lambda/lambda.hpp>
 #include <boost/bind.hpp>
 
 using namespace std;
 using base::Time;
 using namespace boost;
-using namespace Nav;
+using namespace nav;
 
 struct RGBColor
 {

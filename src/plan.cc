@@ -10,11 +10,11 @@
 // #include <CGAL/Cartesian.h>
 // #include <CGAL/convex_hull_2.h>
 
-const int Nav::Plan::USEFUL;
-const int Nav::Plan::NOT_USEFUL;
+const int nav::Plan::USEFUL;
+const int nav::Plan::NOT_USEFUL;
 
 using namespace std;
-using namespace Nav;
+using namespace nav;
 using namespace boost;
 
 Plan::Plan() {}
@@ -977,7 +977,7 @@ void Plan::checkConsistency() const
     }
 }
 
-ostream& Nav::operator << (ostream& io, Plan const& plan)
+ostream& nav::operator << (ostream& io, Plan const& plan)
 {
     int const NO_OWNER = plan.corridors.size();
     int const width    = plan.width;
