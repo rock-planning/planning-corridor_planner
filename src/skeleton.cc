@@ -298,122 +298,137 @@ void SkeletonExtraction::registerConnections(PointID source_point, int source_id
     }
 }
 
-void SkeletonExtraction::buildPlan(Plan& result, list<VoronoiPoint> const& points)
+typedef map<PointID, list<VoronoiPoint>::const_iterator> VoronoiMap;
+typedef multimap< PointID, list<VoronoiPoint> > BranchMap;
+
+struct CorridorExtractionState
 {
-    result.width  = width;
-    result.height = height;
-    vector<Corridor>& corridors = result.corridors;
-    corridors.push_back(Corridor());
+    GridGraph  graph;
 
-    // This registers the connections that we know about from points in the map
-    // that are not yet in the corridor set and existing corridors.
-    typedef map<PointID, map<PointID, int> > ConnectionMap;
-    ConnectionMap connections;
-    ConnectionMap in_out;
+    BranchMap  branches;
+    VoronoiMap voronoiMap;
 
-    // Move all points that have a connectivity of more than 2 to a separate
-    // set. This set will be used to finalize the connections (but they won't be
-    // part of any corridors).
-    list<PointSet> crossroads;
-    typedef map< PointID, Corridor::voronoi_const_iterator > MedianMap;
-    MedianMap median_map;
-    for (Corridor::voronoi_const_iterator it = points.begin(); it != points.end(); ++it)
+    int depth;
+
+    CorridorExtractionState(int width, int height)
+        : graph(width, height)
+        , depth(0) {}
+
+    VoronoiPoint const& front()
     {
-        if (it->borders.size() > 2)
-            updateConnectedSets(crossroads, it->center);
+        VoronoiMap::iterator it = voronoiMap.begin();
+        return *(it->second);
+    }
+
+    void addBranch(PointID const& p, list<VoronoiPoint>& line)
+    {
+        cerr << string(depth, ' ') << "adding branch at " << p << " of size " << line.size() << endl;
+        displayLine(cerr, line, boost::bind(&VoronoiPoint::center, _1));
+
+        BranchMap::iterator it = branches.insert( make_pair(p, list<VoronoiPoint>()) );
+        it->second.swap(line);
+    }
+};
+
+bool lineOrderingDFS(PointID const& cur_point, int neighbour_mask,
+        list<VoronoiPoint>& parent_line,
+        CorridorExtractionState& state)
+{
+    static const int PROGRESSION_MASKS[8] = {
+        GridGraph::RIGHT       | GridGraph::TOP_RIGHT | GridGraph::BOTTOM_RIGHT, // RIGHT
+        GridGraph::RIGHT       | GridGraph::TOP_RIGHT | GridGraph::TOP,          // TOP_RIGHT
+        GridGraph::TOP         | GridGraph::TOP_RIGHT | GridGraph::TOP_LEFT,     // TOP
+        GridGraph::TOP         | GridGraph::LEFT      | GridGraph::TOP_LEFT,     // TOP_LEFT
+        GridGraph::BOTTOM_LEFT | GridGraph::LEFT      | GridGraph::TOP_LEFT,     // LEFT
+        GridGraph::BOTTOM_LEFT | GridGraph::LEFT      | GridGraph::BOTTOM,       // BOTTOM_LEFT
+        GridGraph::BOTTOM_LEFT | GridGraph::BOTTOM    | GridGraph::BOTTOM_RIGHT, // BOTTOM
+        GridGraph::RIGHT       | GridGraph::BOTTOM    | GridGraph::BOTTOM_RIGHT  // BOTTOM_RIGHT
+    };
+
+    bool detached  = true;
+    bool branching = false;
+
+    state.graph.setValue(cur_point.x, cur_point.y, 1);
+    VoronoiMap::iterator voronoi_it = state.voronoiMap.find(cur_point);
+    cerr << string(state.depth, ' ') << "visiting " << cur_point << endl;
+    parent_line.push_back( *(voronoi_it->second) );
+    state.voronoiMap.erase(voronoi_it);
+    state.depth++;
+
+    GridGraph::iterator n_it = state.graph.neighboursBegin(cur_point.x, cur_point.y, neighbour_mask);
+    list<VoronoiPoint> result, cur_line;
+    for (; !n_it.isEnd(); ++n_it)
+    {
+        if (n_it.getValue() < 1.5) // either not actual point, or already visited
+        {
+            if (n_it.getValue() > 0.5)
+                detached = false;
+            continue;
+        }
+
+        PointID root = n_it.getTargetPoint();
+        bool detached = lineOrderingDFS(n_it.getTargetPoint(), PROGRESSION_MASKS[n_it.getNeighbourIndex()],
+                result, state);
+
+        if (cur_line.empty())
+            cur_line.swap(result);
+        else if (!detached)
+        {
+            if (cur_line.size() < result.size())
+                cur_line.swap(result);
+        }
         else
-            median_map.insert( make_pair(it->center, it) );
-    }
-
-    // To build the corridor set, we consider a point in the point set and
-    // insert it as a seed in the +propagation+ set. Then, we do the following:
-    //  
-    //   while !propagation.empty?
-    //     take p out of propagation
-    //     add in propagation the points P for which border(P) is neighbouring border(p)
-    //   end
-    while (! median_map.empty())
-    {
-        corridors.push_back(Corridor());
-        Corridor& corridor = corridors.back();
-        corridor.name = boost::lexical_cast<std::string>(corridors.size());
-        int corridor_idx = corridors.size() - 1;
-
-        list<Corridor::voronoi_const_iterator> propagation;
-        propagation.push_back(median_map.begin()->second);
-        median_map.erase(median_map.begin());
-
-        while (!propagation.empty())
         {
-            Corridor::voronoi_const_iterator p_it = propagation.front();
-            propagation.pop_front();
-            corridor.add(*p_it);
-
-            PointID const p = p_it->center;
-
-            // Find out if this point is connecting the corridor being built to
-            // an already defined corridor. This creates a symmetric connection
-            // between the two objects.
-            ConnectionMap::iterator p_conn = connections.find(p);
-            if (p_conn != connections.end())
-                registerConnections(corridor_idx, p_conn, corridors);
-
-            for (int dy = -1; dy < 2; ++dy)
-            {
-                for (int dx = -1; dx < 2; ++dx)
-                {
-                    if (dx == 0 && dy == 0)
-                        continue;
-
-                    PointID neighbour(p.x + dx, p.y + dy);
-                    if (heightmap[neighbour.x + neighbour.y * width] == 0)
-                    { // this is a way to leave the zone. Save it, it will be
-                      // registered as a connection to 0 afterwards.
-                        in_out[neighbour][p] = corridor_idx;
-                        continue;
-                    }
-
-                    MedianMap::iterator neighbour_map_it = median_map.find(neighbour);
-                    if (neighbour_map_it == median_map.end())
-                        continue;
-
-                    Corridor::voronoi_const_iterator neighbour_it = neighbour_map_it->second;
-                    if (corridor.isBorderAdjacent(*neighbour_it))
-                    {
-                        propagation.push_back(neighbour_it);
-                        median_map.erase(neighbour_map_it);
-                    }
-                    else
-                    {
-                        if (!connections[p].count(neighbour_it->center))
-                            connections[neighbour_it->center][p] = corridor_idx;
-                    }
-                }
-            }
+            branching = true;
+            cerr << "A " << cur_line.size() << endl;
+            state.addBranch(cur_point, cur_line);
+            cur_line.swap(result);
         }
     }
-
-    map< PointID, int > connected_corridors;
-    for (list<PointSet>::const_iterator it = crossroads.begin(); it != crossroads.end(); ++it)
+    
+    state.depth--;
+    if (!branching)
+        parent_line.splice(parent_line.end(), cur_line);
+    else if (!cur_line.empty())
     {
-        connected_corridors.clear();
-        for (size_t i = 1; i < corridors.size(); ++i)
-        {
-            Corridor& corridor = corridors[i];
-            PointSet::const_iterator crossroad_point = find_if(it->begin(), it->end(), bind(&Corridor::isMedianNeighbour, ref(corridor), _1));
-            if (crossroad_point != it->end())
-            {
-                PointID endpoint = corridor.adjacentEndpoint(*crossroad_point);
-                registerConnections(endpoint, i, connected_corridors, corridors);
-                connected_corridors.insert( make_pair(endpoint, i) );
-            }
-        }
+        cerr << "B " << cur_line.size() << endl;
+        state.addBranch(cur_point, cur_line);
     }
 
-    for (ConnectionMap::const_iterator it = in_out.begin(); it != in_out.end(); ++it)
-        registerConnections(0, it, corridors);
+    return branching || detached;
+}
 
-    result.simplify();
+
+void SkeletonExtraction::extractBranches(list<VoronoiPoint> const& points, multimap<PointID, list<VoronoiPoint> >& branches)
+{
+    // Initialize a GridGraph of the right size, and mark the voronoi points in
+    // it. We will use it to traverse the terrain
+    //
+    // At the same time, keep a mapping from PointID to voronoi points. The
+    // points will be removed from there as they are traversed.
+    CorridorExtractionState state(width, height);
+
+    for (voronoi_const_iterator it = points.begin(); it != points.end(); ++it)
+    {
+        PointID center = it->center;
+        state.voronoiMap.insert( make_pair(center, it) );
+        state.graph.setValue(center.x, center.y, 2);
+    }
+
+    while (!state.voronoiMap.empty())
+    {
+        PointID start_point = state.front().center;
+        list<VoronoiPoint> cur_line;
+        lineOrderingDFS(start_point, GridGraph::DIR_ALL, cur_line, state);
+        if (cur_line.size() > 1)
+            state.addBranch( start_point, cur_line );
+    }
+
+    state.branches.swap(branches);
+}
+
+void SkeletonExtraction::buildPlan(Plan& result, std::list<VoronoiPoint> const& points)
+{
 }
 
 //void SkeletonExtraction::buildPixelMap(Plan& result) const

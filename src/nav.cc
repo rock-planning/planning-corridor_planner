@@ -336,8 +336,31 @@ tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(
     }
 
     Plan plan(PointID(x0, y0), PointID(x1, y1), graph);
-    { Profile profiler("computing plan");
-        skel.buildPlan(plan, result);
+    { Profile profiler("extracting branches ");
+        typedef multimap<PointID, list<VoronoiPoint> > BranchMap;
+        BranchMap branches;
+        skel.extractBranches(result, branches);
+
+        vector<RGBColor> color_image;
+        for (size_t i = 0; i < image.size(); ++i)
+            color_image.push_back(RGBColor(image[i]));
+        vector<RGBColor> colors = allocateColors(branches.size());
+        for (BranchMap::const_iterator it = branches.begin(); it != branches.end(); ++it)
+        {
+            vector<PointID> points;
+            list<VoronoiPoint> const& voronoi_points = it->second;
+            points.resize(voronoi_points.size());
+            transform(voronoi_points.begin(), voronoi_points.end(), points.begin(),
+                    boost::bind(&VoronoiPoint::center, _1));
+
+            markPoints(points, xSize, color_image, colors.back());
+            colors.pop_back();
+        }
+        string out = basename + "-branches.tif";
+        std::cerr << "  saving result in " << out << std::endl;
+        saveColorImage(out, xSize, ySize, color_image);
+
+        // skel.buildPlan(plan, result);
     }
     for (size_t i = 0; i < plan.corridors.size(); ++i)
         plan.corridors[i].name = name_prefix + plan.corridors[i].name;

@@ -22,6 +22,8 @@ namespace nav
         ParentMap parents;
         PointSet border;
 
+        typedef std::list<VoronoiPoint>::const_iterator voronoi_const_iterator;
+
         PointID pointFromPtr(height_t const* ptr) const;
         
         typedef std::map<PointID, std::map<PointID, int> > ConnectionMap;
@@ -85,6 +87,8 @@ namespace nav
         std::list<VoronoiPoint> process();
 
         /** Creates a graph out of a set of median points */
+        void extractBranches(std::list<VoronoiPoint> const& points,
+                std::multimap<PointID, std::list<VoronoiPoint> >& branches);
         void buildPlan(Plan& result, std::list<VoronoiPoint> const& points);
         void buildPixelMap(Plan& result) const;
 
