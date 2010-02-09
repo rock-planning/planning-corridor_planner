@@ -148,6 +148,12 @@ namespace nav {
         BoundingBox()
             : initialized(false) {}
 
+        void merge(BoundingBox const& box)
+        {
+            update(box.min);
+            update(box.max);
+        }
+
         void update(PointID const& p)
         {
             if (!initialized)
@@ -192,6 +198,13 @@ namespace nav {
             return true;
         }
     };
+
+    inline std::ostream& operator << (std::ostream& io, BoundingBox const& c)
+    {
+        io << "bbox[" << c.min << " => " << c.max << "]" << std::endl;
+        return io;
+    }
+
 }
 
 #endif

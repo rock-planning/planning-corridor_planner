@@ -89,13 +89,14 @@ namespace nav
         int findStartCorridor() const;
         int findEndCorridor() const;
         int findCorridorOf(PointID const& endp) const;
+        void createEndpointCorridor(PointID const& endpoint, int direction, std::string const& name);
 
         /** Remove crossroads that simply connects two corridors (i.e. not real
          * crossroads)
          */
         void mergeSimpleCrossroads();
         void mergeSimpleCrossroads_directed();
-        std::pair<PointID, PointID> split(int corridor_idx, MedianLine::iterator it);
+        std::pair<PointID, PointID> split(int corridor_idx, Corridor::voronoi_iterator it);
 
     public:
         Plan();
@@ -137,8 +138,6 @@ namespace nav
          * into_idx and from_idx
          */
         void moveConnections(size_t into_idx, size_t from_idx);
-
-        void addAdjacentBorders(MedianPoint const& p0, MedianPoint const& p1, std::set<PointID>& result) const;
 
         /** Simplify the plan by removing useless corridors and merging
          * corridors that have a simple connections (i.e. remove crossroads that

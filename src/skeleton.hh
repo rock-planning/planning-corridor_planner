@@ -18,7 +18,7 @@ namespace nav
         int width, height;
 
         std::vector<height_t> heightmap;
-        typedef std::map<height_t*, MedianPoint > ParentMap;
+        typedef std::map<height_t*, VoronoiPoint > ParentMap;
         ParentMap parents;
         PointSet border;
 
@@ -57,7 +57,7 @@ namespace nav
         /** This is a convenience function which extracts the skeleton from a
          * dstar result. It is simply calling initializeFromDStar and process
          */
-        MedianLine processDStar(DStar const& nav_function, int x, int y, float expand);
+        std::list<VoronoiPoint> processDStar(DStar const& nav_function, int x, int y, float expand);
 
         /** Initializes the skeleton extraction process from a set of inside
          * points and a set of border points.
@@ -67,7 +67,7 @@ namespace nav
         /** This is a convenience function which extracts the skeleton from two
          * sets of points. It is simply calling initializeFromPointSets and process
          */
-        MedianLine processPointSets(PointSet const& inside, PointSet const& border);
+        std::list<VoronoiPoint> processPointSets(PointSet const& inside, PointSet const& border);
 
         /** Returns true if the given point is inside the navigation zone (the
          * zone for which a skeleton needs to be built and false otherwise
@@ -82,10 +82,10 @@ namespace nav
         std::pair<PointSet, PointSet> getBorderAndInside() const;
 
 
-        MedianLine process();
+        std::list<VoronoiPoint> process();
 
         /** Creates a graph out of a set of median points */
-        void buildPlan(Plan& result, MedianLine const& points);
+        void buildPlan(Plan& result, std::list<VoronoiPoint> const& points);
         void buildPixelMap(Plan& result) const;
 
         std::vector<height_t> getHeightmap() const { return heightmap; }

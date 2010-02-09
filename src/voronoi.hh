@@ -7,8 +7,11 @@
 #include <boost/tuple/tuple.hpp>
 #include "point.hh"
 
+#include "NURBSCurve3D.hh"
+
 namespace nav
 {
+    class GridGraph;
     /** This method updates the set of point sets \c sets by adding \c p so
      * that:
      * <ul>
@@ -24,7 +27,7 @@ namespace nav
      * maintains the association between the point and the associated border
      * points
      */
-    struct MedianPoint
+    struct VoronoiPoint
     {
         BoundingBox bbox;
         typedef std::list< PointVector > BorderList;
@@ -33,7 +36,7 @@ namespace nav
 
         Point<float> tangent;
 
-        /** MedianPoint maintains a list of borders, each borders being a set of
+        /** VoronoiPoint maintains a list of borders, each borders being a set of
          * adjacent points. This means that:
          * <ul>
          * <li> in each element of \c borders, the point form a connected graph
@@ -49,33 +52,59 @@ namespace nav
          */
         int width;
 
-        MedianPoint() : width(0)  {}
-        bool operator == (MedianPoint const& other) const;
+        VoronoiPoint() : width(0)  {}
+        bool operator == (VoronoiPoint const& other) const;
 
         Point<float> direction() const;
         bool isSingleton() const;
 
         void offset(PointID const& v);
 
+        template<typename _It>
+        void addBorder(_It begin, _It end)
+        {
+            borders.push_back(std::vector<PointID>());
+            std::vector<PointID>& new_border = borders.back();
+            for (_It it = begin; it != end; ++it)
+                new_border.push_back(*it);
+        }
+
         /** Add \c p to the borders. See borders for more details */
         void addBorderPoint(PointID const& p);
         /** Merge the borders of \c p into the ones of \c this */
-        void mergeBorders(MedianPoint const& p);
+        void mergeBorders(VoronoiPoint const& p);
 
         /** Returns true if for each border of \c p there is at least one
          * touching border in \c this */
-        bool isBorderAdjacent(MedianPoint const& p) const;
+        bool isBorderAdjacent(VoronoiPoint const& p) const;
         bool isBorderAdjacent(PointID const& p) const;
-    };
-    std::ostream& operator << (std::ostream& io, MedianPoint const& p);
-    typedef std::list<MedianPoint> MedianLine;
 
-    class Corridor : public MedianPoint
+        typedef VoronoiPoint::BorderList::iterator border_iterator;
+        typedef VoronoiPoint::BorderList::const_iterator border_const_iterator;
+        border_const_iterator findAdjacentBorder(PointID const& p) const;
+    };
+    std::ostream& operator << (std::ostream& io, VoronoiPoint const& p);
+
+    class Corridor
     {
     public:
-        MedianLine median;
+        std::list<VoronoiPoint> voronoi;
+        std::list<PointID> boundaries[2];
+
+        geometry::NURBSCurve3D median_curve;
+        geometry::NURBSCurve3D boundary_curves[2];
+
+	PointSet end_regions[2];
+	int end_types[2];
+	bool bidirectional;
+
+        BoundingBox bbox;
         BoundingBox median_bbox;
+
         std::string name;
+
+        bool isSingleton() const
+        { return voronoi.size() == 1; }
 
         typedef boost::tuple<PointID, int, PointID> ConnectionDescriptor;
         typedef std::list<ConnectionDescriptor> Connections;
@@ -84,12 +113,12 @@ namespace nav
 
         void buildTangent();
 
-	PointSet end_regions[2];
-	int end_types[2];
-	bool bidirectional;
 	void buildEndRegions();
+        void extendBoundaries(VoronoiPoint const& descriptor, bool extend_at_end);
 
 	Corridor();
+
+        void move(Corridor& other);
 
         /** Returns true if \c p is contained in this corridor */
         bool contains(PointID const& p) const;
@@ -107,11 +136,11 @@ namespace nav
 
         /** Add the given median point to the corridor, and then change its
          * center point to the one given */
-        void add(PointID const& p, MedianPoint const& median, bool ordered = false);
+        void add(PointID const& p, VoronoiPoint const& median, bool ordered = false);
 
         /** Add a median point to the corridor, updating its border and bounding
          * box */
-        void add(MedianPoint const& p, bool ordered = false);
+        void add(VoronoiPoint const& p, bool ordered = false);
 
 	int findSideOf(PointID const& p) const;
 
@@ -159,36 +188,67 @@ namespace nav
 
         void moveConnections(size_t prev_idx, size_t new_idx);
 
-        MedianPoint& front() { return median.front(); }
-        MedianPoint& back()  { return median.back(); }
-        MedianPoint const& front() const { return median.front(); }
-        MedianPoint const& back() const  { return median.back(); }
+        size_t size() const { return voronoi.size(); }
 
-        MedianLine::iterator begin() { return median.begin(); }
-        MedianLine::iterator end() { return median.begin(); }
-        MedianLine::const_iterator begin() const { return median.begin(); }
-        MedianLine::const_iterator end() const { return median.begin(); }
+        VoronoiPoint& front() { return voronoi.front(); }
+        VoronoiPoint& back()  { return voronoi.back(); }
+        VoronoiPoint const& front() const { return voronoi.front(); }
+        VoronoiPoint const& back() const  { return voronoi.back(); }
+
+        PointID frontPoint() const { return voronoi.front().center; }
+        PointID backPoint() const { return voronoi.back().center; }
+
+        typedef std::list<VoronoiPoint>::const_iterator voronoi_const_iterator;
+        typedef std::list<VoronoiPoint>::iterator voronoi_iterator;
+        voronoi_iterator begin() { return voronoi.begin(); }
+        voronoi_iterator end()   { return voronoi.end(); }
+        voronoi_const_iterator begin() const { return voronoi.begin(); }
+        voronoi_const_iterator end() const   { return voronoi.end(); }
+
+        bool isBorderAdjacent(VoronoiPoint const& p) const;
 
         /** Returns a point of the median line which is adjacent to \c p */
         PointID adjacentEndpoint(PointID const& p) const;
 
-        MedianLine::iterator findMedianPoint(PointID const& p);
-        MedianLine::const_iterator findMedianPoint(PointID const& p) const;
+        voronoi_iterator findMedianPoint(PointID const& p);
+        voronoi_const_iterator findMedianPoint(PointID const& p) const;
 
         /** Returns an interator on the point of the median nearest to \c p */
-        MedianLine::iterator findNearestMedian(PointID const& p);
-        MedianLine::const_iterator findNearestMedian(PointID const& p) const;
+        voronoi_iterator findNearestMedian(PointID const& p);
+        voronoi_const_iterator findNearestMedian(PointID const& p) const;
 
         /** Returns true if the corridor invariants are met, and false otherwise
          */
         bool checkConsistency() const;
 
+        void fixLineOrdering(GridGraph& graph, std::list<PointID>& line);
+        void fixLineOrderings();
+
         static Corridor singleton(PointID const& p, std::string const& name = "");
+
+        bool updateCurves();
     };
 
     std::ostream& operator << (std::ostream& io, Corridor const& corridor);
 
-    void displayMedianLine(std::ostream& io, MedianLine const& skel, int xmin, int xmax, int ymin, int ymax);
+    void displayMedianLine(std::ostream& io, std::list<VoronoiPoint> const& skel, int xmin, int xmax, int ymin, int ymax);
+
+    template<typename Container, typename PointGetter>
+    void displayLine(std::ostream& io, Container const& container, PointGetter get_point)
+    {
+        int line_count = 0;
+        for (typename Container::const_iterator median_it = container.begin();
+                median_it != container.end(); ++median_it)
+        {
+            if (++line_count > 5)
+            {
+                io << std::endl << "    ";
+                line_count = 0;
+            }
+            io << " " << get_point(*median_it);
+        }
+        io << std::endl;
+    }
 }
 
 #endif

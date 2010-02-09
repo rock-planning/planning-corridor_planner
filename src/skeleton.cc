@@ -31,7 +31,7 @@ PointID SkeletonExtraction::pointFromPtr(height_t const* ptr) const
     return PointID(offset % width, offset / width);
 }
 
-MedianLine SkeletonExtraction::process()
+list<VoronoiPoint> SkeletonExtraction::process()
 {
     const int32_t addVal[8] = { 1, 2, 2, 1, 2, 2, 1, 1 };
     const int32_t displacement[8] = {
@@ -150,12 +150,12 @@ MedianLine SkeletonExtraction::process()
 
     //displayHeightMap(cerr);
 
-    MedianLine result;
+    list<VoronoiPoint> result;
     for (CandidateSet::const_iterator it = skeleton.begin(); it != skeleton.end(); ++it)
     {
         PointID p = pointFromPtr(*it);
         result.push_back(parents[*it]);
-        MedianPoint& info = result.back();
+        VoronoiPoint& info = result.back();
         info.center = p;
         info.width = **it;
     }
@@ -262,7 +262,7 @@ void SkeletonExtraction::initializeFromDStar(DStar const& dstar, int x, int y, f
         }
     }
 }
-MedianLine SkeletonExtraction::processDStar(DStar const& dstar, int x, int y, float expand)
+list<VoronoiPoint> SkeletonExtraction::processDStar(DStar const& dstar, int x, int y, float expand)
 {
     initializeFromDStar(dstar, x, y, expand);
     return process();
@@ -276,7 +276,7 @@ void SkeletonExtraction::initializeFromPointSets(PointSet const& inside, PointSe
     for (PointSet::const_iterator it = inside.begin(); it != inside.end(); ++it)
         heightmap[it->x + it->y*width] = MAX_DIST;
 }
-MedianLine SkeletonExtraction::processPointSets(PointSet const& inside, PointSet const& border)
+list<VoronoiPoint> SkeletonExtraction::processPointSets(PointSet const& inside, PointSet const& border)
 {
     initializeFromPointSets(inside, border);
     return process();
@@ -291,12 +291,14 @@ void SkeletonExtraction::registerConnections(PointID source_point, int source_id
         int target_idx = target_it->second;
         Corridor& target = corridors[target_idx];
 
+        std::cerr << "connecting " << source.name << " <=> " << target.name << std::endl;
+
         source.addConnection(source_point, target_idx, target_point);
         target.addConnection(target_point, source_idx, source_point);
     }
 }
 
-void SkeletonExtraction::buildPlan(Plan& result, MedianLine const& points)
+void SkeletonExtraction::buildPlan(Plan& result, list<VoronoiPoint> const& points)
 {
     result.width  = width;
     result.height = height;
@@ -313,9 +315,9 @@ void SkeletonExtraction::buildPlan(Plan& result, MedianLine const& points)
     // set. This set will be used to finalize the connections (but they won't be
     // part of any corridors).
     list<PointSet> crossroads;
-    typedef map< PointID, MedianLine::const_iterator > MedianMap;
+    typedef map< PointID, Corridor::voronoi_const_iterator > MedianMap;
     MedianMap median_map;
-    for (MedianLine::const_iterator it = points.begin(); it != points.end(); ++it)
+    for (Corridor::voronoi_const_iterator it = points.begin(); it != points.end(); ++it)
     {
         if (it->borders.size() > 2)
             updateConnectedSets(crossroads, it->center);
@@ -337,13 +339,13 @@ void SkeletonExtraction::buildPlan(Plan& result, MedianLine const& points)
         corridor.name = boost::lexical_cast<std::string>(corridors.size());
         int corridor_idx = corridors.size() - 1;
 
-        list<MedianLine::const_iterator> propagation;
+        list<Corridor::voronoi_const_iterator> propagation;
         propagation.push_back(median_map.begin()->second);
         median_map.erase(median_map.begin());
 
         while (!propagation.empty())
         {
-            MedianLine::const_iterator p_it = propagation.front();
+            Corridor::voronoi_const_iterator p_it = propagation.front();
             propagation.pop_front();
             corridor.add(*p_it);
 
@@ -375,7 +377,7 @@ void SkeletonExtraction::buildPlan(Plan& result, MedianLine const& points)
                     if (neighbour_map_it == median_map.end())
                         continue;
 
-                    MedianLine::const_iterator neighbour_it = neighbour_map_it->second;
+                    Corridor::voronoi_const_iterator neighbour_it = neighbour_map_it->second;
                     if (corridor.isBorderAdjacent(*neighbour_it))
                     {
                         propagation.push_back(neighbour_it);
@@ -414,61 +416,61 @@ void SkeletonExtraction::buildPlan(Plan& result, MedianLine const& points)
     result.simplify();
 }
 
-void SkeletonExtraction::buildPixelMap(Plan& result) const
-{
-    // Build the pixel-to-corridor map. In there, "0" means "multiple owners"
-    // (i.e. crossroads)
-    result.pixel_map.resize(width * height);
-    int const NO_OWNER = result.corridors.size();
-    int const MULTIPLE_OWNERS = 0;
-    fill(result.pixel_map.begin(), result.pixel_map.end(), NO_OWNER);
-    //cerr << "Pixel map (border)\n";
-    for (size_t corridor_idx = 1; corridor_idx < result.corridors.size(); ++corridor_idx)
-    {
-        MedianPoint::BorderList const& borders = result.corridors[corridor_idx].borders;
-
-        for (MedianPoint::BorderList::const_iterator it = borders.begin(); it != borders.end(); ++it)
-            for (PointVector::const_iterator point = it->begin(); point != it->end(); ++point)
-            {
-                uint8_t& owner = result.pixel_map[point->x + point->y * width];
-                if (owner == NO_OWNER)
-                    owner = corridor_idx;
-                else
-                    owner = MULTIPLE_OWNERS;
-                //cerr << corridor_idx << " " << (int)owner << " " << point->x << " " << point->y << endl;
-            }
-    }
-
-    /** Now, take each pixel and assign its corridor based on its parents */
-    //cerr << "Pixel map (interior)\n";
-    for (int idx = 0; idx < width * height; ++idx)
-    {
-        if (result.pixel_map[idx] != NO_OWNER)
-            continue;
-
-        ParentMap::const_iterator borders_it = parents.find(const_cast<height_t*>(&heightmap[idx]));
-        if (borders_it == parents.end())
-            continue;
-
-        int owner = NO_OWNER;
-        MedianPoint::BorderList const& borders = borders_it->second.borders;
-        for (MedianPoint::BorderList::const_iterator it = borders.begin(); it != borders.end(); ++it)
-            for (PointVector::const_iterator point = it->begin(); point != it->end(); ++point)
-            {
-                int border_owner = result.pixel_map[point->x + point->y * width];
-                if (owner == NO_OWNER)
-                {
-                    if (border_owner != MULTIPLE_OWNERS)
-                        owner = border_owner;
-                }
-                else if (border_owner != owner && border_owner != MULTIPLE_OWNERS)
-                    owner = MULTIPLE_OWNERS;
-                //cerr << (int)owner << " " << idx%width
-                    //<< " " << idx/width <<  " " << (int)border_owner << " " 
-                    //<< point->x << " " << point->y << endl;
-            }
-
-        result.pixel_map[idx] = owner;
-    }
-}
+//void SkeletonExtraction::buildPixelMap(Plan& result) const
+//{
+//    // Build the pixel-to-corridor map. In there, "0" means "multiple owners"
+//    // (i.e. crossroads)
+//    result.pixel_map.resize(width * height);
+//    int const NO_OWNER = result.corridors.size();
+//    int const MULTIPLE_OWNERS = 0;
+//    fill(result.pixel_map.begin(), result.pixel_map.end(), NO_OWNER);
+//    //cerr << "Pixel map (border)\n";
+//    for (size_t corridor_idx = 1; corridor_idx < result.corridors.size(); ++corridor_idx)
+//    {
+//        MedianPoint::BorderList const& borders = result.corridors[corridor_idx].borders;
+//
+//        for (MedianPoint::BorderList::const_iterator it = borders.begin(); it != borders.end(); ++it)
+//            for (PointVector::const_iterator point = it->begin(); point != it->end(); ++point)
+//            {
+//                uint8_t& owner = result.pixel_map[point->x + point->y * width];
+//                if (owner == NO_OWNER)
+//                    owner = corridor_idx;
+//                else
+//                    owner = MULTIPLE_OWNERS;
+//                //cerr << corridor_idx << " " << (int)owner << " " << point->x << " " << point->y << endl;
+//            }
+//    }
+//
+//    /** Now, take each pixel and assign its corridor based on its parents */
+//    //cerr << "Pixel map (interior)\n";
+//    for (int idx = 0; idx < width * height; ++idx)
+//    {
+//        if (result.pixel_map[idx] != NO_OWNER)
+//            continue;
+//
+//        ParentMap::const_iterator borders_it = parents.find(const_cast<height_t*>(&heightmap[idx]));
+//        if (borders_it == parents.end())
+//            continue;
+//
+//        int owner = NO_OWNER;
+//        MedianPoint::BorderList const& borders = borders_it->second.borders;
+//        for (MedianPoint::BorderList::const_iterator it = borders.begin(); it != borders.end(); ++it)
+//            for (PointVector::const_iterator point = it->begin(); point != it->end(); ++point)
+//            {
+//                int border_owner = result.pixel_map[point->x + point->y * width];
+//                if (owner == NO_OWNER)
+//                {
+//                    if (border_owner != MULTIPLE_OWNERS)
+//                        owner = border_owner;
+//                }
+//                else if (border_owner != owner && border_owner != MULTIPLE_OWNERS)
+//                    owner = MULTIPLE_OWNERS;
+//                //cerr << (int)owner << " " << idx%width
+//                    //<< " " << idx/width <<  " " << (int)border_owner << " " 
+//                    //<< point->x << " " << point->y << endl;
+//            }
+//
+//        result.pixel_map[idx] = owner;
+//    }
+//}
 

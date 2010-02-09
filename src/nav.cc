@@ -46,6 +46,21 @@ void saveColorImage(string const& path, int xSize, int ySize, vector<RGBColor>& 
             &pixels[0].b, xSize, ySize, GDT_Byte, sizeof(RGBColor), sizeof(RGBColor) * xSize);
 }
 
+void markCurve(geometry::NURBSCurve3D& curve, int xSize, vector<RGBColor> & pixels, RGBColor color)
+{
+    double t       = curve.getStartParam();
+    double unit_t  = curve.getUnitParameter();
+    double end_t   = curve.getEndParam();
+
+    for (; t <= end_t; t += unit_t / 4)
+    {
+        Eigen::Vector3d p = curve.getPoint(t);
+        int x = lround(p.x()), y = lround(p.y());
+        int idx = x + xSize * y;
+        pixels[idx] = color;
+    }
+}
+
 template<typename Collection>
 void markPoints(Collection const& points, int xSize, vector<RGBColor> & pixels, RGBColor color)
 {
@@ -53,7 +68,6 @@ void markPoints(Collection const& points, int xSize, vector<RGBColor> & pixels, 
     {
         int x = point_it->x, y = point_it->y;
         int idx = x + y * xSize;
-
         pixels[idx] = color;
     }
 }
@@ -128,7 +142,7 @@ string colorToDot(RGBColor const& color)
     return stream.str();
 }
 
-void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<uint8_t> const& image, Plan const& plan)
+void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<uint8_t> const& image, Plan& plan)
 {
     vector<RGBColor> color_image;
     // Initialize with the real image
@@ -139,16 +153,24 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
 
     for (size_t corridor_idx = 0; corridor_idx < plan.corridors.size(); ++corridor_idx)
     {
-        Corridor const& c = plan.corridors[corridor_idx];
-        MedianPoint::BorderList::const_iterator border_it;
-        for (border_it = c.borders.begin(); border_it != c.borders.end(); ++border_it)
-            markPoints(*border_it, xSize, color_image, colors[corridor_idx]);
+        Corridor& c = plan.corridors[corridor_idx];
+        //MedianPoint::BorderList::const_iterator border_it;
+        //for (border_it = c.borders.begin(); border_it != c.borders.end(); ++border_it)
+        //    markPoints(*border_it, xSize, color_image, colors[corridor_idx]);
 
-        MedianLine::const_iterator median_it;
-        PointSet median_points;
-        for (median_it = c.median.begin(); median_it != c.median.end(); ++median_it)
-            median_points.insert(median_it->center);
-        markPoints(median_points, xSize, color_image, colors[corridor_idx]);
+        //MedianLine::const_iterator median_it;
+        //PointSet median_points;
+        //for (median_it = c.median.begin(); median_it != c.median.end(); ++median_it)
+        //    median_points.insert(median_it->center);
+        //markPoints(median_points, xSize, color_image, colors[corridor_idx]);
+        typedef std::list< PointVector > BorderList;
+
+        if (!c.updateCurves())
+            continue;
+
+        markCurve(c.boundary_curves[0], xSize, color_image, colors[corridor_idx]);
+        markCurve(c.boundary_curves[1], xSize, color_image, colors[corridor_idx]);
+        markCurve(c.median_curve, xSize, color_image, colors[corridor_idx]);
     }
 
     string corridor_out = basename + "-corridors.tif";
@@ -193,7 +215,7 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
 
 
         std::set<int> seen;
-        if (corridor.median.size() == 1)
+        if (corridor.voronoi.size() == 1)
             cerr << " corridor " << corridor.name << " is of size 1" << endl;
 
         Corridor::Connections const& connections = corridor.connections;
@@ -263,7 +285,7 @@ tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(
                 &costs[0], xSize, ySize, GDT_Float32, 0, 0);
     }
     
-    MedianLine result;
+    list<VoronoiPoint> result;
     SkeletonExtraction skel(xSize, ySize);
     { Profile profiler("computing skeleton");
         result = skel.processDStar(algo, x0, y0, expand);
@@ -354,49 +376,12 @@ int main(int argc, char** argv)
     for (size_t i = 0; i < blocked.corridors.size(); ++i)
         blocked.corridors[i].name = string("b") + boost::lexical_cast<std::string>(i);
 
-    //int original_idx = original.findEndpointCorridor( PointID(76, 140) );
-    //int blocked_idx  = blocked.findEndpointCorridor( PointID(76, 140) );
-    //for (int i = 0; i < original.corridors.size(); ++i)
-    //{
-    //    for (int j = 0; j < blocked.corridors.size(); ++j)
-    //    {
-          //PlanMerge merger;
-          //Plan left, right;
-          //left.corridors.push_back(original.corridors[27]);
-          //left.corridors[0].connections.clear();
-          //outputPlan(xSize, ySize, out_basename + "-left", image, left);
-          //right.corridors.push_back(blocked.corridors[24]);
-          //right.corridors[0].connections.clear();
-          //outputPlan(xSize, ySize, out_basename + "-right", image, right);
-
-          //merger.merge(left, right, 0.7, 0.45);
-    //    }
-    //}
-    //
     PlanMerge merger;
-
-    //while (original.corridors[0].name.find("a53") == string::npos)
-    //    original.removeCorridor(0);
-    //while (original.corridors.size() != 1)
-    //    original.removeCorridor(1);
-
-    //while (blocked.corridors[0].name != "b106")
-    //    blocked.removeCorridor(0);
-    //while (blocked.corridors[1].name != "b118")
-    //    blocked.removeCorridor(1);
-    //while (blocked.corridors[2].name != "b126")
-    //    blocked.removeCorridor(2);
-    //while (blocked.corridors.size() != 3)
-    //    blocked.removeCorridor(3);
-
 
     outputPlan(xSize, ySize, out_basename + "-left", image, original);
     outputPlan(xSize, ySize, out_basename + "-right", image, blocked);
 
     merger.merge(original, blocked, 0.5, 0.2);
-    //for (int i = merger.corridors.size(); i >= 0; --i)
-    //    if (merger.corridors[i].name[0] == 'a')
-    //        merger.removeCorridor(i);
 
     cerr << merger.corridors.size() << " corridors in merged plan" << endl;
     outputPlan(xSize, ySize, out_basename + "-merge", image, merger);

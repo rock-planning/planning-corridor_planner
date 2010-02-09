@@ -1,7 +1,3 @@
-set(SISL_INCLUDE_DIRS ${CMAKE_INSTALL_PREFIX}/include/sisl)
-set(SISL_LIBRARIES ${CMAKE_INSTALL_PREFIX}/lib/libsisl.so)
-include_directories(${SISL_INCLUDE_DIRS})
-
 find_package(GDAL)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GDAL_CFLAGS}")
 

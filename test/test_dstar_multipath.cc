@@ -2,15 +2,15 @@
 #include <boost/test/floating_point_comparison.hpp>
 
 #include "test/testsuite.hh"
-#include "nav/dstar.hh"
-#include "nav/skeleton.hh"
+#include "src/dstar.hh"
+#include "src/skeleton.hh"
 #include <iostream>
 #include <vector>
 #include <cmath>
 #include <string.h>
 #include <fstream>
 
-using namespace Nav;
+using namespace nav;
 using namespace std;
 
 static pair<PointSet, PointSet> outputGrownBorder(ostream& out, DStar const& algo, int x0, int y0, float expand)
@@ -141,7 +141,7 @@ BOOST_AUTO_TEST_CASE( test_multipath_forest )
         ofstream out("multipath_forest_skeleton.txt");
         SkeletonExtraction skeleton(Size, Size);
         skeleton.initializeFromDStar(algo, x0, y0, expand);
-        MedianLine skeleton_points = skeleton.process();
+        list<VoronoiPoint> skeleton_points = skeleton.process();
         vector<int16_t> map = skeleton.getHeightmap();
 
         out << Size << " " << Size << "\n";

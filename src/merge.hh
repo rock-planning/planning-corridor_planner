@@ -32,22 +32,22 @@ namespace nav
         OWNERSHIP current_owner;
 
         /** Returns true if +left_p+ and +right_p+ can be merged */
-        bool canMerge(MedianPoint const& left_p, MedianPoint const& right_p,
+        bool canMerge(VoronoiPoint const& left_p, VoronoiPoint const& right_p,
                 float coverage_threshold, float cos_angular_threshold) const;
 
         /** Returns true if +left_p+ and +right_p+ can be merged */
-        bool canMerge(MedianPoint const& left_p, MedianPoint const& right_p,
+        bool canMerge(VoronoiPoint const& left_p, VoronoiPoint const& right_p,
                 float distance, float coverage_threshold, float cos_angular_threshold) const;
 
-        void finalizeMerge(size_t orig_left_idx, size_t orig_right_idx, size_t start_idx,
-                size_t right_first_corridor, size_t right_last_corridor);
+        void finalizeMerge(int orig_left_idx, int orig_right_idx, int start_idx,
+                int right_first_corridor, int right_last_corridor);
 
         void pushAccumulator();
-        void pushSingle(int corridor_idx, MedianLine::const_iterator point);
-        void pushMerged(int left_idx, MedianLine::const_iterator left_p,
-                int right_idx, MedianLine::const_iterator right_p,
-                PointID const& p, MedianPoint const& median);
-        std::pair<int, PointID> getEndpointMapping(PointID const& p, Corridor const& orig, size_t first_idx, size_t last_idx) const;
+        void pushSingle(int corridor_idx, Corridor::voronoi_const_iterator point);
+        void pushMerged(int left_idx, Corridor::voronoi_const_iterator left_p,
+                int right_idx, Corridor::voronoi_const_iterator right_p,
+                PointID const& p, VoronoiPoint const& median);
+        std::pair<int, PointID> getEndpointMapping(PointID const& p, Corridor const& orig, int first_idx, int last_idx) const;
 
     public:
         PlanMerge();

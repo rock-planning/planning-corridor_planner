@@ -2,7 +2,7 @@
 #include <boost/test/floating_point_comparison.hpp>
 
 #include "test/testsuite.hh"
-#include "nav/dstar.hh"
+#include "src/dstar.hh"
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -11,7 +11,7 @@
 #include <boost/tuple/tuple.hpp>
 using boost::tie;
 
-using namespace Nav;
+using namespace nav;
 using namespace std;
 
 static int useful_rand(int max)
