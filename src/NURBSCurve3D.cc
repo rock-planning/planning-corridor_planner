@@ -285,3 +285,32 @@ void NURBSCurve3D::clear()
     points.clear();
 }
 
+vector<double> NURBSCurve3D::simplify()
+{
+    return simplify(geometric_resolution);
+}
+
+vector<double> NURBSCurve3D::simplify(double tolerance)
+{
+    if (!curve)
+        throw std::runtime_error("the curve is not initialized");
+
+    SISLCurve* result = NULL;
+    double epsilon[3] = { tolerance, tolerance, tolerance };
+
+    double maxerr[3];
+    int status;
+    s1940(curve, epsilon,
+            curve_order, // derivatives
+            curve_order, // derivatives
+            1, // request closed curve
+            10, // number of iterations
+            &result, maxerr, &status);
+    if (status != 0)
+        throw std::runtime_error("SISL error while simplifying a curve");
+
+    freeCurve(curve);
+    curve = result;
+    return vector<double>(maxerr, maxerr + 3);
+}
+

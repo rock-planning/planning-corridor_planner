@@ -137,6 +137,9 @@ namespace geometry
             /** Reinitializes the curve */
             void clear();
 
+            std::vector<double> simplify();
+            std::vector<double> simplify(double tolerance);
+
 	private:
             //! the underlying SISL curve
 	    SISLCurve *curve;
