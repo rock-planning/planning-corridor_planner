@@ -287,6 +287,7 @@ namespace nav {
 
         static const int DIR_STRAIGHT = RIGHT | TOP | LEFT | BOTTOM;
         static const int DIR_DIAGONAL = TOP_RIGHT | TOP_LEFT | BOTTOM_LEFT | BOTTOM_RIGHT;
+        static const int DIR_ALL = DIR_STRAIGHT | DIR_DIAGONAL;
 
     private:
         /** Array which encodes the parents of each node. The array is stored
