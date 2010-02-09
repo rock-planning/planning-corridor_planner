@@ -39,6 +39,9 @@ namespace geometry
 	    NURBSCurve3D(double geometric_resolution, double order = 3);
 	    ~NURBSCurve3D();
 
+            /** Changes the default geometric resolution */
+            void setGeometricResolution(double _geores) { geometric_resolution = _geores; }
+
             /** Returns the number of points for this curve */
 	    int    getPointCount() const { return points.size(); };
             /** Returns the length of the curve in geometric space */
