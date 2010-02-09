@@ -132,7 +132,7 @@ namespace geometry
 	    void addPoint(Eigen::Vector3d pt);
 
 	    /** Generates the curve */
-	    void updateCurve();
+	    void update();
 
 	private:
             //! the underlying SISL curve

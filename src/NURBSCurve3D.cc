@@ -88,7 +88,7 @@ void NURBSCurve3D::addPoint(Vector3d pt)
     points.push_back(pt);
 }
 
-void NURBSCurve3D::updateCurve()
+void NURBSCurve3D::update()
 {
     vector<double> points;
     vector<int> point_types;
