@@ -341,12 +341,12 @@ namespace nav {
          * neighbours of (x, y). Neighbours are the cells directly adjacent to
          * the considered cell.
          */
-        iterator neighboursBegin(size_t x, size_t y);
+        iterator neighboursBegin(size_t x, size_t y, int mask = DIR_ALL);
         /** Returns a NeighbourIterator object which allows to iterate on the
          * neighbours of (x, y). Neighbours are the cells directly adjacent to
          * the considered cell.
          */
-        const_iterator neighboursBegin(size_t x, size_t y) const;
+        const_iterator neighboursBegin(size_t x, size_t y, int mask = DIR_ALL) const;
 
         /** Returns the iterator pointing to the given neighbour of (x, y) */
         NeighbourConstIterator getNeighbour(size_t x, size_t y, int neighbour) const;

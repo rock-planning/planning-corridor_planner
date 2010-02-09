@@ -254,10 +254,10 @@ static int neighboursMask(int x, int y, int xsize, int ysize)
     mask &= ~((y == ysize - 1) * (GridGraph::TOP_LEFT | GridGraph::TOP | GridGraph::TOP_RIGHT));
     return mask;
 }
-NeighbourIterator GridGraph::neighboursBegin(size_t x, size_t y)
-{ return NeighbourIterator(*this, x, y, neighboursMask(x, y, m_xsize, m_ysize)); }
-NeighbourConstIterator GridGraph::neighboursBegin(size_t x, size_t y) const
-{ return NeighbourConstIterator(*this, x, y, neighboursMask(x, y, m_xsize, m_ysize)); }
+NeighbourIterator GridGraph::neighboursBegin(size_t x, size_t y, int mask)
+{ return NeighbourIterator(*this, x, y, mask & neighboursMask(x, y, m_xsize, m_ysize)); }
+NeighbourConstIterator GridGraph::neighboursBegin(size_t x, size_t y, int mask) const
+{ return NeighbourConstIterator(*this, x, y, mask & neighboursMask(x, y, m_xsize, m_ysize)); }
 NeighbourConstIterator GridGraph::getNeighbour(size_t x, size_t y, int neighbour) const
 { return NeighbourConstIterator(*this, x, y, neighbour); }
 
