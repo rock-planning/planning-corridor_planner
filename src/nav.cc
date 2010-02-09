@@ -272,17 +272,41 @@ tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(
         string dstar_out = basename + "-dstar.tif";
         std::cerr << "  saving result in " << dstar_out << std::endl;
 
-        GDALDriver* driver = GetGDALDriverManager()->GetDriverByName("Gtiff");
-        auto_ptr<GDALDataset> output_set(driver->Create(dstar_out.c_str(), xSize, ySize, 1, GDT_Float32, 0));
+        // Find the maximum cost in the dstar output, filtering out actual
+        // obstacles
+        float max_val = 0;
+        for (int y = 0; y < ySize; ++y)
+        {
+            for (int x = 0; x < xSize; ++x)
+            {
+                float val = graph.getValue(x, y);
+                if (val < 10000 && max_val < val)
+                    max_val = val;
+            }
+        }
 
-        vector<float> costs;
-        costs.reserve(xSize * ySize);
-        for (uint32_t y = 0; y < ySize; ++y)
-            for (uint32_t x = 0; x < xSize; ++x)
-                costs.push_back(graph.getValue(x, y));
+        // Now display
+        vector<RGBColor> color_image;
+        for (size_t i = 0; i < image.size(); ++i)
+            color_image.push_back(RGBColor(image[i]));
 
-        output_set->GetRasterBand(1)->RasterIO(GF_Write, 0, 0, xSize, ySize,
-                &costs[0], xSize, ySize, GDT_Float32, 0, 0);
+        for (int y = 0; y < ySize; ++y)
+        {
+            for (int x = 0; x < xSize; ++x)
+            {
+                float val = graph.getValue(x, y);
+                RGBColor color;
+                if (val < 100000)
+                    color = RGBColor(128, 128, 255 * (val / max_val));
+                else
+                    color = RGBColor(0, 0, 0);
+                color_image[y * xSize + x] = color;
+            }
+        }
+
+        string out = basename + "-dstar.tif";
+        std::cerr << "  saving result in " << out << std::endl;
+        saveColorImage(out, xSize, ySize, color_image);
     }
     
     list<VoronoiPoint> result;
