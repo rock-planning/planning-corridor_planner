@@ -91,7 +91,9 @@ void NURBSCurve3D::addPoint(Vector3d pt)
 void NURBSCurve3D::update()
 {
     vector<double> points;
+    points.reserve(getPointCount() * 3);
     vector<int> point_types;
+    point_types.reserve(getPointCount());
 
     // Puts all the points into an array
     for (vector<Vector3d>::iterator it = this->points.begin(); it != this->points.end(); ++it) 
