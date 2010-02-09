@@ -153,18 +153,19 @@ void NURBSCurve3D::updateCurve()
     start_param = 0.0;
 
     if (curve)
+    {
         freeCurve(curve);
+        curve = 0;
+    }
 
     int status;
     s1356(&points[0], getPointCount(), DIM, &point_types[0], 0, 0, 1, curve_order, start_param, &end_param, &curve, 
 	    &point_param, &nb_unique_param, &status);
-
     if (status != 0)
         throw std::runtime_error("cannot generate the curve");
 
     // Get the curve length
     s1240(curve, geometric_resolution, &curve_length, &status);
-
     if (status != 0)
         throw std::runtime_error("cannot get the curve length");
 }
