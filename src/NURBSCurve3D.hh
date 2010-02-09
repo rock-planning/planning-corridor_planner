@@ -134,6 +134,9 @@ namespace geometry
 	    /** Generates the curve */
 	    void update();
 
+            /** Reinitializes the curve */
+            void clear();
+
 	private:
             //! the underlying SISL curve
 	    SISLCurve *curve;

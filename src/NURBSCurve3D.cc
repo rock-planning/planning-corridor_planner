@@ -273,3 +273,13 @@ double NURBSCurve3D::getHeading(double _param)
     return atan2(Xaxis.y(),Xaxis.x());
 }
 
+void NURBSCurve3D::clear()
+{
+    if (curve)
+    {
+        freeCurve(curve);
+        curve = 0;
+    }
+    points.clear();
+}
+
