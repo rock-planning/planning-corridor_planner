@@ -16,7 +16,7 @@
  * =====================================================================================
  */
 
-#include "NURBSCurve3D.hpp"
+#include "NURBSCurve3D.hh"
 
 #include <stdexcept>
 #include <vector>
