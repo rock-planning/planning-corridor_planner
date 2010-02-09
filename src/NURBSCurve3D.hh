@@ -36,7 +36,7 @@ namespace geometry
         static const int DIM = 3;
 
 	public:
-	    NURBSCurve3D(double geometric_resolution, double order = 3);
+	    explicit NURBSCurve3D(double geometric_resolution = 0, double order = 3);
 	    ~NURBSCurve3D();
 
             /** Changes the default geometric resolution */
