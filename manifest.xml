@@ -9,6 +9,6 @@
     <license>LGPL v2 or later</license>
 
     <depend package="base" />
-    <depend package="gdal" />
+    <rosdep name="gdal" />
     <depend package="external/sisl" />
 </package>
