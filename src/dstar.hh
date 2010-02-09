@@ -168,15 +168,22 @@ namespace nav {
 
         int getMask() const { return m_mask; }
 
+        /** The index of the neighbour we are currently visiting. 0 is
+         * straight-right and it turns counter-clockwise (i.e. 3 is top-left).
+         */
+        int getNeighbourIndex() const { return m_neighbour - 1; }
+
         /** The neighbour we are currently visiting, as a value defined
          * in GridGraph::RELATIONS */
         int getNeighbour() const { return 1 << (m_neighbour - 1); }
 
         /** The position of the node on which we are iterating */
+        PointID getSourcePoint() const { return PointID(sourceX(), sourceY()); }
         int sourceX() const { return m_x; }
         int sourceY() const { return m_y; }
 
         /** The position of the currently-iterated neighbour */
+        PointID getTargetPoint() const { return PointID(x(), y()); }
         int x() const { return m_x + s_x_offsets[m_neighbour]; }
         int y() const { return m_y + s_y_offsets[m_neighbour]; }
 
