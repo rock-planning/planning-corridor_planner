@@ -322,6 +322,14 @@ tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(
             color_image.push_back(RGBColor(image[i]));
 
         markPoints(border.first, xSize, color_image, RGBColor(128, 128, 255));
+        markPoints(border.second, xSize, color_image, RGBColor(100, 100, 200));
+
+        vector<PointID> points;
+        points.resize(result.size());
+        transform(result.begin(), result.end(), points.begin(),
+                boost::bind(&VoronoiPoint::center, _1));
+        markPoints(points, xSize, color_image, RGBColor(128, 255, 128));
+
         string out = basename + "-border.tif";
         std::cerr << "  saving result in " << out << std::endl;
         saveColorImage(out, xSize, ySize, color_image);
