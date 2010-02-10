@@ -138,9 +138,9 @@ namespace nav
                 else if (!has_back && it->this_side)
                     has_back = true;
 
-                if (has_front && has_back) return true;
+                if (has_front && has_back) return false;
             }
-            return false;
+            return true;
         }
 
 	Corridor();
@@ -229,8 +229,7 @@ namespace nav
          */
         bool checkConsistency() const;
 
-        //void fixLineOrdering(GridGraph& graph, std::list<PointID>& line);
-        //void fixLineOrderings();
+        void fixLineOrdering(GridGraph& graph, std::list<PointID>& line);
 
         static Corridor singleton(PointID const& p, std::string const& name = "");
 

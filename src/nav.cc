@@ -154,23 +154,14 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
     for (size_t corridor_idx = 0; corridor_idx < plan.corridors.size(); ++corridor_idx)
     {
         Corridor& c = plan.corridors[corridor_idx];
-        //MedianPoint::BorderList::const_iterator border_it;
-        //for (border_it = c.borders.begin(); border_it != c.borders.end(); ++border_it)
-        //    markPoints(*border_it, xSize, color_image, colors[corridor_idx]);
 
-        //MedianLine::const_iterator median_it;
-        //PointSet median_points;
-        //for (median_it = c.median.begin(); median_it != c.median.end(); ++median_it)
-        //    median_points.insert(median_it->center);
-        //markPoints(median_points, xSize, color_image, colors[corridor_idx]);
-        typedef std::list< PointVector > BorderList;
+        markPoints(c.boundaries[0], xSize, color_image, colors[corridor_idx]);
+        markPoints(c.boundaries[1], xSize, color_image, colors[corridor_idx]);
 
-        if (!c.updateCurves())
-            continue;
-
-        markCurve(c.boundary_curves[0], xSize, color_image, colors[corridor_idx]);
-        markCurve(c.boundary_curves[1], xSize, color_image, colors[corridor_idx]);
-        markCurve(c.median_curve, xSize, color_image, colors[corridor_idx]);
+        vector<PointID> points;
+        transform(c.voronoi.begin(), c.voronoi.end(),
+                back_inserter(points), bind(&VoronoiPoint::center, _1));
+        markPoints(points, xSize, color_image, colors[corridor_idx]);
     }
 
     string corridor_out = basename + "-corridors.tif";
@@ -392,7 +383,7 @@ tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(
         saveColorImage(out, xSize, ySize, color_image);
     }
 
-    CorridorExtractionState build_plan_state(xSize, ySize);
+    CorridorExtractionState build_plan_state(PointID(x0, y0), PointID(x1, y1), algo.graph());
     { Profile profiler("extracting corridors and computing connections");
         skel.extractBranches(result, build_plan_state);
         skel.computeConnections(build_plan_state);
@@ -404,9 +395,14 @@ tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(
     }
     outputExtractionState(xSize, ySize, basename + "-branches-simplified.tif", image, build_plan_state);
 
-    Plan plan(PointID(x0, y0), PointID(x1, y1), graph);
 
-        // skel.buildPlan(plan, result);
+    Plan plan;
+    { Profile profiler("doing the whole plan building at once");
+        SkeletonExtraction skel(xSize, ySize);
+        list<VoronoiPoint> skeleton = skel.processDStar(algo, x0, y0, expand);
+        plan = skel.buildPlan(PointID(x0, y0), PointID(x1, y1), algo.graph(), skeleton);
+    }
+
     for (size_t i = 0; i < plan.corridors.size(); ++i)
         plan.corridors[i].name = name_prefix + plan.corridors[i].name;
 

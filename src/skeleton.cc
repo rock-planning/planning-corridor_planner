@@ -418,21 +418,50 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
         list<VoronoiPoint> line;
         line.swap(branch_it->second);
 
-        // the index of the corridor
-        size_t corridor_idx = state.plan.corridors.size();
+        // Remove all the voronoi points that have more than 2 borders
+        while (!line.empty())
+        {
+            // the index of the corridor
+            size_t corridor_idx = state.plan.corridors.size();
 
-        // register endpoints in +endpoints+, to create connections later on
-        endpoints.push_back(Endpoint(line.front().center, corridor_idx, false));
-        endpoints.push_back(Endpoint(line.back().center, corridor_idx, true));
+            PointID front_point = line.front().center, back_point;
+            while (!line.empty() && line.front().borders.size() != 2)
+                line.pop_front();
 
-        // mark the ownership of points in the graph
-        for (list<VoronoiPoint>::const_iterator it = line.begin(); it != line.end(); ++it)
-            state.graph.setValue(it->center.x, it->center.y, VALUE_CORRIDORS_START + corridor_idx);
+            Corridor::voronoi_iterator end_it   = line.begin();
+            for (; end_it != line.end(); ++end_it)
+            {
+                back_point = end_it->center;
+                state.graph.setValue(end_it->center.x, end_it->center.y, VALUE_CORRIDORS_START + corridor_idx);
 
-        // Finally, create the new corridor
-        Corridor& new_corridor = state.plan.newCorridor();
-        new_corridor.voronoi.swap(line);
-        new_corridor.update();
+                if (end_it->borders.size() != 2)
+                {
+                    cerr << corridor_idx << " " << end_it->borders.size() << " " << end_it->center << " " << *end_it << endl;
+                    break;
+                }
+            }
+
+            Corridor::voronoi_iterator cross_point_it = end_it;
+            for (; cross_point_it != line.end(); ++cross_point_it)
+            {
+                if (cross_point_it->borders.size() == 2)
+                    break;
+            }
+            if (cross_point_it == line.end())
+                back_point = line.back().center;
+
+            if (end_it != line.begin())
+            {
+                // register endpoints in +endpoints+, to create connections later on
+                endpoints.push_back(Endpoint(front_point, corridor_idx, false));
+                endpoints.push_back(Endpoint(back_point, corridor_idx, true));
+
+                // Finally, create the new corridor
+                Corridor& new_corridor = state.plan.newCorridor();
+                new_corridor.voronoi.splice(new_corridor.voronoi.end(), line, line.begin(), end_it);
+                new_corridor.update();
+            }
+        }
     }
     // OK, the branches set is now invalid (we spliced all the lines to the
     // corridors), so clear it
@@ -591,27 +620,179 @@ pair<int, int> SkeletonExtraction::removeDeadEnds(CorridorExtractionState& state
     return make_pair(start_corridor, end_corridor);
 }
 
-void SkeletonExtraction::removeDeadEnds(CorridorExtractionState& state, set<int> const& keepalive)
+void SkeletonExtraction::removeDeadEnds(CorridorExtractionState& state, set<int> keepalive)
 {
-    for (vector<int>::const_reverse_iterator it = state.simple_connectivity_corridors.rbegin();
-            it != state.simple_connectivity_corridors.rend(); ++it)
+redo:
+    size_t const start_size = state.plan.corridors.size();
+    size_t i = 0;
+    while (i < state.plan.corridors.size())
     {
-        if (keepalive.count(*it))
+        if (keepalive.count(i))
+        {
+            ++i;
             continue;
+        }
 
-        state.plan.removeCorridor(*it);
+        if (state.plan.corridors[i].isDeadEnd())
+        {
+            set<int> new_keepalive;
+            for (set<int>::const_iterator it = keepalive.begin(); it != keepalive.end(); ++it)
+            {
+                if (*it > i) new_keepalive.insert(*it - 1);
+                else new_keepalive.insert(*it);
+            }
+            new_keepalive.swap(keepalive);
+
+            state.plan.removeCorridor(i);
+        }
+        else ++i;
+    }
+
+    if (start_size != state.plan.corridors.size())
+        goto redo;
+}
+
+void SkeletonExtraction::registerConnections(CorridorExtractionState& state)
+{
+    // Register the connections we know already
+    //
+    // We do this before applying the split, as Plan::split will update the
+    // connections for us
+    for (ConnectionPoints::const_iterator conn_it = state.connection_points.begin();
+            conn_it != state.connection_points.end(); ++conn_it)
+    {
+        list<Endpoint>::const_iterator const conn_end = conn_it->end();
+
+        list<Endpoint>::const_iterator source_it = conn_it->begin();
+        for (; source_it != conn_end; ++source_it)
+        {
+            Corridor& source = state.plan.corridors[source_it->corridor_idx];
+
+            list<Endpoint>::const_iterator target_it = conn_it->begin();
+            for (; target_it != conn_end; ++target_it)
+            {
+                if (target_it->corridor_idx == source_it->corridor_idx) continue;
+                source.addConnection(source_it->side, target_it->corridor_idx, target_it->side);
+            }
+        }
     }
 }
 
-void SkeletonExtraction::buildPlan(Plan& result, std::list<VoronoiPoint> const& points)
+void SkeletonExtraction::applySplits(CorridorExtractionState& state)
 {
-    result.clear();
-    CorridorExtractionState state(width, height);
+    // Apply the splits that +computeConnections+ has detected
+    SplitPoints::iterator split_it = state.split_points.begin();
+    SplitPoints::iterator const split_end = state.split_points.end();
+    for (; split_it != split_end; ++split_it)
+    {
+        ConnectionPoints::iterator conn_it = split_it->first;
+        PointID conn_p = conn_it->front().point;
+
+        list< pair<int, int> > split_corridors;
+
+        set<int> const& corridors = split_it->second;
+        for (set<int>::const_iterator corridor_it = corridors.begin(); corridor_it != corridors.end(); ++corridor_it)
+        {
+            int corridor_idx = *corridor_it;
+            Corridor& corridor = state.plan.corridors[corridor_idx];
+            Corridor::voronoi_iterator split_point =
+                corridor.findNearestMedian(conn_p);
+
+            if (split_point == corridor.voronoi.begin())
+            {
+                split_corridors.push_back( make_pair(-1, corridor_idx) );
+                continue;
+            }
+            else if (split_point == (--corridor.voronoi.end()))
+            {
+                split_corridors.push_back( make_pair(corridor_idx, -1) );
+                continue;
+            }
+
+
+            size_t back_idx = state.plan.corridors.size();
+            cerr << "splitting " << corridor.name << " at " << split_point->center << " for " << conn_p << endl;
+            Corridor& back_corridor = state.plan.split(corridor_idx, split_point);
+
+            // Unfortunately, it is possible that the same corridor is split
+            // elsewhere as well. We must check if that split will apply on the
+            // front or back part of the updated corridor
+            SplitPoints::iterator split_update_it = split_it;
+            for (++split_update_it; split_update_it != split_end; ++split_update_it)
+            {
+                if (!split_update_it->second.count(corridor_idx))
+                    continue;
+
+                PointID p           = split_update_it->first->front().point;
+                PointID front_match = corridor.findNearestMedian(p)->center;
+                PointID back_match  = back_corridor.findNearestMedian(p)->center;
+                if (front_match.distance2(p) > back_match.distance2(p))
+                {
+                    split_update_it->second.erase(corridor_idx);
+                    split_update_it->second.insert(back_idx);
+                }
+            }
+
+            split_corridors.push_back(make_pair(corridor_idx, back_idx));
+        }
+
+        // Create a two way connection between all the points in *conn_it and
+        // each of the corridors in split_corridors
+        list<Endpoint>::const_iterator const conn_end = conn_it->end();
+        list<Endpoint>::const_iterator endp_it = conn_it->begin();
+        for (endp_it = conn_it->begin(); endp_it != conn_end; ++endp_it)
+        {
+            int   endp_idx = endp_it->corridor_idx;
+            bool endp_side = endp_it->side;
+            Corridor& endp_corridor = state.plan.corridors[endp_idx];
+
+            for (list< pair<int, int> >::const_iterator split_result_it = split_corridors.begin();
+                    split_result_it != split_corridors.end(); ++split_result_it)
+            {
+                int split_front_idx = split_result_it->first;
+                int split_back_idx = split_result_it->first;
+
+                Corridor* split_front = NULL;
+                if (split_front_idx != -1)
+                {
+                    split_front = &state.plan.corridors[split_front_idx];
+                    endp_corridor.addConnection(endp_side, split_front_idx, true);
+                    split_front->addConnection(true, endp_idx, endp_side);
+                }
+
+                Corridor* split_back = NULL;
+                if (split_back_idx != -1)
+                {
+                    split_back = &state.plan.corridors[split_back_idx];
+                    endp_corridor.addConnection(endp_side, split_back_idx, false);
+                    split_back->addConnection(false, endp_idx, endp_side);
+                }
+
+                // First, add connections between front and back as Plan::split
+                // does not do that
+                if (split_front && split_back)
+                {
+                    split_back->addConnection(false, split_front_idx, true);
+                    split_front->addConnection(true, split_back_idx, false);
+                }
+            }
+        }
+    }
+}
+
+Plan SkeletonExtraction::buildPlan(PointID const& start_point, PointID const& end_point, GridGraph const& nav_function,
+        std::list<VoronoiPoint> const& points)
+{
+    CorridorExtractionState state(start_point, end_point, nav_function);
 
     extractBranches(points, state);
     computeConnections(state);
 
+    registerConnections(state);
+    applySplits(state);
     removeDeadEnds(state);
+    
+    return state.plan;
 }
 
 //void SkeletonExtraction::buildPixelMap(Plan& result) const

@@ -197,6 +197,7 @@ void NeighbourIterator::setTargetAsParent()
 
 GridGraph::GridGraph(size_t width, size_t height, float value)
     : GridMap(width, height)
+    , m_width(width), m_height(height)
     , m_parents(width * height, 0)
     , m_values(width * height, value)
 { }

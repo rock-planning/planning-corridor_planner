@@ -117,7 +117,7 @@ void Plan::moveConnections(size_t into_idx, size_t from_idx)
     }
 }
 
-pair<PointID, PointID> Plan::split(int corridor_idx, Corridor::voronoi_iterator it)
+Corridor& Plan::split(int corridor_idx, Corridor::voronoi_iterator it)
 {
     Corridor& front_corridor = corridors[corridor_idx];
 
@@ -142,37 +142,32 @@ pair<PointID, PointID> Plan::split(int corridor_idx, Corridor::voronoi_iterator 
     // Repeat for the other border.
     VoronoiPoint const& last_corr_point      = front_corridor.voronoi.back();
     {
-        VoronoiPoint::BorderList::const_iterator it = last_corr_point.borders.begin();
-        VoronoiPoint::BorderList::const_iterator const end = last_corr_point.borders.end();
+        VoronoiPoint::BorderList::const_iterator border_it = last_corr_point.borders.begin();
+        VoronoiPoint::BorderList::const_iterator const border_end = last_corr_point.borders.end();
 
-        for (; it != end; ++it)
+        for (; border_it != border_end; ++border_it)
         {
-            if (it->empty())
+            if (border_it->empty())
                 throw std::logic_error("empty border found");
 
-            PointID p = it->front();
-            list<PointID>::iterator p_it =
-                find(front_corridor.boundaries[0].begin(), front_corridor.boundaries[0].end(), p);
-            if (p_it != front_corridor.boundaries[0].end())
-            {
-                back_corridor.boundaries[0].splice(
-                        back_corridor.boundaries[0].end(), front_corridor.boundaries[0],
-                        p_it, front_corridor.boundaries[0].end());
-            }
-            else
-            {
-                p_it = find(front_corridor.boundaries[1].begin(), front_corridor.boundaries[1].end(), p);
-                if (p_it != front_corridor.boundaries[1].end())
-                {
-                    back_corridor.boundaries[1].splice(
-                            back_corridor.boundaries[1].end(), front_corridor.boundaries[1],
-                            p_it, front_corridor.boundaries[1].end());
-                }
-                else
-                {
-                    throw std::logic_error("internal error: cannot find a boundary point correspondance");
-                }
-            }
+            PointID p = border_it->front();
+
+	    list<PointID>::iterator boundary_it[2];
+	    boundary_it[0] =
+		findNearest(front_corridor.boundaries[0].begin(), front_corridor.boundaries[0].end(), p);
+	    boundary_it[1] =
+		findNearest(front_corridor.boundaries[1].begin(), front_corridor.boundaries[1].end(), p);
+
+	    double d0 = boundary_it[0]->distance2(p);
+	    double d1 = boundary_it[1]->distance2(p);
+	    int boundary_index = (d0 < d1) ? 0 : 1;
+
+	    back_corridor.boundaries[boundary_index].splice(
+		    back_corridor.boundaries[boundary_index].end(),
+		    front_corridor.boundaries[boundary_index],
+		    boundary_it[boundary_index],
+		    front_corridor.boundaries[boundary_index].end());
+	    cerr << "   splitting boundary " << boundary_index << " at " << *boundary_it[boundary_index] << " for " << p << endl;
         }
     }
 
@@ -207,7 +202,7 @@ pair<PointID, PointID> Plan::split(int corridor_idx, Corridor::voronoi_iterator 
     corridors.push_back(back_corridor);
     corridors.back().name = front_corridor.name + "/2";
     front_corridor.name += "/1";
-    return make_pair(front_corridor.backPoint(), corridors.back().frontPoint());
+    return corridors.back();
 }
 
 void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end, std::string const& name)

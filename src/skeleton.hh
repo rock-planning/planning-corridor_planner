@@ -41,8 +41,9 @@ namespace nav
 
         int depth;
 
-        CorridorExtractionState(int width, int height)
-            : graph(width, height)
+        CorridorExtractionState(PointID const& start, PointID const& end, GridGraph const& nav_function)
+            : plan(start, end, nav_function)
+            , graph(nav_function.getWidth(), nav_function.getHeight())
             , depth(0) {}
 
         VoronoiPoint const& front()
@@ -83,19 +84,8 @@ namespace nav
         
         typedef std::map<PointID, std::map<PointID, int> > ConnectionMap;
 
-        /** Registers the connection described by \c connection_point between
-         * the corridors listed in \c corridors and the corridor which index is
-         * \c idx. In practice, it adds connections between
-         *
-         *   [idx, connection_point->first] and all [corridor, point] pairs in
-         *     connection_point->second.
-         */
-        void registerConnections(PointID target_point, int target_idx,
-                std::map<PointID, int> const& source_pairs,
-                std::vector<Corridor>& corridors);
-
-        void registerConnections(int idx, ConnectionMap::const_iterator endpoints, std::vector<Corridor>& corridors)
-        { registerConnections(endpoints->first, idx, endpoints->second, corridors); }
+        void registerConnections(CorridorExtractionState& state);
+        void applySplits(CorridorExtractionState& state);
 
     public:
         SkeletonExtraction(size_t width, size_t height);
@@ -162,13 +152,14 @@ namespace nav
          * corridors with each other, nor do they lead to the start and end
          * points)
          */
-        void removeDeadEnds(CorridorExtractionState& state, std::set<int> const& keepalive);
+        void removeDeadEnds(CorridorExtractionState& state, std::set<int> keepalive);
 
         /** \overload
          */
         std::pair<int, int> removeDeadEnds(CorridorExtractionState& state);
 
-        void buildPlan(Plan& result, std::list<VoronoiPoint> const& points);
+        Plan buildPlan(PointID const& start_point, PointID const& end_point, GridGraph const& nav_function,
+            std::list<VoronoiPoint> const& points);
 
         std::vector<height_t> getHeightmap() const { return heightmap; }
     };

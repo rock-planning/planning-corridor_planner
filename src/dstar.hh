@@ -292,6 +292,8 @@ namespace nav {
         static const int DIR_ALL = DIR_STRAIGHT | DIR_DIAGONAL;
 
     private:
+        int m_width, m_height;
+
         /** Array which encodes the parents of each node. The array is stored
          * row-first (i.e. the value for (x, y) is at (y * m_xsize + x).
          *
@@ -310,6 +312,9 @@ namespace nav {
 
     public:
         explicit GridGraph(size_t width = 0, size_t height = 0, float value = 0);
+
+        int getWidth() const { return m_width; }
+        int getHeight() const { return m_height; }
 
         /** Clears all edges in the graph, and initialize the floating-point
          * value to the given \c new_value */

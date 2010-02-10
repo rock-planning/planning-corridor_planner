@@ -74,7 +74,6 @@ namespace nav
          * crossroads)
          */
         void mergeSimpleCrossroads_directed();
-        std::pair<PointID, PointID> split(int corridor_idx, Corridor::voronoi_iterator it);
 
     public:
         Plan();
@@ -135,6 +134,14 @@ namespace nav
          * @arg endpoints the set of endpoints
          */
         void simplify();
+
+        /** Split the given corridor at the specified place, and returns the new
+         * corridor.
+         *
+         * After the split, the front part is saved in the original corridor
+         * while the new corridor contains the back part.
+         */
+        Corridor& split(int corridor_idx, Corridor::voronoi_iterator it);
     };
     std::ostream& operator << (std::ostream& io, Plan const& plan);
 }

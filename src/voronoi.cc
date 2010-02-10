@@ -14,6 +14,22 @@ using namespace std;
 using namespace boost;
 using namespace nav;
 
+template<typename Container0, typename Container1>
+static int findConcatenationOrder(Container0 const& line0, Container1 const& line1)
+{
+    PointID front0 = line0.front();
+    PointID back0  = line0.back();
+    PointID front1 = line1.front();
+    PointID back1  = line1.back();
+
+    double distances[4];
+    distances[0] = front0.distance2(front1);
+    distances[1] = front0.distance2(back1);
+    distances[2] = back0.distance2(front1);
+    distances[3] = back0.distance2(back1);
+    return min_element(distances, distances + 4) - distances;
+}
+
 list<PointSet>::iterator nav::updateConnectedSets(std::list<PointSet>& sets, PointID p)
 {
     list<PointSet>::iterator it;
@@ -432,19 +448,24 @@ void Corridor::update()
     // boundary sets and update the bounding boxes while we're at it
     Corridor::voronoi_const_iterator left  = voronoi.end();
     Corridor::voronoi_const_iterator right = ++voronoi.begin();
+    Point<float> last_slice_direction;
+    int boundary0 = 0, boundary1 = 1;
     for (Corridor::voronoi_iterator it = voronoi.begin(); it != voronoi.end(); ++it, ++left, ++right)
     {
         if (it->borders.size() != 2)
             continue;
 
-        copy(it->borders.front().begin(), it->borders.front().end(),
-                back_inserter(boundaries[0]));
-        copy(it->borders.back().begin(), it->borders.back().end(),
-                back_inserter(boundaries[0]));
-        for_each(boundaries[0].begin(), boundaries[0].end(),
-                bind(&BoundingBox::update, ref(bbox), _1));
-        for_each(boundaries[1].begin(), boundaries[1].end(),
-                bind(&BoundingBox::update, ref(bbox), _1));
+	if (it != voronoi.begin())
+	{
+	    Point<float> slice_direction = it->direction();
+	    if (slice_direction * last_slice_direction < 0)
+		std::swap(boundary0, boundary1);
+	}
+	copy(it->borders.front().begin(), it->borders.front().end(),
+		back_inserter(boundaries[boundary0]));
+	copy(it->borders.back().begin(), it->borders.back().end(),
+		back_inserter(boundaries[boundary1]));
+	last_slice_direction = it->direction();
 
         median_bbox.update(it->center);
 
@@ -458,6 +479,43 @@ void Corridor::update()
             it->tangent = Point<float>();
     }
     bbox.merge(median_bbox);
+
+    // Fix the boundary lines. The way we added the points is completely wrong
+    // (obviously)
+    //
+    // We use a method akin to the one used by SkeletonExtraction to extract the
+    // skeleton
+    for_each(boundaries[0].begin(), boundaries[0].end(),
+	    bind(&BoundingBox::update, ref(bbox), _1));
+    for_each(boundaries[1].begin(), boundaries[1].end(),
+	    bind(&BoundingBox::update, ref(bbox), _1));
+
+    GridGraph temp(bbox.max.x - bbox.min.x + 1, bbox.max.y - bbox.min.y + 1);
+    fixLineOrdering(temp, boundaries[0]);
+    fixLineOrdering(temp, boundaries[1]);
+
+    for (int boundary_idx = 0; boundary_idx < 2; ++boundary_idx)
+    {
+	double distances[4];
+	distances[0] = boundaries[boundary_idx].front().distance2(frontPoint());
+	distances[1] = boundaries[boundary_idx].back().distance2(backPoint());
+	distances[2] = boundaries[boundary_idx].front().distance2(backPoint());
+	distances[3] = boundaries[boundary_idx].back().distance2(frontPoint());
+	int min_dist = min_element(distances, distances + 4) - distances;
+
+	if (min_dist > 1)
+	    boundaries[boundary_idx].reverse();
+    }
+
+    cerr << "corridor " << name << endl;
+    cerr << "   bbox: " << bbox << endl;
+    cerr << "   median_bbox: " << median_bbox << endl;
+    cerr << "   voronoi: ";
+    displayLine(cerr, voronoi);
+    cerr << "   boundaries[0]";
+    displayLine(cerr, boundaries[0]);
+    cerr << "   boundaries[1]";
+    displayLine(cerr, boundaries[1]);
 }
 
 void Corridor::addConnection(bool side, int target_idx, bool target_side)
@@ -722,12 +780,12 @@ bool Corridor::updateCurves()
     boundaries[0].unique();
     boundaries[1].unique();
 
-    if (boundaries[0].size() < 4) return false;
+    if (boundaries[0].size() < 2) return false;
     for (list<PointID>::const_iterator it = boundaries[0].begin(); it != boundaries[0].end(); ++it)
         boundary_curves[0].addPoint(Eigen::Vector3d(it->x, it->y, 0));
     boundary_curves[0].update();
 
-    if (boundaries[1].size() < 4) return false;
+    if (boundaries[1].size() < 2) return false;
     for (list<PointID>::const_iterator it = boundaries[1].begin(); it != boundaries[1].end(); ++it)
         boundary_curves[1].addPoint(Eigen::Vector3d(it->x, it->y, 0));
     boundary_curves[1].update();
@@ -736,7 +794,7 @@ bool Corridor::updateCurves()
     Corridor::voronoi_const_iterator const median_end = voronoi.end();
     for (; median_it != median_end; ++median_it)
         median_curve.addPoint(Eigen::Vector3d(median_it->center.x, median_it->center.y, 0));
-    if (median_curve.getPointCount() < 4)
+    if (median_curve.getPointCount() < 2)
         return false;
     median_curve.update();
 
@@ -784,169 +842,107 @@ void lineOrderingDFS(list<PointID>& result, PointID cur_point, int last_directio
     }
 }
 
-//void Corridor::fixLineOrderings()
-//{
-//    GridGraph graph(bbox.max.x - bbox.min.x + 1, bbox.max.y - bbox.min.y + 1);
-//
-//    cerr << name << " bbox: " << bbox << endl;
-//
-//    // First, do the voronoi
-//    //
-//    // Note that converting the median back into the voronoi point set sucks
-//    // badly, and we should not even have to care about the voronoi ordering
-//    // anyway .. but do it for now
-//    cerr << name << ": fixing ordering of voronoi" << endl;
-//    cerr << name << " initial:";
-//    displayLine(cerr, voronoi, boost::bind(&VoronoiPoint::center, _1));
-//    list<PointID> median;
-//    median.resize(voronoi.size());
-//    transform(voronoi.begin(), voronoi.end(), 
-//            median.begin(), boost::bind(&VoronoiPoint::center, _1));
-//    fixLineOrdering(graph, median);
-//
-//    list<VoronoiPoint> new_voronoi;
-//    while (!median.empty())
-//    {
-//        PointID p = median.back();
-//        median.pop_back();
-//
-//        list<VoronoiPoint>::iterator it;
-//        for (it = voronoi.begin(); it != voronoi.end(); ++it)
-//        {
-//            if (it->center == p)
-//                break;
-//        }
-//
-//        if (it == voronoi.end())
-//            throw std::logic_error("cannot find voronoi point in fixLineOrdering");
-//
-//        new_voronoi.push_front(*it);
-//        voronoi.erase(it);
-//    }
-//    voronoi.swap(new_voronoi);
-//
-//    cerr << name << " result:";
-//    displayLine(cerr, voronoi, boost::bind(&VoronoiPoint::center, _1));
-//
-//    // Now do the boundary lines
-//    cerr << name << ": fixing ordering of boundaries[0]" << endl;
-//    fixLineOrdering(graph, boundaries[0]);
-//    cerr << name << ": fixing ordering of boundaries[1]" << endl;
-//    fixLineOrdering(graph, boundaries[1]);
-//}
-
-//void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
-//{
-//    if (line.empty())
-//        return;
-//
-//    graph.clear(0);
-//
-//    // Mark all points in +line+ as not seen yet
-//    cerr << name << " mapped:";
-//    list<PointID> mapped;
-//    for (list<PointID>::const_iterator it = line.begin(); it != line.end(); ++it)
-//    {
-//        mapped.push_back(*it - bbox.min);
-//        graph.setValue(it->x - bbox.min.x, it->y - bbox.min.y, 1);
-//    }
-//    displayLine(cerr, mapped, std::_Identity<PointID>());
-//    cerr << endl;
-//
-//    list<PointID> result;
-//
-//    while (true)
-//    {
-//        PointID start_point;
-//
-//        {
-//            list<PointID>::const_iterator it;
-//            for (it = line.begin(); it != line.end(); ++it)
-//            {
-//                if (graph.getValue(it->x - bbox.min.x, it->y - bbox.min.y) != 0)
-//                    break;
-//            }
-//
-//            if (it == line.end())
-//                break; // we're done !
-//
-//            // There are still some other components to fix
-//            start_point = *it - bbox.min;
-//        }
-//       
-//        cerr << "starting at " << start_point << " (" << (start_point + bbox.min) << ")" << endl;
-//        graph.setValue(start_point.x, start_point.y, 0);
-//        GridGraph::iterator n_it = graph.neighboursBegin(start_point.x, start_point.y);
-//
-//        // Find the two longest lines. We always maintain line0.size() > line1.size()
-//        // always.
-//        list<PointID> line0, line1;
-//        list<PointID> temp;
-//        for (; !n_it.isEnd(); ++n_it)
-//        {
-//            if (n_it.getValue() == 0)
-//                continue;
-//
-//            temp.clear();
-//            PointID root = n_it.getTargetPoint();
-//            lineOrderingDFS(temp, n_it.getTargetPoint(), n_it.getNeighbourIndex(), graph);
-//            std::cerr << "temp:" << temp.size();
-//
-//            if (temp.size() > line0.size())
-//            {
-//                line0.swap(line1);
-//                line0.swap(temp);
-//            }
-//            else
-//                line1.swap(temp);
-//
-//            cerr << "line0:" << line0.size() << " " << "line1:" << line1.size() << std::endl;
-//        }
-//
-//        // Make one line out of line0 and line1. Don't forget to add bbox.min
-//        // back *and* add the start_point in the middle.
-//        line0.reverse();
-//        line0.push_back(start_point);
-//        line0.splice(line0.end(), line1);
-//        for (list<PointID>::iterator it = line0.begin(); it != line0.end(); ++it)
-//            *it = *it + bbox.min;
-//
-//        // Concatenate with data already in +result+
-//        if (result.empty())
-//            result.swap(line0);
-//        else
-//        {
-//            int order = findConcatenationOrder(result, line0);
-//            if (order / 2) // attach to result.back
-//            {
-//                if (order % 2 == 1)
-//                {
-//                    // attach to line0.back
-//                    line0.reverse();
-//                    // now attach to line0.front
-//                }
-//                result.splice(result.end(), line0);
-//            }
-//            else // attach to result.front
-//            {
-//                if (order % 2 == 0)
-//                {
-//                    // attach to line0.front
-//                    line0.reverse();
-//                    // now attach to line0.back
-//                }
-//                result.splice(result.begin(), line0);
-//            }
-//        }
-//    }
-//
-//    PointID const p_front = line.front();
-//    line.swap(result);
-//    if (p_front.distance2(line.front()) < p_front.distance2(line.back()))
-//        line.reverse();
-//
-//}
-
-void Corridor::buildBoundaries()
+void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
 {
+    if (line.empty())
+        return;
+
+    graph.clear(0);
+
+    // Mark all points in +line+ as not seen yet
+    list<PointID> mapped;
+    for (list<PointID>::const_iterator it = line.begin(); it != line.end(); ++it)
+    {
+        mapped.push_back(*it - bbox.min);
+        graph.setValue(it->x - bbox.min.x, it->y - bbox.min.y, 1);
+    }
+
+    list<PointID> result;
+    while (true)
+    {
+        PointID start_point;
+
+        {
+            list<PointID>::const_iterator it;
+            for (it = line.begin(); it != line.end(); ++it)
+            {
+                if (graph.getValue(it->x - bbox.min.x, it->y - bbox.min.y) != 0)
+                    break;
+            }
+
+            if (it == line.end())
+                break; // we're done !
+
+            // There are still some other components to fix
+            start_point = *it - bbox.min;
+        }
+       
+        cerr << "starting at " << start_point << " (" << (start_point + bbox.min) << ")" << endl;
+        graph.setValue(start_point.x, start_point.y, 0);
+        GridGraph::iterator n_it = graph.neighboursBegin(start_point.x, start_point.y);
+
+        // Find the two longest lines. We always maintain line0.size() > line1.size()
+        // always.
+        list<PointID> line0, line1;
+        list<PointID> temp;
+        for (; !n_it.isEnd(); ++n_it)
+        {
+            if (n_it.getValue() == 0)
+                continue;
+
+            temp.clear();
+            PointID root = n_it.getTargetPoint();
+            lineOrderingDFS(temp, n_it.getTargetPoint(), n_it.getNeighbourIndex(), graph);
+            std::cerr << "temp:" << temp.size();
+
+            if (temp.size() > line0.size())
+            {
+                line0.swap(line1);
+                line0.swap(temp);
+            }
+            else
+                line1.swap(temp);
+
+            cerr << "line0:" << line0.size() << " " << "line1:" << line1.size() << std::endl;
+        }
+
+        // Make one line out of line0 and line1. Don't forget to add bbox.min
+        // back *and* add the start_point in the middle.
+        line0.reverse();
+        line0.push_back(start_point);
+        line0.splice(line0.end(), line1);
+        for (list<PointID>::iterator it = line0.begin(); it != line0.end(); ++it)
+            *it = *it + bbox.min;
+
+        // Concatenate with data already in +result+
+        if (result.empty())
+            result.swap(line0);
+        else
+        {
+            int order = findConcatenationOrder(result, line0);
+            if (order / 2) // attach to result.front
+            {
+                if (order % 2 == 0)
+                {
+                    // attach to line0.front
+                    line0.reverse();
+                    // now attach to line0.back
+                }
+                result.splice(result.begin(), line0);
+            }
+            else // attach to result.front
+            {
+                if (order % 2 == 1)
+                {
+                    // attach to line0.back
+                    line0.reverse();
+                    // now attach to line0.front
+                }
+                result.splice(result.end(), line0);
+            }
+        }
+    }
+
+    line.swap(result);
 }
+
