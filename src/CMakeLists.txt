@@ -1,7 +1,7 @@
 find_package(GDAL)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GDAL_CFLAGS}")
 
-add_library(Nav SHARED NURBSCurve3D.cc dstar.cc voronoi.cc skeleton.cc plan.cc merge.cc)
+add_library(Nav SHARED NURBSCurve3D.cc dstar.cc voronoi.cc skeleton.cc plan.cc)
 target_link_libraries(Nav ${SISL_LIBRARIES} ${GDAL_LIBRARIES})
 
 pkg_check_modules(BASE_TYPES REQUIRED "base-types")

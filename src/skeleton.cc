@@ -13,6 +13,27 @@ using namespace boost;
 using namespace std;
 using namespace nav;
 
+static const int VALUE_IGNORE               = 0;
+static const int VALUE_SKELETON_VISITED     = 1;
+static const int VALUE_SKELETON_NOT_VISITED = 2;
+
+// Start value for marking of skeleton points.
+//
+// buildPlan() uses (VALUE_CORRIDORS_START + n) to mark that a skeleton point is
+// part of corridor +n+, and then uses VALUE_CONNECTIONS_START (which is set to
+// VALUE_CORRIDORS_START + corridors.size()) to mark the connection points.
+static const int VALUE_CORRIDORS_START = 10;
+
+void CorridorExtractionState::addBranch(PointID const& p, std::list<VoronoiPoint>& line)
+{
+    std::cerr << std::string(depth, ' ') << "adding branch at " << p << " of size " << line.size() << std::endl;
+    displayLine(std::cerr, line, boost::bind(&VoronoiPoint::center, _1));
+
+    BranchMap::iterator it = branches.insert( make_pair(p, list<VoronoiPoint>()) );
+    it->second.swap(line);
+}
+
+
 SkeletonExtraction::SkeletonExtraction(size_t width, size_t height)
     : width(width)
     , height(height)
@@ -282,73 +303,33 @@ list<VoronoiPoint> SkeletonExtraction::processPointSets(PointSet const& inside, 
     return process();
 }
 
-void SkeletonExtraction::registerConnections(PointID source_point, int source_idx, map<PointID, int> const& targets, vector<Corridor>& corridors)
-{
-    Corridor& source = corridors[source_idx];
-    for (map<PointID, int>::const_iterator target_it = targets.begin(); target_it != targets.end(); ++target_it)
-    {
-        PointID target_point = target_it->first;
-        int target_idx = target_it->second;
-        Corridor& target = corridors[target_idx];
-
-        std::cerr << "connecting " << source.name << " <=> " << target.name << std::endl;
-
-        source.addConnection(source_point, target_idx, target_point);
-        target.addConnection(target_point, source_idx, source_point);
-    }
-}
-
-typedef map<PointID, list<VoronoiPoint>::const_iterator> VoronoiMap;
-typedef multimap< PointID, list<VoronoiPoint> > BranchMap;
-
-struct CorridorExtractionState
-{
-    GridGraph  graph;
-
-    BranchMap  branches;
-    VoronoiMap voronoiMap;
-
-    int depth;
-
-    CorridorExtractionState(int width, int height)
-        : graph(width, height)
-        , depth(0) {}
-
-    VoronoiPoint const& front()
-    {
-        VoronoiMap::iterator it = voronoiMap.begin();
-        return *(it->second);
-    }
-
-    void addBranch(PointID const& p, list<VoronoiPoint>& line)
-    {
-        cerr << string(depth, ' ') << "adding branch at " << p << " of size " << line.size() << endl;
-        displayLine(cerr, line, boost::bind(&VoronoiPoint::center, _1));
-
-        BranchMap::iterator it = branches.insert( make_pair(p, list<VoronoiPoint>()) );
-        it->second.swap(line);
-    }
-};
-
 bool lineOrderingDFS(PointID const& cur_point, int neighbour_mask,
         list<VoronoiPoint>& parent_line,
         CorridorExtractionState& state)
 {
+    static const int TOP          = GridGraph::TOP;
+    static const int TOP_LEFT     = GridGraph::TOP_LEFT;
+    static const int TOP_RIGHT    = GridGraph::TOP_RIGHT;
+    static const int RIGHT        = GridGraph::RIGHT;
+    static const int LEFT         = GridGraph::LEFT;
+    static const int BOTTOM       = GridGraph::BOTTOM;
+    static const int BOTTOM_LEFT  = GridGraph::BOTTOM_LEFT;
+    static const int BOTTOM_RIGHT = GridGraph::BOTTOM_RIGHT;
     static const int PROGRESSION_MASKS[8] = {
-        GridGraph::RIGHT       | GridGraph::TOP_RIGHT | GridGraph::BOTTOM_RIGHT, // RIGHT
-        GridGraph::RIGHT       | GridGraph::TOP_RIGHT | GridGraph::TOP,          // TOP_RIGHT
-        GridGraph::TOP         | GridGraph::TOP_RIGHT | GridGraph::TOP_LEFT,     // TOP
-        GridGraph::TOP         | GridGraph::LEFT      | GridGraph::TOP_LEFT,     // TOP_LEFT
-        GridGraph::BOTTOM_LEFT | GridGraph::LEFT      | GridGraph::TOP_LEFT,     // LEFT
-        GridGraph::BOTTOM_LEFT | GridGraph::LEFT      | GridGraph::BOTTOM,       // BOTTOM_LEFT
-        GridGraph::BOTTOM_LEFT | GridGraph::BOTTOM    | GridGraph::BOTTOM_RIGHT, // BOTTOM
-        GridGraph::RIGHT       | GridGraph::BOTTOM    | GridGraph::BOTTOM_RIGHT  // BOTTOM_RIGHT
+        RIGHT       | TOP_RIGHT | BOTTOM_RIGHT, // RIGHT
+        RIGHT       | TOP_RIGHT | TOP,          // TOP_RIGHT
+        TOP         | TOP_RIGHT | TOP_LEFT,     // TOP
+        TOP         | LEFT      | TOP_LEFT,     // TOP_LEFT
+        BOTTOM_LEFT | LEFT      | TOP_LEFT,     // LEFT
+        BOTTOM_LEFT | LEFT      | BOTTOM,       // BOTTOM_LEFT
+        BOTTOM_LEFT | BOTTOM    | BOTTOM_RIGHT, // BOTTOM
+        RIGHT       | BOTTOM    | BOTTOM_RIGHT  // BOTTOM_RIGHT
     };
 
     bool detached  = true;
     bool branching = false;
 
-    state.graph.setValue(cur_point.x, cur_point.y, 1);
+    state.graph.setValue(cur_point.x, cur_point.y, VALUE_SKELETON_VISITED);
     VoronoiMap::iterator voronoi_it = state.voronoiMap.find(cur_point);
     cerr << string(state.depth, ' ') << "visiting " << cur_point << endl;
     parent_line.push_back( *(voronoi_it->second) );
@@ -359,9 +340,10 @@ bool lineOrderingDFS(PointID const& cur_point, int neighbour_mask,
     list<VoronoiPoint> result, cur_line;
     for (; !n_it.isEnd(); ++n_it)
     {
-        if (n_it.getValue() < 1.5) // either not actual point, or already visited
+        int target_value = lround(n_it.getTargetValue());
+        if (target_value != VALUE_SKELETON_NOT_VISITED) // either not actual point, or already visited
         {
-            if (n_it.getValue() > 0.5)
+            if (target_value == VALUE_SKELETON_VISITED)
                 detached = false;
             continue;
         }
@@ -380,7 +362,6 @@ bool lineOrderingDFS(PointID const& cur_point, int neighbour_mask,
         else
         {
             branching = true;
-            cerr << "A " << cur_line.size() << endl;
             state.addBranch(cur_point, cur_line);
             cur_line.swap(result);
         }
@@ -390,24 +371,19 @@ bool lineOrderingDFS(PointID const& cur_point, int neighbour_mask,
     if (!branching)
         parent_line.splice(parent_line.end(), cur_line);
     else if (!cur_line.empty())
-    {
-        cerr << "B " << cur_line.size() << endl;
         state.addBranch(cur_point, cur_line);
-    }
 
     return branching || detached;
 }
 
 
-void SkeletonExtraction::extractBranches(list<VoronoiPoint> const& points, multimap<PointID, list<VoronoiPoint> >& branches)
+void SkeletonExtraction::extractBranches(list<VoronoiPoint> const& points, CorridorExtractionState& state)
 {
     // Initialize a GridGraph of the right size, and mark the voronoi points in
     // it. We will use it to traverse the terrain
     //
     // At the same time, keep a mapping from PointID to voronoi points. The
     // points will be removed from there as they are traversed.
-    CorridorExtractionState state(width, height);
-
     for (voronoi_const_iterator it = points.begin(); it != points.end(); ++it)
     {
         PointID center = it->center;
@@ -423,12 +399,219 @@ void SkeletonExtraction::extractBranches(list<VoronoiPoint> const& points, multi
         if (cur_line.size() > 1)
             state.addBranch( start_point, cur_line );
     }
+}
 
-    state.branches.swap(branches);
+void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
+{
+    // First, a dead simple step: convert each branch into a corridor. When we
+    // have done that, build the set of connection points by creating the
+    // looking at the beginning and end point.
+    //
+    // We use the grid graph to check if there are places where a branch meets
+    // the middle of another branch. We will post-process those later on
+    list<Endpoint> endpoints;
+    BranchMap::iterator branch_it = state.branches.begin();
+    BranchMap::iterator const branch_end = state.branches.end();
+    for (; branch_it != branch_end; ++branch_it)
+    {
+        // Keep a local copy to make the compiler potentially happier
+        list<VoronoiPoint> line;
+        line.swap(branch_it->second);
+
+        // the index of the corridor
+        size_t corridor_idx = state.plan.corridors.size();
+
+        // register endpoints in +endpoints+, to create connections later on
+        endpoints.push_back(Endpoint(line.front().center, corridor_idx, false));
+        endpoints.push_back(Endpoint(line.back().center, corridor_idx, true));
+
+        // mark the ownership of points in the graph
+        for (list<VoronoiPoint>::const_iterator it = line.begin(); it != line.end(); ++it)
+            state.graph.setValue(it->center.x, it->center.y, VALUE_CORRIDORS_START + corridor_idx);
+
+        // Finally, create the new corridor
+        Corridor& new_corridor = state.plan.newCorridor();
+        new_corridor.voronoi.swap(line);
+        new_corridor.update();
+    }
+    // OK, the branches set is now invalid (we spliced all the lines to the
+    // corridors), so clear it
+    state.branches.clear();
+
+    int const VALUE_CONNECTIONS_START = VALUE_CORRIDORS_START + state.plan.corridors.size();
+
+    // Register the "obvious" connection points, i.e. the ones that are exactly
+    // at the same place
+    vector< list<Endpoint> > connection_points;
+    for (list<Endpoint>::const_iterator it = endpoints.begin();
+            it != endpoints.end(); ++it)
+    {
+        Endpoint endp = *it;
+        PointID p = endp.point;
+        int current_endpoint = lround(state.graph.getValue(p.x, p.y));
+
+        // If the value is greater than VALUE_ENDPOINT_START, it means we have
+        // already an endpoint there.
+        if (current_endpoint >= VALUE_CONNECTIONS_START)
+            connection_points[current_endpoint - VALUE_CONNECTIONS_START].push_back(endp);
+        else
+        {
+            int connection_index = connection_points.size();
+            connection_points.push_back(list<Endpoint>());
+            connection_points.back().push_back(endp);
+            state.graph.setValue(p.x, p.y, connection_index + VALUE_CONNECTIONS_START);
+        }
+    }
+
+    // Now merge the adjacent connection points. We also search for endpoints
+    // that cut another branch in two halves.
+    //
+    // Note that we MUST NOT remove any element in connection_points. Instead,
+    // we simply make the endpoint list empty to mark that this connection point
+    // stopped being useful.
+
+    // This map is used to register the potential splits. They are filtered out
+    // later on
+    typedef map<int, set<int> > SplitMap;
+    SplitMap potential_splits;
+    int connection_points_size = connection_points.size();
+    for (int connection_idx = 0; connection_idx < connection_points_size; ++connection_idx)
+    {
+        list<Endpoint>& endpoints = connection_points[connection_idx];
+        list<Endpoint>::iterator const endp_end = endpoints.end();
+        for (list<Endpoint>::iterator endp_it = endpoints.begin(); endp_it != endp_end; ++endp_it)
+        {
+            PointID endp = endp_it->point;
+            GridGraph::iterator n_it = state.graph.neighboursBegin(endp.x, endp.y);
+            for (; !n_it.isEnd(); ++n_it)
+            {
+                int value = lround(n_it.getTargetValue());
+
+                if (value >= VALUE_CONNECTIONS_START)
+                { // this is another endpoint. Merge.
+                    value -= VALUE_CONNECTIONS_START;
+
+                    if (value != connection_idx)
+                    {
+                        SplitMap::iterator split_it = potential_splits.find(value);
+                        if (split_it != potential_splits.end())
+                        {
+                            potential_splits[connection_idx].insert(
+                                    split_it->second.begin(),
+                                    split_it->second.end());
+                            potential_splits.erase(split_it);
+                        }
+                        endpoints.splice(endpoints.end(), connection_points[value]);
+                        n_it.setTargetValue(connection_idx + VALUE_CONNECTIONS_START);
+                    }
+                }
+                else if (value >= VALUE_CORRIDORS_START)
+                { // the target point is part of another corridor. Register as a
+                  // possible link between an endpoint and the middle of a
+                  // corridor
+                    value -= VALUE_CORRIDORS_START;
+                    potential_splits[connection_idx].insert(value);
+                }
+            }
+        }
+    }
+
+    // Filter the connection that exists from the potential_splits mapping
+    SplitMap::iterator split_it = potential_splits.begin();
+    SplitMap::iterator const split_end = potential_splits.end();
+    while (split_it != split_end)
+    {
+        int connection_idx = split_it->first;
+        list<Endpoint> const& endpoints = connection_points[connection_idx];
+        for (list<Endpoint>::const_iterator endp_it = endpoints.begin(); endp_it != endpoints.end(); ++endp_it)
+            split_it->second.erase(endp_it->corridor_idx);
+
+        if (split_it->second.empty())
+            potential_splits.erase(split_it++);
+        else
+            ++split_it;
+    }
+
+    // Convert the connection point and split maps into the data structures that
+    // CorridorExtractionState expects.
+    //
+    // We filter out the connections that invalid and/or are connected to
+    // nothing (i.e. endpoints that are actually not connected)
+    for (size_t connection_idx = 0; connection_idx != connection_points.size(); ++connection_idx)
+    {
+        list<Endpoint>& endpoints = connection_points[connection_idx];
+        if (endpoints.empty())
+            continue;
+
+        SplitMap::iterator split_it =
+            potential_splits.find(connection_idx);
+        if (endpoints.size() == 1 && split_it == potential_splits.end())
+        {
+            // We still have to check if there is a split that involves this
+            // corridor
+            int corridor_idx = endpoints.front().corridor_idx;
+            SplitMap::const_iterator split_it;
+            for (split_it = potential_splits.begin(); split_it != potential_splits.end(); ++split_it)
+            {
+                if (split_it->second.count(corridor_idx))
+                    break;
+            }
+
+            if (split_it == potential_splits.end())
+            {
+                cerr << "potential dead end: " << endpoints.front().point << " " << endpoints.front().corridor_idx << endl;
+                state.simple_connectivity_corridors.push_back(endpoints.front().corridor_idx);
+            }
+            continue;
+        }
+
+        ConnectionPoints::iterator it =
+            state.connection_points.insert(state.connection_points.end(), list<Endpoint>());
+        it->swap(connection_points[connection_idx]);
+
+        if (split_it != potential_splits.end())
+        {
+            SplitPoints::iterator state_split =
+                state.split_points.insert(
+                       state.split_points.end(),
+                       make_pair(it, set<int>()) );
+            state_split->second.swap(split_it->second);
+        }
+    }
+}
+
+pair<int, int> SkeletonExtraction::removeDeadEnds(CorridorExtractionState& state)
+{
+    int start_corridor = state.plan.findCorridorOf(state.plan.getStartPoint());
+    int end_corridor   = state.plan.findCorridorOf(state.plan.getEndPoint());
+    set<int> end_corridors;
+    end_corridors.insert(start_corridor);
+    end_corridors.insert(end_corridor);
+    removeDeadEnds(state, end_corridors);
+    return make_pair(start_corridor, end_corridor);
+}
+
+void SkeletonExtraction::removeDeadEnds(CorridorExtractionState& state, set<int> const& keepalive)
+{
+    for (vector<int>::const_reverse_iterator it = state.simple_connectivity_corridors.rbegin();
+            it != state.simple_connectivity_corridors.rend(); ++it)
+    {
+        if (keepalive.count(*it))
+            continue;
+
+        state.plan.removeCorridor(*it);
+    }
 }
 
 void SkeletonExtraction::buildPlan(Plan& result, std::list<VoronoiPoint> const& points)
 {
+    result.clear();
+    CorridorExtractionState state(width, height);
+
+    extractBranches(points, state);
+    computeConnections(state);
+
+    removeDeadEnds(state);
 }
 
 //void SkeletonExtraction::buildPixelMap(Plan& result) const

@@ -42,7 +42,6 @@ void PlanMerge::merge(Plan const& left, Plan const& right, float coverage_thresh
     ownership.resize(corridors.size());
     fill(ownership.begin(), ownership.begin() + left.corridors.size(), LEFT_SIDE);
     fill(ownership.begin() + left.corridors.size(), ownership.end(), RIGHT_SIDE);
-    for_each(corridors.begin(), corridors.end(), bind(&Corridor::buildTangent, _1));
     process(coverage_threshold, angular_threshold);
 
     vector<int> useful_corridors;
@@ -408,7 +407,7 @@ bool PlanMerge::mergeCorridors(int left_idx, int right_idx,
                     for (Corridor::voronoi_const_iterator it = cancelled.begin(); it != cancelled.end(); ++it)
                     {
                         point_mapping[ make_pair(right_last_corridor + 1, it->center) ].first = right_last_corridor;
-                        merge.add(*it, true);
+                        merge.push_back(*it);
                     }
 
                     ownership[right_last_corridor + 1] = TO_DELETE;
@@ -524,7 +523,7 @@ void PlanMerge::pushSingle(int source_idx, Corridor::voronoi_const_iterator poin
     // course, the same here but both points are different in case of a merge.
     point_mapping[ make_pair(source_idx, point->center) ] =
         make_pair(corridors.size(), point->center);
-    accumulator.add(*point, true);
+    accumulator.push_back(*point);
     last_point[0] = new_mapping;
 }
 
@@ -550,7 +549,7 @@ void PlanMerge::pushMerged(
         accumulator.name = "(" + corridors[left_idx].name + "|" + corridors[right_idx].name + ")" + "." + boost::lexical_cast<std::string>(corridors.size());
 
     mode = MERGING;
-    accumulator.add(p, voronoi, true);
+    accumulator.push_back(p, voronoi);
 
     last_point[0] = from_left;
     point_mapping[ make_pair(left_idx, left_point) ]   = make_pair(new_idx, p);

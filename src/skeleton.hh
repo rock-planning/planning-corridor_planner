@@ -9,6 +9,61 @@
 
 namespace nav
 {
+    struct Endpoint
+    {
+        PointID point;
+        int     corridor_idx;
+        bool    side; // false for front() and true for back()
+
+        Endpoint(PointID p, int idx, bool side)
+            : point(p), corridor_idx(idx), side(side) {}
+    };
+
+    typedef std::map<PointID, std::list<VoronoiPoint>::const_iterator> VoronoiMap;
+    typedef std::multimap< PointID, std::list<VoronoiPoint> > BranchMap;
+    typedef std::list< std::list<Endpoint> > ConnectionPoints;
+    typedef std::list< std::pair<ConnectionPoints::iterator, std::set<int> > > SplitPoints;
+
+    struct CorridorExtractionState
+    {
+        Plan plan;
+        GridGraph  graph;
+
+        BranchMap  branches;
+        VoronoiMap voronoiMap;
+
+        ConnectionPoints connection_points;
+        SplitPoints split_points;
+
+        // Keeps whether a given corridor has connection points at both sides
+        // (true) or only at one side (false)
+        std::vector<int> simple_connectivity_corridors;
+
+        int depth;
+
+        CorridorExtractionState(int width, int height)
+            : graph(width, height)
+            , depth(0) {}
+
+        VoronoiPoint const& front()
+        {
+            VoronoiMap::iterator it = voronoiMap.begin();
+            return *(it->second);
+        }
+
+        void addBranch(PointID const& p, std::list<VoronoiPoint>& line);
+    };
+
+
+    /** This class takes a partitioning of the plan as an inside part and a
+     * border, and turns it into either a Voronoi skeleton
+     * (SkeletonExtraction.process()) or a corridor plan
+     * (SkeletonExtraction.buildPlan()).
+     *
+     * It can accept a navigation function as input (processDStar), in which
+     * case it will compute the inside/border based on an acceptable cost margin
+     * (expand).
+     */
     class SkeletonExtraction
     {
     public:
@@ -83,14 +138,37 @@ namespace nav
          */
         std::pair<PointSet, PointSet> getBorderAndInside() const;
 
-
+        /** Takes the height map built by one of the initialize* methods, and
+         * extracts the voronoi diagrams out of it
+         */
         std::list<VoronoiPoint> process();
 
-        /** Creates a graph out of a set of median points */
+        /** Takes the voronoi skeleton extracted by process() and turns it into
+         * a set of branches. A branch is a line that has one start point and
+         * one end point
+         *
+         * This is the first step to turn a voronoi skeleton into a corridor
+         * plan
+         */
         void extractBranches(std::list<VoronoiPoint> const& points,
-                std::multimap<PointID, std::list<VoronoiPoint> >& branches);
+                CorridorExtractionState& state);
+
+        /** Takes the branche sets that are stored in the state and computes
+         * the set of connection and split points
+         */
+        void computeConnections(CorridorExtractionState& state);
+
+        /** Removes corridors that are dead ends (they neither connect two other
+         * corridors with each other, nor do they lead to the start and end
+         * points)
+         */
+        void removeDeadEnds(CorridorExtractionState& state, std::set<int> const& keepalive);
+
+        /** \overload
+         */
+        std::pair<int, int> removeDeadEnds(CorridorExtractionState& state);
+
         void buildPlan(Plan& result, std::list<VoronoiPoint> const& points);
-        void buildPixelMap(Plan& result) const;
 
         std::vector<height_t> getHeightmap() const { return heightmap; }
     };

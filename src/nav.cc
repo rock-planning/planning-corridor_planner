@@ -222,13 +222,12 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
         Corridor::Connections::const_iterator conn_it;
         for (conn_it = connections.begin(); conn_it != connections.end(); ++conn_it)
         {
-            int target_idx = conn_it->get<1>();
-            Corridor const& target = plan.corridors[target_idx];
+            int target_idx = conn_it->target_idx;
 
             if (!seen.count(target_idx))
             {
-                int in_side  = corridor.findSideOf(conn_it->get<0>());
-                int out_side = target.findSideOf(conn_it->get<2>());
+                int in_side  = conn_it->this_side;
+                int out_side = conn_it->target_side;
 
                 dot << "  c" << corridor_idx << "_" << in_side
                     << " -> c" << target_idx << "_" << out_side << " [weight=3];\n";
@@ -237,6 +236,64 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
         }
     }
     dot << "}\n";
+}
+
+void outputExtractionState(int xSize, int ySize, std::string const& out, vector<uint8_t> const& image, CorridorExtractionState const& state)
+{
+    vector<Corridor> const& corridors = state.plan.corridors;
+
+    cerr << "found " << corridors.size() << " corridors" << endl;
+    vector<RGBColor> color_image;
+    for (size_t i = 0; i < image.size(); ++i)
+        color_image.push_back(RGBColor(image[i]));
+
+    // Get colors. Note that we take two more colors to mark the connections
+    vector<RGBColor> colors = allocateColors(corridors.size() + 2);
+
+    // First mark the branches
+    for (vector<Corridor>::const_iterator it = corridors.begin(); it != corridors.end(); ++it)
+    {
+        vector<PointID> points;
+        list<VoronoiPoint> const& voronoi_points = it->voronoi;
+        points.resize(voronoi_points.size());
+        transform(voronoi_points.begin(), voronoi_points.end(), points.begin(),
+                boost::bind(&VoronoiPoint::center, _1));
+
+        markPoints(points, xSize, color_image, colors.back());
+        colors.pop_back();
+    }
+
+    // Then mark the connection with the two leftover colors
+    ConnectionPoints const& connections = state.connection_points;
+    SplitPoints const& splits = state.split_points;
+    RGBColor connection_color = colors[0];
+    RGBColor split_color = colors[1];
+    for (ConnectionPoints::const_iterator it = connections.begin(); it != connections.end(); ++it)
+    {
+        vector<PointID> points;
+        points.reserve(points.size() + it->size());
+        transform(it->begin(), it->end(),
+                back_inserter(points), boost::bind(&Endpoint::point, _1));
+
+        //cerr << "connection points: ";
+        //displayLine(cerr, points, std::_Identity<PointID>());
+        SplitPoints::const_iterator split_it;
+        for (split_it = splits.begin(); split_it != splits.end(); ++split_it)
+        {
+            if (split_it->first == it)
+                break;
+        }
+
+        RGBColor color;
+        if (split_it != splits.end())
+            color = RGBColor(255, 200, 200);
+        else
+            color = RGBColor(255, 255, 255);
+        markPoints(points, xSize, color_image, color);
+    }
+
+    std::cerr << "  saving result in " << out << std::endl;
+    saveColorImage(out, xSize, ySize, color_image);
 }
 
 
@@ -275,9 +332,9 @@ tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(
         // Find the maximum cost in the dstar output, filtering out actual
         // obstacles
         float max_val = 0;
-        for (int y = 0; y < ySize; ++y)
+        for (size_t y = 0; y < ySize; ++y)
         {
-            for (int x = 0; x < xSize; ++x)
+            for (size_t x = 0; x < xSize; ++x)
             {
                 float val = graph.getValue(x, y);
                 if (val < 10000 && max_val < val)
@@ -290,9 +347,9 @@ tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(
         for (size_t i = 0; i < image.size(); ++i)
             color_image.push_back(RGBColor(image[i]));
 
-        for (int y = 0; y < ySize; ++y)
+        for (size_t y = 0; y < ySize; ++y)
         {
-            for (int x = 0; x < xSize; ++x)
+            for (size_t x = 0; x < xSize; ++x)
             {
                 float val = graph.getValue(x, y);
                 RGBColor color;
@@ -335,33 +392,21 @@ tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(
         saveColorImage(out, xSize, ySize, color_image);
     }
 
+    CorridorExtractionState build_plan_state(xSize, ySize);
+    { Profile profiler("extracting corridors and computing connections");
+        skel.extractBranches(result, build_plan_state);
+        skel.computeConnections(build_plan_state);
+    }
+    outputExtractionState(xSize, ySize, basename + "-branches.tif", image, build_plan_state);
+
+    { Profile profiler("removing dead ends");
+        skel.removeDeadEnds(build_plan_state);
+    }
+    outputExtractionState(xSize, ySize, basename + "-branches-simplified.tif", image, build_plan_state);
+
     Plan plan(PointID(x0, y0), PointID(x1, y1), graph);
-    { Profile profiler("extracting branches ");
-        typedef multimap<PointID, list<VoronoiPoint> > BranchMap;
-        BranchMap branches;
-        skel.extractBranches(result, branches);
-
-        vector<RGBColor> color_image;
-        for (size_t i = 0; i < image.size(); ++i)
-            color_image.push_back(RGBColor(image[i]));
-        vector<RGBColor> colors = allocateColors(branches.size());
-        for (BranchMap::const_iterator it = branches.begin(); it != branches.end(); ++it)
-        {
-            vector<PointID> points;
-            list<VoronoiPoint> const& voronoi_points = it->second;
-            points.resize(voronoi_points.size());
-            transform(voronoi_points.begin(), voronoi_points.end(), points.begin(),
-                    boost::bind(&VoronoiPoint::center, _1));
-
-            markPoints(points, xSize, color_image, colors.back());
-            colors.pop_back();
-        }
-        string out = basename + "-branches.tif";
-        std::cerr << "  saving result in " << out << std::endl;
-        saveColorImage(out, xSize, ySize, color_image);
 
         // skel.buildPlan(plan, result);
-    }
     for (size_t i = 0; i < plan.corridors.size(); ++i)
         plan.corridors[i].name = name_prefix + plan.corridors[i].name;
 

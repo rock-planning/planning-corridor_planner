@@ -17,15 +17,8 @@ namespace nav
 
         /** The navigation function on which this plan is defined */
         GridGraph m_nav_function;
-
-        /** Removes corridors that don't provide any meaningful information in
-         * the plan, i.e. corridors with only one connection or null-sized
-         * corridors which connects corridors that are already connected
-         * directly to each other.
-         *
-         * Corridors that are marked as useful in \c useful are kept
-         */
-        void markNullCorridors(std::vector<int>& useful);
+        /** An index used to have unique names for the corridors */
+        int m_corridor_names;
 
         /** Marks in \c useful the useless corridors. Useless corridors are the
          * corridors that don't connect one endpoint with another
@@ -58,43 +51,28 @@ namespace nav
          */
         int markNextCorridors(std::set<int>& stack, int corridor_idx, std::vector<int>& useful) const;
 
-        static const int ENDPOINT_UNKNOWN = 0;
-        static const int ENDPOINT_FRONT   = 1;
-        static const int ENDPOINT_BACK    = 2;
-        static const int ENDPOINT_BIDIR   = 3;
-
         typedef std::map< std::pair<int, int>, int > ConnectionTypes; 
 	typedef std::map< Corridor::ConnectionDescriptor const*, int > EndpointTypes;
-
-	//template<typename It>
-	//std::pair<int, int> findEndpointType(
-	//	ConnectionTypes const& dfs_types,
-	//	EndpointTypes   const& cost_types,
-	//	InboundConnections const& inbound_connections,
-	//	size_t corridor_idx, It begin, It end) const;
 
 	std::vector<bool>  reach_flag;
 	std::vector<float> reach_min_cost;
         std::vector<int>   orientations;
 
-	bool markDirections_DFS(std::set< boost::tuple<int, PointID, int, PointID> >& result,
+	bool markDirections_DFS(std::set< boost::tuple<int, bool, int, bool> >& result,
 		std::vector<int>& stack, int in_side, int idx, int end_idx,
 		float accumulated_cost_overhead, float cost_margin);
 	void markDirections_cost();
         void removeBackToBackConnections();
-	void reorientMedianLines();
 
 	void checkConsistency() const;
 
         int findStartCorridor() const;
         int findEndCorridor() const;
-        int findCorridorOf(PointID const& endp) const;
-        void createEndpointCorridor(PointID const& endpoint, int direction, std::string const& name);
+        void createEndpointCorridor(PointID const& endpoint, bool is_end, std::string const& name);
 
         /** Remove crossroads that simply connects two corridors (i.e. not real
          * crossroads)
          */
-        void mergeSimpleCrossroads();
         void mergeSimpleCrossroads_directed();
         std::pair<PointID, PointID> split(int corridor_idx, Corridor::voronoi_iterator it);
 
@@ -102,6 +80,7 @@ namespace nav
         Plan();
         Plan(PointID start, PointID end, GridGraph const& nav_function = GridGraph());
 
+        int findCorridorOf(PointID const& endp) const;
         PointID getStartPoint() const;
         PointID getEndPoint() const;
         GridGraph const& getNavigationFunction() const;
@@ -109,13 +88,20 @@ namespace nav
         void setEndPoint(PointID const& p);
         void setNavigationFunction(GridGraph const& nav_function);
 
+        typedef std::vector<Corridor>::iterator corridor_iterator;
+
         /** The set of corridors in this plan, including the connections between
          * them */
         std::vector<Corridor> corridors;
-        /** The pixel-to-corridor map. It says, for each pixel, which corridor
-         * own it
+
+        /** Create a new corridor and returns a reference to it
+         *
+         * Note that all reference to corridors will be invalidated as soon as a
+         * mutating method is applied on the plan (simplify, newCorridor, ...)
+         *
+         * I.e. use the return value only to initialize it
          */
-        typedef std::vector<Corridor>::iterator corridor_iterator;
+        Corridor& newCorridor();
 
         int width, height;
         /** This vector maps each pixel into its corresponding corridor */

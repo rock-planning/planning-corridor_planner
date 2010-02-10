@@ -94,7 +94,11 @@ namespace nav
         geometry::NURBSCurve3D median_curve;
         geometry::NURBSCurve3D boundary_curves[2];
 
-	PointSet end_regions[2];
+        static const int ENDPOINT_UNKNOWN = 0;
+        static const int ENDPOINT_FRONT   = 1;
+        static const int ENDPOINT_BACK    = 2;
+        static const int ENDPOINT_BIDIR   = 3;
+
 	int end_types[2];
 	bool bidirectional;
 
@@ -105,20 +109,40 @@ namespace nav
 
         bool isSingleton() const
         { return voronoi.size() == 1; }
+        struct ConnectionDescriptor
+        {
+            bool this_side; // true for back() and false for front()
+            int  target_idx;
+            bool target_side; // true for back() and false for front()
+            ConnectionDescriptor(bool side, int target_idx, bool target_side)
+                : this_side(side), target_idx(target_idx), target_side(target_side)
+            {}
+        };
 
-        typedef boost::tuple<PointID, int, PointID> ConnectionDescriptor;
         typedef std::list<ConnectionDescriptor> Connections;
         typedef Connections::iterator connection_iterator;
         Connections connections;
 
-        void buildTangent();
+        bool isDeadEnd() const
+        {
+            bool has_front = false, has_back = false;
+            for (Connections::const_iterator it = connections.begin();
+                    it != connections.end(); ++it)
+            {
+                if (!has_front && !it->this_side)
+                    has_front = true;
+                else if (!has_back && it->this_side)
+                    has_back = true;
 
-	void buildEndRegions();
-        void extendBoundaries(VoronoiPoint const& descriptor, bool extend_at_end);
+                if (has_front && has_back) return true;
+            }
+            return false;
+        }
 
 	Corridor();
 
-        void move(Corridor& other);
+        void swap(Corridor& other);
+        void update();
 
         /** Returns true if \c p is contained in this corridor */
         bool contains(PointID const& p) const;
@@ -134,17 +158,12 @@ namespace nav
         void clear();
         bool operator == (Corridor const& other) const;
 
-        /** Add the given median point to the corridor, and then change its
-         * center point to the one given */
-        void add(PointID const& p, VoronoiPoint const& median, bool ordered = false);
-
-        /** Add a median point to the corridor, updating its border and bounding
-         * box */
-        void add(VoronoiPoint const& p, bool ordered = false);
-
 	int findSideOf(PointID const& p) const;
 
         void reverse();
+
+        void push_back(PointID const& p, VoronoiPoint const& descriptor);
+        void push_back(VoronoiPoint const& descriptor);
 
         /** Merge \c corridor into this one, updating its border, median line
          * and bounding box
@@ -159,33 +178,16 @@ namespace nav
          */
         bool isConnectedTo(int other_corridor) const;
 
-        void addConnection(PointID const& source_p, int target_idx, PointID const& target_p);
-
-        /** Returns the iterator in \c connections whose source is \c p
-         * or connections.end() if \c p is not an endpoint
-         */
-        Connections::iterator findConnectionFrom(PointID const& p);
-
-        /** Returns the iterator in \c connections whose source is \c p
-         * or connections.end() if \c p is not an endpoint
-         */
-        Connections::const_iterator findConnectionFrom(PointID const& p) const;
-
-        /** Returns the iterator in \c connections whose target is \c p
-         * or connections.end() if \c p is not an endpoint
-         */
-        Connections::iterator findConnectionTo(int corridor_idx, PointID const& p);
-
-        /** Returns the iterator in \c connections whose target is \c p
-         * or connections.end() if \c p is not an endpoint
-         */
-        Connections::const_iterator findConnectionTo(int corridor_idx, PointID const& p) const;
+        void addConnection(bool side, int target_idx, bool target_side);
 
         /** Removes all connections that point to \c other_corridor. It does
          * not remove them on \c other_corridor
          */
         void removeConnectionsTo(int other_corridor);
 
+        /** Change the connection definition so that all connections previously
+         * pointing to +prev_idx+ are now pointing to +new_idx+
+         */
         void moveConnections(size_t prev_idx, size_t new_idx);
 
         size_t size() const { return voronoi.size(); }
@@ -197,6 +199,8 @@ namespace nav
 
         PointID frontPoint() const { return voronoi.front().center; }
         PointID backPoint() const { return voronoi.back().center; }
+        PointID getEndpoint(bool side) const
+        { return side ? backPoint() : frontPoint(); }
 
         typedef std::list<VoronoiPoint>::const_iterator voronoi_const_iterator;
         typedef std::list<VoronoiPoint>::iterator voronoi_iterator;
@@ -221,12 +225,14 @@ namespace nav
          */
         bool checkConsistency() const;
 
-        void fixLineOrdering(GridGraph& graph, std::list<PointID>& line);
-        void fixLineOrderings();
+        //void fixLineOrdering(GridGraph& graph, std::list<PointID>& line);
+        //void fixLineOrderings();
 
         static Corridor singleton(PointID const& p, std::string const& name = "");
 
         bool updateCurves();
+
+        void buildBoundaries();
     };
 
     std::ostream& operator << (std::ostream& io, Corridor const& corridor);

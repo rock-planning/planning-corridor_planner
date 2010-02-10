@@ -13,13 +13,19 @@
 const int nav::Plan::USEFUL;
 const int nav::Plan::NOT_USEFUL;
 
+static const int ENDPOINT_UNKNOWN = nav::Corridor::ENDPOINT_UNKNOWN;
+static const int ENDPOINT_FRONT   = nav::Corridor::ENDPOINT_FRONT;
+static const int ENDPOINT_BACK    = nav::Corridor::ENDPOINT_BACK;
+static const int ENDPOINT_BIDIR   = nav::Corridor::ENDPOINT_BIDIR;
+
 using namespace std;
 using namespace nav;
 using namespace boost;
 
 Plan::Plan() {}
 Plan::Plan(PointID start, PointID end, GridGraph const& nav_function)
-    : m_start(start), m_end(end), m_nav_function(nav_function) {}
+    : m_start(start), m_end(end), m_nav_function(nav_function)
+    , m_corridor_names(0) {}
 
 PointID Plan::getStartPoint() const { return m_start; }
 PointID Plan::getEndPoint() const { return m_end; }
@@ -33,22 +39,33 @@ void Plan::setNavigationFunction(GridGraph const& nav_function)
 void Plan::clear()
 { corridors.clear(); }
 
+Corridor& Plan::newCorridor()
+{
+    corridors.push_back(Corridor());
+    Corridor& result = corridors.back();
+    result.name = boost::lexical_cast<string>(++m_corridor_names);
+    return result;
+}
+
 void Plan::removeCorridor(int idx)
 {
-    corridors.erase(corridors.begin() + idx);
+    for (size_t i = idx + 1; i < corridors.size(); ++i)
+        corridors[i].swap(corridors[i - 1]);
+
+    corridors.resize(corridors.size() - 1);
     for (corridor_iterator corridor = corridors.begin(); corridor != corridors.end(); ++corridor)
     {
         Corridor::Connections& connections = corridor->connections;
         Corridor::connection_iterator it = connections.begin();
         while (it != connections.end())
         {
-            int const target_idx = it->get<1>();
+            int const target_idx = it->target_idx;
             if (target_idx == idx)
                 connections.erase(it++);
             else
             {
                 if (target_idx > idx)
-                    it->get<1>()--;
+                    it->target_idx--;
 
                 ++it;
             }
@@ -63,7 +80,7 @@ void Plan::concat(Plan const& other)
 
     for (vector<Corridor>::iterator it = corridors.begin() + merge_start; it != corridors.end(); ++it)
         for (Corridor::connection_iterator c = it->connections.begin(); c != it->connections.end(); ++c)
-            c->get<1>() += merge_start;
+            c->target_idx += merge_start;
 }
 
 void Plan::moveConnections(size_t into_idx, size_t from_idx)
@@ -75,7 +92,7 @@ void Plan::moveConnections(size_t into_idx, size_t from_idx)
     conn_it = into.begin();
     while (conn_it != into.end())
     {
-        size_t target_idx = conn_it->get<1>();
+        size_t target_idx = conn_it->target_idx;
         if (target_idx == from_idx)
             into.erase(conn_it++);
         else ++conn_it;
@@ -84,7 +101,7 @@ void Plan::moveConnections(size_t into_idx, size_t from_idx)
     conn_it = from.begin();
     while (conn_it != from.end())
     {
-        size_t target_idx = conn_it->get<1>();
+        size_t target_idx = conn_it->target_idx;
         if (target_idx != into_idx)
             into.splice(into.end(), from, conn_it++);
         else
@@ -96,40 +113,34 @@ void Plan::moveConnections(size_t into_idx, size_t from_idx)
         if (i == into_idx || i == from_idx)
             continue;
 
-        Corridor::Connections& connections = corridors[i].connections;
-        Corridor::Connections::iterator conn_it;
-        for (conn_it = connections.begin(); conn_it != connections.end(); ++conn_it)
-        {
-            if (conn_it->get<1>() == (int)from_idx)
-                conn_it->get<1>() = into_idx;
-        }
+        corridors[i].moveConnections(from_idx, into_idx);
     }
 }
 
 pair<PointID, PointID> Plan::split(int corridor_idx, Corridor::voronoi_iterator it)
 {
-    Corridor& corr = corridors[corridor_idx];
+    Corridor& front_corridor = corridors[corridor_idx];
 
-    Corridor new_corr;
+    Corridor back_corridor;
+
     // TODO: better bounding boxes
-    new_corr.bbox         = corr.bbox;
-    new_corr.median_bbox = corr.median_bbox;
+    back_corridor.bbox        = front_corridor.bbox;
+    back_corridor.median_bbox = front_corridor.median_bbox;
 
-    // We know the orientation of the median line is BACK => FRONT. Therefore,
-    // we just have to splice it
-    new_corr.voronoi.splice(new_corr.end(), corr.voronoi, it, corr.voronoi.end());
+    back_corridor.voronoi.splice(back_corridor.end(),
+            front_corridor.voronoi, it, front_corridor.voronoi.end());
 
     // Check that both result corridors are not empty
-    if (new_corr.voronoi.empty())
-        throw std::runtime_error("split() leads to an empty left corridor");
-    if (corr.voronoi.empty())
-        throw std::runtime_error("split() leads to an empty right corridor");
+    if (back_corridor.voronoi.empty())
+        throw std::runtime_error("split() leads to an empty front corridor");
+    if (front_corridor.voronoi.empty())
+        throw std::runtime_error("split() leads to an empty back corridor");
 
     // Take one element of a border in +it+, find in which corridor border it
     // is, and split the boundary at that point
     //
     // Repeat for the other border.
-    VoronoiPoint const& last_corr_point      = corr.voronoi.back();
+    VoronoiPoint const& last_corr_point      = front_corridor.voronoi.back();
     {
         VoronoiPoint::BorderList::const_iterator it = last_corr_point.borders.begin();
         VoronoiPoint::BorderList::const_iterator const end = last_corr_point.borders.end();
@@ -141,21 +152,21 @@ pair<PointID, PointID> Plan::split(int corridor_idx, Corridor::voronoi_iterator 
 
             PointID p = it->front();
             list<PointID>::iterator p_it =
-                find(corr.boundaries[0].begin(), corr.boundaries[0].end(), p);
-            if (p_it != corr.boundaries[0].end())
+                find(front_corridor.boundaries[0].begin(), front_corridor.boundaries[0].end(), p);
+            if (p_it != front_corridor.boundaries[0].end())
             {
-                new_corr.boundaries[0].splice(
-                        new_corr.boundaries[0].end(), corr.boundaries[0],
-                        p_it, corr.boundaries[0].end());
+                back_corridor.boundaries[0].splice(
+                        back_corridor.boundaries[0].end(), front_corridor.boundaries[0],
+                        p_it, front_corridor.boundaries[0].end());
             }
             else
             {
-                p_it = find(corr.boundaries[1].begin(), corr.boundaries[1].end(), p);
-                if (p_it != corr.boundaries[1].end())
+                p_it = find(front_corridor.boundaries[1].begin(), front_corridor.boundaries[1].end(), p);
+                if (p_it != front_corridor.boundaries[1].end())
                 {
-                    new_corr.boundaries[1].splice(
-                            new_corr.boundaries[1].end(), corr.boundaries[1],
-                            p_it, corr.boundaries[1].end());
+                    back_corridor.boundaries[1].splice(
+                            back_corridor.boundaries[1].end(), front_corridor.boundaries[1],
+                            p_it, front_corridor.boundaries[1].end());
                 }
                 else
                 {
@@ -165,16 +176,7 @@ pair<PointID, PointID> Plan::split(int corridor_idx, Corridor::voronoi_iterator 
         }
     }
 
-    // Generate the border sets and gather all center points in median_point_set
-    // to update the connections later on
-    map<PointID, int> ownerships;
-    for (Corridor::voronoi_iterator median_it = new_corr.begin(); median_it != new_corr.end(); ++median_it)
-        ownerships[median_it->center] = 1;
-
-    for (Corridor::voronoi_iterator median_it = corr.begin(); median_it != corr.end(); ++median_it)
-        ownerships[median_it->center] |= 2;
-
-    // Update the connection that go to +corridor_idx+
+    // Update the connections that go to +corridor_idx+
     for (size_t i = 0; i < corridors.size(); ++i)
     {
         if (i == (size_t)corridor_idx)
@@ -184,94 +186,99 @@ pair<PointID, PointID> Plan::split(int corridor_idx, Corridor::voronoi_iterator 
         Corridor::Connections::iterator conn_it;
         for (conn_it = connections.begin(); conn_it != connections.end(); ++conn_it)
         {
-            if (conn_it->get<1>() == corridor_idx)
-            {
-                int mask = ownerships[conn_it->get<2>()];
-                if (mask == 1) // only owned by new_corr
-                    conn_it->get<1>() = corridors.size();
-                else if (mask == 3) // owned by both sides
-                    corridors[i].addConnection(conn_it->get<0>(), corridors.size(), conn_it->get<2>());
-            }
+            if (conn_it->target_idx == corridor_idx && conn_it->target_side == true)
+                conn_it->target_idx = corridors.size();
         }
     }
 
     // Update the connections which come from +corridor_idx+
-    Corridor::Connections& connections = corr.connections;
+    Corridor::Connections& connections = front_corridor.connections;
     Corridor::Connections::iterator conn_it = connections.begin();
     while (conn_it != connections.end())
     {
-        int mask = ownerships[conn_it->get<0>()];
-        new_corr.addConnection(conn_it->get<0>(), conn_it->get<1>(), conn_it->get<2>());
-        if (mask == 1)
+        if (conn_it->this_side == true)
+        {
+            back_corridor.addConnection(conn_it->this_side, conn_it->target_idx, conn_it->target_side);
             connections.erase(conn_it++);
+        }
         else ++conn_it;
     }
 
-    corridors.push_back(new_corr);
-    corridors.back().name = corr.name + "/2";
-    corr.name += "/1";
-    return make_pair(corr.backPoint(), corridors.back().frontPoint());
+    corridors.push_back(back_corridor);
+    corridors.back().name = front_corridor.name + "/2";
+    front_corridor.name += "/1";
+    return make_pair(front_corridor.backPoint(), corridors.back().frontPoint());
 }
 
-void Plan::createEndpointCorridor(PointID const& endpoint, int direction, std::string const& name)
+void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end, std::string const& name)
 {
     Corridor  endp_corridor = Corridor::singleton(endpoint, name);
-    endp_corridor.end_types[0] = direction;
+    if (is_end)
+        endp_corridor.end_types[0] = ENDPOINT_FRONT;
+    else
+        endp_corridor.end_types[0] = ENDPOINT_BACK;
 
     int current_idx = findCorridorOf(endpoint);
     Corridor& current_corridor = corridors[current_idx];
+    bool endp_side = (is_end ? false : true);
 
     Corridor::voronoi_iterator it = current_corridor.findNearestMedian(endpoint);
 
-    if (it == current_corridor.begin() || it == (--current_corridor.end()))
-    {
-        // The end point does not split a corridor in two, just connect
+    if (it == current_corridor.begin())
+    { // The end point does not split a corridor in two, just connect
+      // endp_corridor to the beginning of current_corridor
         int endp_idx = corridors.size();
-        PointID conn_p = it->center;
-        endp_corridor.addConnection(endpoint, current_idx, conn_p);
-        current_corridor.addConnection(conn_p, endp_idx, endpoint);
-
+        endp_corridor.addConnection(endp_side, current_idx, false);
+        current_corridor.addConnection(false, endp_idx, endp_side);
         corridors.push_back(endp_corridor);
+        return;
     }
-    else
-    {
-        // We need to split +current_corridor+ in two
-        cerr << "splitting " << current_corridor.name << flush;
-        current_corridor.checkConsistency();
-
-        pair<PointID, PointID> new_endpoints = split(current_idx, it);
-        int left_idx  = current_idx;
-        Corridor& left_corridor = corridors[left_idx];
-        int right_idx = corridors.size() - 1;
-        Corridor& right_corridor = corridors[right_idx];
-        std::cerr << ", created " << right_corridor.name << endl;
-
-        current_corridor.checkConsistency();
-        right_corridor.checkConsistency();
-
-        // WARN: endp_idx must be initialized here, as split() adds a new
-        // WARN: corridor to the corridor set, and therefore changes the index
-        // WARN: of the endpoint corridor !
+    else if (it == (--current_corridor.end()))
+    { // The end point does not split a corridor in two, just connect
+      // endp_corridor to the end of current_corridor
         int endp_idx = corridors.size();
-        endp_corridor.addConnection(endpoint, left_idx, new_endpoints.first);
-        left_corridor.addConnection(new_endpoints.first, endp_idx, endpoint);
-        endp_corridor.addConnection(endpoint, right_idx, new_endpoints.second);
-        right_corridor.addConnection(new_endpoints.second, endp_idx, endpoint);
-
+        endp_corridor.addConnection(endp_side, current_idx, true);
+        current_corridor.addConnection(true, endp_idx, endp_side);
         corridors.push_back(endp_corridor);
+        return;
+    }
 
-        if (left_corridor.isSingleton())
-        {
-            moveConnections(right_idx, left_idx);
-            if (right_corridor.isSingleton())
-                throw std::logic_error("both corridors are singletons");
-            removeCorridor(left_idx);
-        }
-        else if (right_corridor.isSingleton())
-        {
-            moveConnections(left_idx, right_idx);
-            removeCorridor(right_idx);
-        }
+    // We need to split +current_corridor+ in two
+    cerr << "splitting " << current_corridor.name << flush;
+
+    split(current_idx, it);
+
+    int front_idx  = current_idx;
+    Corridor& front_corridor = corridors[front_idx];
+    int back_idx = corridors.size() - 1;
+    Corridor& back_corridor = corridors[back_idx];
+    std::cerr << ", created " << back_corridor.name << endl;
+
+    front_corridor.checkConsistency();
+    back_corridor.checkConsistency();
+
+    // WARN: endp_idx must be initialized here, as split() adds a new
+    // WARN: corridor to the corridor set, and therefore changes the index
+    // WARN: of the endpoint corridor !
+    int endp_idx = corridors.size();
+    endp_corridor.addConnection(endp_side, front_idx, true);
+    front_corridor.addConnection(true, endp_idx, endp_side);
+    endp_corridor.addConnection(endp_side, back_idx, false);
+    back_corridor.addConnection(false, endp_idx, endp_side);
+
+    corridors.push_back(endp_corridor);
+
+    if (front_corridor.isSingleton())
+    {
+        moveConnections(back_idx, front_idx);
+        if (back_corridor.isSingleton())
+            throw std::logic_error("both corridors are singletons");
+        removeCorridor(front_idx);
+    }
+    else if (back_corridor.isSingleton())
+    {
+        moveConnections(front_idx, back_idx);
+        removeCorridor(back_idx);
     }
 }
 
@@ -280,11 +287,6 @@ void Plan::simplify()
     vector<int> useful_corridors;
     useful_corridors.resize(corridors.size(), 0);
 
-    for (size_t corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
-    {
-        Corridor& c = corridors[corridor_idx];
-        c.fixLineOrderings();
-    }
     cerr << "after fixing line orderings" << endl;
     checkConsistency();
 
@@ -292,8 +294,6 @@ void Plan::simplify()
     // is not yet created.
     useful_corridors[findCorridorOf(m_start)] = USEFUL;
     useful_corridors[findCorridorOf(m_end)]   = USEFUL;
-    markNullCorridors(useful_corridors);
-    removeUselessCorridors(useful_corridors);
 
     markUselessCorridors(useful_corridors);
     removeUselessCorridors(useful_corridors);
@@ -302,36 +302,33 @@ void Plan::simplify()
     checkConsistency();
 
     // Create two singleton corridors for the start and end points
-    createEndpointCorridor(m_start, ENDPOINT_FRONT, lexical_cast<string>(corridors.size()) + "_start");
-    createEndpointCorridor(m_end,   ENDPOINT_BACK,  lexical_cast<string>(corridors.size()) + "_end");
-    cerr << "created start and end corridors" << endl;
 
-    cerr << "end regions:" << endl;
-    for (size_t i = 0; i < corridors.size(); ++i)
-    {
-        Corridor& corridor = corridors[i];
-        corridor.buildEndRegions();
+    // cerr << "end regions:" << endl;
+    // for (size_t i = 0; i < corridors.size(); ++i)
+    // {
+    //     Corridor& corridor = corridors[i];
+    //     //corridor.buildEndRegions();
 
-        cerr << "  " << corridors[i].name << ":" << endl;
-        if (corridor.end_regions[0].empty() || corridor.end_regions[1].empty())
-        {
-            int line_count = 0;
-            for (Corridor::voronoi_const_iterator median_it = corridor.voronoi.begin();
-                    median_it != corridor.voronoi.end(); ++median_it)
-            {
-                if (++line_count > 10)
-                {
-                    cerr << endl << "    ";
-                    line_count = 0;
-                }
-                cerr << " " << median_it->center;
-            }
-            cerr << endl;
-        }
+    //     cerr << "  " << corridors[i].name << ":" << endl;
+    //     if (corridor.end_regions[0].empty() || corridor.end_regions[1].empty())
+    //     {
+    //         int line_count = 0;
+    //         for (Corridor::voronoi_const_iterator median_it = corridor.voronoi.begin();
+    //                 median_it != corridor.voronoi.end(); ++median_it)
+    //         {
+    //             if (++line_count > 10)
+    //             {
+    //                 cerr << endl << "    ";
+    //                 line_count = 0;
+    //             }
+    //             cerr << " " << median_it->center;
+    //         }
+    //         cerr << endl;
+    //     }
 
-        for (int j = 0; j < 2; ++j)
-            cerr << "    " << corridors[i].end_regions[j] << endl;
-    }
+    //     for (int j = 0; j < 2; ++j)
+    //         cerr << "    " << corridors[i].end_regions[j] << endl;
+    // }
 
     removeBackToBackConnections();
 
@@ -341,7 +338,7 @@ void Plan::simplify()
     checkConsistency();
 }
 
-bool Plan::markDirections_DFS(std::set< tuple<int, PointID, int, PointID> >& result, 
+bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result, 
 	std::vector<int>& stack, int in_side, int idx, int end_idx,
 	float accumulated_cost_overhead, float cost_margin)
 {
@@ -353,12 +350,8 @@ bool Plan::markDirections_DFS(std::set< tuple<int, PointID, int, PointID> >& res
     Corridor& corridor = corridors[idx];
     if (corridor.isSingleton())
 	return false;
-
-    if (corridor.end_regions[0].empty() || corridor.end_regions[1].empty())
-    {
-	cerr << "only one end region in corridor " << corridor.name << endl;
-	return false; // only one endpoint ? No luck ...
-    }
+    if (corridor.isDeadEnd())
+        return false;
 
     stack.push_back(idx);
 
@@ -366,11 +359,20 @@ bool Plan::markDirections_DFS(std::set< tuple<int, PointID, int, PointID> >& res
     indent += "  ";
 
     // Some values about our input and output points
-    int     in_type  = corridor.end_types[in_side];
-    PointID in_p     = *corridor.end_regions[in_side].begin();
+    int in_type  = corridor.end_types[in_side];
+    int out_side = !in_side;
+    PointID in_p, out_p;
+    if (in_side == false) // we get in by the front point
+    {
+        in_p     = corridor.frontPoint();
+        out_p    = corridor.backPoint();
+    }
+    else
+    {
+        in_p     = corridor.backPoint();
+        out_p    = corridor.frontPoint();
+    }
     float   in_cost  = m_nav_function.getValue(in_p.x, in_p.y);
-    int     out_side = !in_side;
-    PointID out_p    = *corridor.end_regions[out_side].begin();
     float   out_cost = m_nav_function.getValue(out_p.x, out_p.y);
 
     // Check the currently known type for this side. If we are going backwards,
@@ -411,10 +413,10 @@ bool Plan::markDirections_DFS(std::set< tuple<int, PointID, int, PointID> >& res
     for (it = connections.begin(); it != end; ++it)
     {
 	// We look only at points "at the other side" of the corridor.
-	if (!corridor.end_regions[out_side].count(it->get<0>()))
+	if (it->this_side != out_side)
 	    continue;
 
-        int target_idx = it->get<1>();
+        int target_idx = it->target_idx;
 
 	// And we forget about loops
         if (find(stack.begin(), stack.end(), target_idx) != stack.end())
@@ -424,13 +426,13 @@ bool Plan::markDirections_DFS(std::set< tuple<int, PointID, int, PointID> >& res
 	}
 
 	Corridor& target_corridor = corridors[target_idx];
-	int target_side = target_corridor.findSideOf(it->get<2>());
+	int target_side = it->target_side;
 
 	if (markDirections_DFS(result, stack, target_side, target_idx, end_idx, accumulated_cost_overhead, cost_margin))
 	{
 	    cerr << indent << "reached end point through " << corridors[target_idx].name << endl;
-	    cerr << indent << "keeping connection to " << it->get<2>() << endl;
-	    result.insert( make_tuple(idx, it->get<0>(), target_idx, it->get<2>()) );
+	    cerr << indent << "keeping connection" << endl;
+	    result.insert( make_tuple(idx, it->this_side, target_idx, it->target_side) );
 
             int& orientation = orientations[2 * idx + out_side];
             if (ENDPOINT_UNKNOWN == orientation)
@@ -535,57 +537,32 @@ void Plan::markDirections_cost()
 	}
 
         // Gather a cost value for each end regions (mean value)
-	float costs[2] = { 0, 0 };
-	for (PointSet::const_iterator p_it = corridor.end_regions[0].begin(); p_it != corridor.end_regions[0].end(); ++p_it)
-            costs[0] += m_nav_function.getValue(p_it->x, p_it->y);
-	costs[0] /= corridor.end_regions[0].size();
-	for (PointSet::const_iterator p_it = corridor.end_regions[1].begin(); p_it != corridor.end_regions[1].end(); ++p_it)
-            costs[1] += m_nav_function.getValue(p_it->x, p_it->y);
-	costs[1] /= corridor.end_regions[1].size();
+        Corridor::Connections::const_iterator conn_it;
 
-        if (costs[0] > costs[1])
+	float costs[2]  = { 0, 0 };
+        int   counts[2] = { 0, 0 };
+        for (conn_it = corridor.connections.begin(); conn_it != corridor.connections.end(); ++conn_it)
+        {
+            PointID p = corridors[conn_it->target_idx].getEndpoint(conn_it->target_side);
+            costs[conn_it->this_side] += m_nav_function.getValue(p.x, p.y);
+            counts[conn_it->this_side]++;
+        }
+
+        if (counts[0] == 0 || counts[1] == 0)
+        {
+	    cerr << "  " << corridor.name << " is a dead end" << endl;
+            continue;
+        }
+
+        if (costs[0] / counts[0] > costs[1] / counts[1])
             corridor.reverse();
 
         corridor.end_types[0] = ENDPOINT_FRONT;
         corridor.end_types[1] = ENDPOINT_BACK;
 
-        cerr << "corridor " << corridor.name << " is oriented FRONT <= BACK as "
-            << corridor.voronoi.front().center << " <= " << corridor.voronoi.back().center << endl;
+        cerr << "corridor " << corridor.name << " is oriented FRONT => BACK as "
+            << corridor.frontPoint() << " <= " << corridor.backPoint() << endl;
     }
-}
-
-void Plan::reorientMedianLines()
-{
-    for (size_t i = 0; i < corridors.size(); ++i)
-    {
-        Corridor& corridor = corridors[i];
-        int front_type = orientations[2 * i];
-        int back_type  = orientations[2 * i + 1];
-        if (front_type == ENDPOINT_BACK && back_type == ENDPOINT_FRONT)
-        {
-            cerr << corridor.name << " is oriented BACK[" << corridor.voronoi.front().center << "] => FRONT[" << corridor.voronoi.back().center << "]" << endl;
-        }
-        else if (front_type == ENDPOINT_FRONT && back_type == ENDPOINT_BACK)
-        {
-            corridor.reverse();
-            cerr << corridor.name << " is oriented FRONT[" << corridor.voronoi.front().center << "] <= BACK[" << corridor.voronoi.back().center << "]" << endl;
-        }
-        else if (corridor.bidirectional)
-            cerr << corridor.name << " is bidirectional" << endl;
-        else
-        {
-            cerr << "error in orientation for " << corridor.name << endl;
-            cerr << "  front_type == " << (front_type == ENDPOINT_FRONT ? "FRONT" : "BACK") << endl;
-            cerr << "  back_type  == " << (back_type == ENDPOINT_FRONT ? "FRONT" : "BACK") << endl;
-        }
-
-        if (!corridor.bidirectional)
-        {
-            corridor.end_types[0] = ENDPOINT_BACK;
-            corridor.end_types[1] = ENDPOINT_FRONT;
-        }
-    }
-
 }
 
 void Plan::removeBackToBackConnections()
@@ -609,16 +586,15 @@ void Plan::removeBackToBackConnections()
     reach_min_cost[2 * end_idx] = 0;
     reach_min_cost[2 * end_idx + 1] = 0;
 
-    std::set< boost::tuple<int, PointID, int, PointID> > result;
+    std::set< boost::tuple<int, bool, int, bool> > result;
     for (Corridor::Connections::const_iterator it = start_corridor.connections.begin(); it != start_corridor.connections.end(); ++it)
     {
-	int     target_idx = it->get<1>();
-	PointID target_p   = it->get<2>();
-	cerr << "initializing DFS-based DAG convertion with " << corridors[target_idx].name << " " << target_p << endl;
-	int     target_side = corridors[target_idx].findSideOf(target_p);
+	int  target_idx  = it->target_idx;
+	bool target_side = it->target_side;
+	cerr << "initializing DFS-based DAG convertion with " << corridors[target_idx].name << " (side=" << target_side << ")" << endl;
 
         orientations[target_idx * 2 + target_side] = ENDPOINT_BACK;
-	result.insert( make_tuple(start_idx, it->get<0>(), target_idx, target_p) );
+	result.insert( make_tuple(start_idx, it->this_side, target_idx, target_side) );
 
 	vector<int> stack;
 	markDirections_DFS(result, stack, target_side, target_idx, end_idx, 0, cost_margin);
@@ -632,66 +608,10 @@ void Plan::removeBackToBackConnections()
             end = connections.end();
         while (conn_it != end)
 	{
-	    if (result.find( make_tuple(corridor_idx, conn_it->get<0>(), conn_it->get<1>(), conn_it->get<2>()) ) == result.end())
+	    if (result.find( make_tuple(corridor_idx, conn_it->this_side, conn_it->target_idx, conn_it->target_side) ) == result.end())
 		connections.erase(conn_it++);
 	    else ++conn_it;
 	}
-    }
-
-    reorientMedianLines();
-}
-
-void Plan::markNullCorridors(vector<int>& useful)
-{
-    for (size_t corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
-    {
-        Corridor& corridor = corridors[corridor_idx];
-        list<PointSet> end_regions = corridor.endRegions();
-
-        if (useful[corridor_idx] == USEFUL || end_regions.size() > 1)
-            continue;
-        else if (corridor.connections.size() <= 1)
-            useful[corridor_idx] = NOT_USEFUL;
-        else
-        {
-            set< pair<int, int> > seen;
-
-            // Just blindly create connections between corridors that are
-            // connected through this one, and mark this corridor as not useful.
-            Corridor::Connections& connections = corridor.connections;
-            for(Corridor::Connections::const_iterator conn_a = connections.begin();
-                    conn_a != connections.end(); ++conn_a)
-            {
-                int idx_a        = conn_a->get<1>();
-                Corridor& corr_a = corridors[idx_a];
-
-                Corridor::Connections::const_iterator conn_b = conn_a;
-                for(++conn_b; conn_b != connections.end(); ++conn_b)
-                {
-                    int idx_b = conn_b->get<1>();
-                    if (idx_a == idx_b)
-                        continue;
-
-                    if (seen.count( make_pair(idx_a, idx_b) ))
-                        continue;
-
-                    seen.insert( make_pair(idx_a, idx_b) );
-                    seen.insert( make_pair(idx_b, idx_a) );
-
-                    // Check that there is no connections between a and b
-                    // already
-                    if (corr_a.isConnectedTo(idx_b))
-                        continue;
-
-                    // Now, create new connections and register in +seen+
-                    Corridor& corr_b = corridors[idx_b];
-                    corr_a.addConnection(conn_a->get<2>(), idx_b, conn_b->get<2>());
-                    corr_b.addConnection(conn_b->get<2>(), idx_a, conn_a->get<2>());
-                }
-            }
-
-            useful[corridor_idx] = NOT_USEFUL;
-        }
     }
 }
 
@@ -816,7 +736,7 @@ void Plan::mergeSimpleCrossroads_directed()
 	if (corridors[i].isSingleton()) continue;
 	if (out_connectivity[i] != 1) continue;
 
-        int target_idx = corridors[i].connections.front().get<1>();
+        int target_idx = corridors[i].connections.front().target_idx;
         if (corridors[target_idx].isSingleton()) continue;
         if (in_connectivity[target_idx] > 1) continue;
 
@@ -837,118 +757,6 @@ void Plan::mergeSimpleCrossroads_directed()
     }
 }
 
-void Plan::mergeSimpleCrossroads()
-{
-    // Finally, remove crossroads that connects only two corridors together (by
-    // contrast with those that connect more, which are obviously real
-    // crossroads).
-    list<PointSet> connection_zones;
-    map<PointID, int> ownerships;
-    PointSet seen;
-    for (size_t i = 0; i < corridors.size(); ++i)
-    {
-        Corridor::Connections const& connections = corridors[i].connections;
-        Corridor::Connections::const_iterator conn_it;
-        for (conn_it = connections.begin(); conn_it != connections.end(); ++conn_it)
-        {
-            size_t target_idx = conn_it->get<1>();
-            if (target_idx < i)
-                continue; // already done (connections are symmetric)
-
-            PointID source = conn_it->get<0>();
-            PointID target = conn_it->get<2>();
-            //cerr << source << " " << target << endl;
-            ownerships[source] = i;
-            ownerships[target] = target_idx;
-
-            list<PointSet>::iterator source_set = find_if(connection_zones.begin(), connection_zones.end(),
-                    bind(&PointSet::count, _1, source));
-            list<PointSet>::iterator target_set = find_if(connection_zones.begin(), connection_zones.end(),
-                    bind(&PointSet::count, _1, target));
-
-            if (source_set == connection_zones.end())
-            {
-                if (target_set == connection_zones.end())
-                {
-                    PointSet new_set;
-                    new_set.insert(source);
-                    new_set.insert(target);
-                    connection_zones.push_back(new_set);
-                }
-                else
-                    target_set->insert(source);
-            }
-            else if (target_set == connection_zones.end())
-                source_set->insert(target);
-            else if (source_set != target_set)
-            {
-                source_set->insert(target_set->begin(), target_set->end());
-                connection_zones.erase(target_set);
-            }
-        }
-    }
-
-    //cerr << connection_zones.size() << " crossroads found" << endl;
-
-    // Now that we have clustered the connection points, merge the corridors
-    // which are connected by a simple crossroad
-    list<PointSet>::const_iterator zone_it;
-    for (zone_it = connection_zones.begin(); zone_it != connection_zones.end(); ++zone_it)
-    {
-        //cerr << *zone_it << endl;
-
-        PointSet const& points = *zone_it;
-        set<int> connected;
-        for (PointSet::const_iterator p_it = points.begin(); p_it != points.end(); ++p_it)
-        {
-            connected.insert(ownerships[*p_it]);
-            if (connected.size() > 2)
-                break;
-        }
-        if (connected.size() == 2)
-        {
-            // That is a simple crossroad. Merge the two corridors, update the
-            // connections and don't forget to update the ownerships as well --
-            // needed for the suite of this loop.
-            int into_idx = *connected.begin();
-            int from_idx = *(++connected.begin());
-            //cerr << "simple: " << into_idx << " and " << from_idx << endl;
-            Corridor& into = corridors[into_idx];
-            Corridor& from = corridors[from_idx];
-            into.merge(from);
-
-            // Remove the connections in +into+ that link to +from+
-            { Corridor::Connections& connections = from.connections;
-                Corridor::Connections::iterator conn_it;
-                for (conn_it = connections.begin(); conn_it != connections.end(); )
-                {
-                    if (conn_it->get<1>() == from_idx)
-                        conn_it = connections.erase(conn_it);
-                    else ++conn_it;
-                }
-            }
-
-            // Update the ownership of points that are in \c from
-            {
-                map<PointID, int>::iterator owner_it;
-                for (owner_it = ownerships.begin(); owner_it != ownerships.end(); ++owner_it)
-                {
-                    int target_idx = owner_it->second;
-                    if (target_idx == from_idx)
-                        owner_it->second = into_idx;
-                    else if (target_idx > from_idx)
-                        --owner_it->second;
-                }
-            }
-
-            // Move the connections of +target+ into +source+. This removes any
-            // connections that may exist between the two.
-            moveConnections(into_idx, from_idx);
-            removeCorridor(from_idx);
-        }
-    }
-}
-
 int Plan::markNextCorridors(set<int>& stack, int corridor_idx, vector<int>& useful) const
 {
     Corridor const& c = corridors[corridor_idx];
@@ -958,7 +766,7 @@ int Plan::markNextCorridors(set<int>& stack, int corridor_idx, vector<int>& usef
     size_t not_useful = 0;
     for (conn_it = c.connections.begin(); conn_it != c.connections.end(); ++conn_it)
     {
-        int target_idx = conn_it->get<1>();
+        int target_idx = conn_it->target_idx;
 
         int child_type;
         if (stack.count(target_idx))
@@ -1013,7 +821,7 @@ void Plan::checkConsistency() const
         for (Corridor::Connections::const_iterator it = connections.begin();
                 it != connections.end(); ++it)
         {
-            size_t target_idx = it->get<1>();
+            size_t target_idx = it->target_idx;
             if (target_idx == i)
                 cerr << "  " << corridor.name << " is looping on itself" << endl;
 

@@ -189,6 +189,7 @@ namespace nav {
 
         /** The value of the currently-iterated neighbour */
         float getValue() const;
+        float getTargetValue() const { return getValue(); }
         /** True if the source of this iterator is the parent of the currently
          * pointed-to cell
          */
@@ -240,6 +241,7 @@ namespace nav {
 
         /* Changes the value of the currently pointed-to cell */
         void setValue(float value);
+        void setTargetValue(float value) { return setValue(value); };
         /* Make the source of this iteration the parent of the currently
          * pointed-to cell */
         void setSourceAsParent();
