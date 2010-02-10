@@ -1,0 +1,11 @@
+FIND_PACKAGE(GDAL)
+
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GDAL_CFLAGS}")
+
+ADD_LIBRARY(Nav SHARED dstar.cc voronoi.cc skeleton.cc plan.cc merge.cc)
+TARGET_LINK_LIBRARIES(Nav ${GDAL_LIBRARIES})# /usr/lib/libCGAL.so)
+
+INSTALL(TARGETS Nav
+    LIBRARY DESTINATION lib)
+INSTALL(FILES dstar.hh DESTINATION include/nav)
+
