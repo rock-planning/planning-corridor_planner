@@ -199,6 +199,9 @@ namespace nav {
         }
     };
 
+    inline PointID get_point(PointID const& p)
+    { return p; }
+
     inline std::ostream& operator << (std::ostream& io, BoundingBox const& c)
     {
         io << "bbox[" << c.min << " => " << c.max << "]" << std::endl;

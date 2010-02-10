@@ -27,7 +27,7 @@ static const int VALUE_CORRIDORS_START = 10;
 void CorridorExtractionState::addBranch(PointID const& p, std::list<VoronoiPoint>& line)
 {
     std::cerr << std::string(depth, ' ') << "adding branch at " << p << " of size " << line.size() << std::endl;
-    displayLine(std::cerr, line, boost::bind(&VoronoiPoint::center, _1));
+    displayLine(std::cerr, line);
 
     BranchMap::iterator it = branches.insert( make_pair(p, list<VoronoiPoint>()) );
     it->second.swap(line);

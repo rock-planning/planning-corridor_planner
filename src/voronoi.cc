@@ -262,27 +262,10 @@ Corridor Corridor::singleton(PointID const& p, std::string const& name)
     return c;
 }
 
-template<typename _It, typename PointGetter>
-_It findNearest(_It begin, _It end, PointID const& p, PointGetter get_point)
-{
-    float min_distance = -1;
-    _It result;
-    for (_It it = begin; it != end; ++it)
-    {
-        float d = p.distanceTo2(get_point(*it));
-        if (min_distance == -1 || min_distance > d)
-        {
-            min_distance = d;
-            result = it;
-        }
-    }
-    return result;
-}
-
 Corridor::voronoi_iterator Corridor::findNearestMedian(PointID const& p)
-{ return findNearest(voronoi.begin(), voronoi.end(), p, boost::bind(&VoronoiPoint::center, _1)); }
+{ return findNearest(voronoi.begin(), voronoi.end(), p); }
 Corridor::voronoi_const_iterator Corridor::findNearestMedian(PointID const& p) const
-{ return findNearest(voronoi.begin(), voronoi.end(), p, boost::bind(&VoronoiPoint::center, _1)); }
+{ return findNearest(voronoi.begin(), voronoi.end(), p); }
 
 template<typename _It>
 _It findMedianPoint(_It begin, _It end, PointID const& p)
@@ -318,8 +301,8 @@ bool Corridor::isBorderAdjacent(VoronoiPoint const& p) const
     return voronoi.front().isBorderAdjacent(p) || voronoi.back().isBorderAdjacent(p);
 }
 
-template<typename Container, typename PointGetter>
-static bool checkMonotonicCurve(Container const& container, PointGetter get_point)
+template<typename Container>
+static bool checkMonotonicCurve(Container const& container)
 {
     list<PointID> queue;
     for (typename Container::const_iterator it = container.begin(); it != container.end(); ++it)
@@ -349,22 +332,22 @@ bool Corridor::checkConsistency() const
     bool result = true;
 
     // Check that the voronoi lines and the boundaries have a monotonic ordering
-    if (!checkMonotonicCurve(voronoi, boost::bind(&VoronoiPoint::center, _1)))
+    if (!checkMonotonicCurve(voronoi))
     {
         cerr << "'" << name << "' voronoi is inconsistent: ";
-        displayLine(cerr, voronoi, boost::bind(&VoronoiPoint::center, _1));
+        displayLine(cerr, voronoi);
         result = false;
     }
-    if (!checkMonotonicCurve(boundaries[0], std::_Identity<PointID>()))
+    if (!checkMonotonicCurve(boundaries[0]))
     {
         cerr << "'" << name << "' boundaries[0] is inconsistent: ";
-        displayLine(cerr, boundaries[0], std::_Identity<PointID>());
+        displayLine(cerr, boundaries[0]);
         result = false;
     }
-    if (!checkMonotonicCurve(boundaries[1], std::_Identity<PointID>()))
+    if (!checkMonotonicCurve(boundaries[1]))
     {
         cerr << "'" << name << "' boundaries[1] is inconsistent: ";
-        displayLine(cerr, boundaries[1], std::_Identity<PointID>());
+        displayLine(cerr, boundaries[1]);
         result = false;
     }
 
@@ -522,8 +505,8 @@ void Corridor::removeConnectionsTo(int other_corridor)
     }
 }
 
-template<typename Line, typename PointGetter>
-static boost::tuple<int, int, double> lineMinDist(Line const& self, Line const& other, PointGetter get_point)
+template<typename Line>
+static boost::tuple<int, int, double> lineMinDist(Line const& self, Line const& other)
 {
     PointID self_endpoints[2] = {
         get_point(self.front()),
@@ -572,10 +555,10 @@ static void mergeLines(Line& self, Line& other, int left, int right)
     }
 }
 
-template<typename Line, typename PointGetter>
-static void mergeLines(Line& self, Line& other, PointGetter get_point)
+template<typename Line>
+static void mergeLines(Line& self, Line& other)
 {
-    tuple<int, int, double> min_dist = lineMinDist(self, other, get_point);
+    tuple<int, int, double> min_dist = lineMinDist(self, other);
     return mergeLines<Line>(self, other, min_dist.get<0>(), min_dist.get<1>());
 }
 
@@ -591,7 +574,7 @@ void Corridor::merge(Corridor& other)
     {
         int self_endpoint, other_endpoint;
         tie(self_endpoint, other_endpoint, boost::tuples::ignore) =
-            lineMinDist(voronoi, other.voronoi,  boost::bind(&VoronoiPoint::center, _1));
+            lineMinDist(voronoi, other.voronoi);
 
         if (self_endpoint == 0 && other_endpoint == 1)
         {
@@ -603,18 +586,18 @@ void Corridor::merge(Corridor& other)
 
 #ifdef DEBUG
     cerr << endl << "voronoi:";
-    displayLine(cerr, voronoi, boost::bind(&VoronoiPoint::center, _1));
+    displayLine(cerr, voronoi);
     cerr << endl << "boundaries[0]:";
-    displayLine(cerr, boundaries[0], std::_Identity<PointID>());
+    displayLine(cerr, boundaries[0]);
     cerr << "boundaries[1]:";
-    displayLine(cerr, boundaries[1], std::_Identity<PointID>());
+    displayLine(cerr, boundaries[1]);
 
     cerr << endl << "other.voronoi:";
-    displayLine(cerr, other.voronoi, boost::bind(&VoronoiPoint::center, _1));
+    displayLine(cerr, other.voronoi);
     cerr << endl << "other.boundaries[0]:";
-    displayLine(cerr, other.boundaries[0], std::_Identity<PointID>());
+    displayLine(cerr, other.boundaries[0]);
     cerr << "other.boundaries[1]:";
-    displayLine(cerr, other.boundaries[1], std::_Identity<PointID>());
+    displayLine(cerr, other.boundaries[1]);
 #endif
 
     // The boundaries are ordered in the same way than the voronoi is. The only
@@ -646,11 +629,11 @@ void Corridor::merge(Corridor& other)
     median_bbox.merge(other.median_bbox);
 
     cerr << endl << "result.voronoi:";
-    displayLine(cerr, voronoi, boost::bind(&VoronoiPoint::center, _1));
+    displayLine(cerr, voronoi);
     cerr << endl << "result.boundaries[0]:";
-    displayLine(cerr, boundaries[0], std::_Identity<PointID>());
+    displayLine(cerr, boundaries[0]);
     cerr << "result.boundaries[1]:";
-    displayLine(cerr, boundaries[1], std::_Identity<PointID>());
+    displayLine(cerr, boundaries[1]);
 
     checkConsistency();
 }

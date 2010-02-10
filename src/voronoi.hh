@@ -8,6 +8,7 @@
 #include "point.hh"
 
 #include "NURBSCurve3D.hh"
+#include "geometry.hh"
 
 namespace nav
 {
@@ -83,6 +84,9 @@ namespace nav
         typedef VoronoiPoint::BorderList::const_iterator border_const_iterator;
         border_const_iterator findAdjacentBorder(PointID const& p) const;
     };
+    inline PointID get_point(VoronoiPoint const& v)
+    { return v.center; }
+
     std::ostream& operator << (std::ostream& io, VoronoiPoint const& p);
 
     class Corridor
@@ -239,8 +243,8 @@ namespace nav
 
     void displayMedianLine(std::ostream& io, std::list<VoronoiPoint> const& skel, int xmin, int xmax, int ymin, int ymax);
 
-    template<typename Container, typename PointGetter>
-    void displayLine(std::ostream& io, Container const& container, PointGetter get_point)
+    template<typename Container>
+    void displayLine(std::ostream& io, Container const& container)
     {
         int line_count = 0;
         for (typename Container::const_iterator median_it = container.begin();
