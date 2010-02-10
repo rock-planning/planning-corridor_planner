@@ -134,20 +134,20 @@ bool VoronoiPoint::isBorderAdjacent(VoronoiPoint const& p) const
     }
 
     // Now check for the symmetric relationship
-    for (BorderList::const_iterator border = p.borders.begin(); border != p.borders.end(); ++border)
-    {
-        if (unique_matches.count(&(*border)))
-            continue;
+    // for (BorderList::const_iterator border = p.borders.begin(); border != p.borders.end(); ++border)
+    // {
+    //     if (unique_matches.count(&(*border)))
+    //         continue;
 
-        PointVector::const_iterator point;
-        for (point = border->begin(); point != border->end(); ++point)
-        {
-            if (isBorderAdjacent(*point))
-                break;
-        }
-        if (point == border->end())
-            return false;
-    }
+    //     PointVector::const_iterator point;
+    //     for (point = border->begin(); point != border->end(); ++point)
+    //     {
+    //         if (isBorderAdjacent(*point))
+    //             break;
+    //     }
+    //     if (point == border->end())
+    //         return false;
+    // }
     return true;
 }
 
