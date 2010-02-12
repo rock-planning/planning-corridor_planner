@@ -204,7 +204,7 @@ namespace nav {
 
     inline std::ostream& operator << (std::ostream& io, BoundingBox const& c)
     {
-        io << "bbox[" << c.min << " => " << c.max << "]" << std::endl;
+        io << "bbox[" << c.min << " => " << c.max << "]";
         return io;
     }
 
