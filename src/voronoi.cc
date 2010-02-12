@@ -933,7 +933,9 @@ void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
         else
         {
             int order = findConcatenationOrder(result, line0);
-            if (order / 2) // attach to result.front
+            cerr << "looking to concatenate new=(" << line0.front() << "," << line0.back() << ") to current=(" << result.front() << "," << result.back() << ")" << endl;
+            cerr << "concatenation order: " << order << endl;
+            if (order / 2 == 0) // attach to result.front
             {
                 if (order % 2 == 0)
                 {
@@ -941,9 +943,10 @@ void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
                     line0.reverse();
                     // now attach to line0.back
                 }
+                cerr << "attaching (" << line0.front() << "," << line0.back() << ") before (" << result.front() << "," << result.back() << ")" << endl;
                 result.splice(result.begin(), line0);
             }
-            else // attach to result.front
+            else // attach to result.back
             {
                 if (order % 2 == 1)
                 {
@@ -951,6 +954,7 @@ void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
                     line0.reverse();
                     // now attach to line0.front
                 }
+                cerr << "attaching (" << line0.front() << "," << line0.back() << ") after (" << result.front() << "," << result.back() << ")" << endl;
                 result.splice(result.end(), line0);
             }
         }
