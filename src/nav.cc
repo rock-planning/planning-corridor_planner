@@ -211,14 +211,20 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
 
         Corridor::Connections const& connections = corridor.connections;
         Corridor::Connections::const_iterator conn_it;
+        bool this_singleton = corridor.isSingleton();
         for (conn_it = connections.begin(); conn_it != connections.end(); ++conn_it)
         {
             int target_idx = conn_it->target_idx;
+            bool target_singleton = plan.corridors[target_idx].isSingleton();
 
             if (!seen.count(target_idx))
             {
                 int in_side  = conn_it->this_side;
+                if (this_singleton)
+                    in_side = false;
                 int out_side = conn_it->target_side;
+                if (target_singleton)
+                    out_side = false;
 
                 dot << "  c" << corridor_idx << "_" << in_side
                     << " -> c" << target_idx << "_" << out_side << " [weight=3];\n";
@@ -255,16 +261,21 @@ void outputExtractionState(int xSize, int ySize, std::string const& out, vector<
     }
 
     // Then mark the connection with the two leftover colors
-    ConnectionPoints const& connections = state.connection_points;
+    Crossroads const& connections = state.crossroads;
     SplitPoints const& splits = state.split_points;
     RGBColor connection_color = colors[0];
     RGBColor split_color = colors[1];
-    for (ConnectionPoints::const_iterator it = connections.begin(); it != connections.end(); ++it)
+    for (Crossroads::const_iterator it = connections.begin(); it != connections.end(); ++it)
     {
         vector<PointID> points;
         points.reserve(points.size() + it->size());
-        transform(it->begin(), it->end(),
-                back_inserter(points), boost::bind(&Endpoint::point, _1));
+        for (list<Endpoint>::const_iterator endp_it = it->begin(); endp_it != it->end(); ++endp_it)
+        {
+            int target_idx   = endp_it->corridor_idx;
+            bool target_side = endp_it->side;
+            PointID p = state.plan.corridors[target_idx].getEndpoint(target_side);
+            points.push_back(p);
+        }
 
         //cerr << "connection points: ";
         //displayLine(cerr, points, std::_Identity<PointID>());
@@ -391,10 +402,10 @@ tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(
     outputExtractionState(xSize, ySize, basename + "-branches.tif", image, build_plan_state);
 
     { Profile profiler("removing dead ends");
-        skel.removeDeadEnds(build_plan_state);
+        build_plan_state.plan.createEndpointCorridor(build_plan_state.plan.getStartPoint(), false);
+        build_plan_state.plan.createEndpointCorridor(build_plan_state.plan.getEndPoint(), true);
+        build_plan_state.plan.removeDeadEnds();
     }
-    outputExtractionState(xSize, ySize, basename + "-branches-simplified.tif", image, build_plan_state);
-
 
     Plan plan;
     { Profile profiler("doing the whole plan building at once");
@@ -409,6 +420,10 @@ tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(
     cerr << plan.corridors.size() << " corridors found" << endl;
 
     outputPlan(xSize, ySize, basename, image, plan);
+
+    plan.simplify();
+    outputPlan(xSize, ySize, basename + "-simplified", image, plan);
+    
     return make_tuple(plan, xSize, ySize, image);
 }
 

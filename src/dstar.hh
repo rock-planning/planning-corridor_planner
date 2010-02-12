@@ -178,6 +178,7 @@ namespace nav {
         int getNeighbour() const { return 1 << (m_neighbour - 1); }
 
         /** The position of the node on which we are iterating */
+        float getSourceValue() const;
         PointID getSourcePoint() const { return PointID(sourceX(), sourceY()); }
         int sourceX() const { return m_x; }
         int sourceY() const { return m_y; }
@@ -190,6 +191,7 @@ namespace nav {
         /** The value of the currently-iterated neighbour */
         float getValue() const;
         float getTargetValue() const { return getValue(); }
+
         /** True if the source of this iterator is the parent of the currently
          * pointed-to cell
          */

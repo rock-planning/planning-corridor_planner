@@ -561,7 +561,7 @@ void PlanMerge::pushMerged(
 pair<int, PointID> PlanMerge::getEndpointMapping(PointID const& p, Corridor const& orig, int first_idx, int last_idx) const
 {
     int side = orig.findSideOf(p);
-    if (side == ENDPOINT_FRONT)
+    if (side == ENDPOINT_BACK)
         return make_pair(last_idx, corridors[last_idx].back().center);
     else
         return make_pair(first_idx, corridors[first_idx].front().center);
@@ -694,9 +694,9 @@ void PlanMerge::finalizeMerge(int orig_left_idx, int orig_right_idx, int start_i
         corridor.end_regions[1].insert(corridor.backPoint());
 
         if (right_idx != right_first_corridor)
-            corridor.end_types[0] = ENDPOINT_BACK;
+            corridor.end_types[0] = ENDPOINT_FRONT;
         if (right_idx != right_last_corridor)
-            corridor.end_types[1] = ENDPOINT_FRONT;
+            corridor.end_types[1] = ENDPOINT_BACK;
         if (right_is_bidir)
             corridor.bidirectional = right_is_bidir;
     }
@@ -748,7 +748,7 @@ void PlanMerge::finalizeMerge(int orig_left_idx, int orig_right_idx, int start_i
             // Check that left and right are traversing the merged corridors in
             // the same direction.
             int target_side = target.findSideOf(conn_it->get<2>());
-            if (target_side == ENDPOINT_FRONT)
+            if (target_side == ENDPOINT_BACK)
             {
                 cerr << "  corridor " << corridor.name << " is traversed in both directions, marking as bidirectional" << endl;
                 target.bidirectional = true;
@@ -800,9 +800,9 @@ void PlanMerge::finalizeMerge(int orig_left_idx, int orig_right_idx, int start_i
 
     int right_in_side  = corridors[right_first_corridor].findSideOf(orig_right.frontPoint());
     int right_out_side = corridors[right_last_corridor].findSideOf(orig_right.backPoint());
-    if (right_in_side == ENDPOINT_FRONT)
+    if (right_in_side == ENDPOINT_BACK)
         corridors[right_first_corridor].bidirectional = true;
-    if (right_out_side == ENDPOINT_BACK)
+    if (right_out_side == ENDPOINT_FRONT)
         corridors[right_last_corridor].bidirectional = true;
 
     for (int corridor_idx = start_idx; corridor_idx < static_cast<int>(corridors.size()); ++corridor_idx)
@@ -815,8 +815,8 @@ void PlanMerge::finalizeMerge(int orig_left_idx, int orig_right_idx, int start_i
         }
         else
         {
-            corridor.end_types[0] = ENDPOINT_BACK;
-            corridor.end_types[1] = ENDPOINT_FRONT;
+            corridor.end_types[0] = ENDPOINT_FRONT;
+            corridor.end_types[1] = ENDPOINT_BACK;
         }
     }
 

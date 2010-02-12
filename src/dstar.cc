@@ -161,6 +161,8 @@ NeighbourGenericIterator<GC>::NeighbourGenericIterator(GC& graph, int x, int y, 
     findNextNeighbour();
 }
 template<typename GC>
+float NeighbourGenericIterator<GC>::getSourceValue() const { return m_graph->getValue(m_x, m_y); }
+template<typename GC>
 float NeighbourGenericIterator<GC>::getValue() const { return m_graph->getValue(x(), y()); }
 template<typename GC>
 bool NeighbourGenericIterator<GC>::sourceIsParent() const 

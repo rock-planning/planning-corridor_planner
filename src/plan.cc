@@ -14,8 +14,8 @@ const int nav::Plan::USEFUL;
 const int nav::Plan::NOT_USEFUL;
 
 static const int ENDPOINT_UNKNOWN = nav::Corridor::ENDPOINT_UNKNOWN;
-static const int ENDPOINT_FRONT   = nav::Corridor::ENDPOINT_FRONT;
-static const int ENDPOINT_BACK    = nav::Corridor::ENDPOINT_BACK;
+static const int ENDPOINT_BACK   = nav::Corridor::ENDPOINT_BACK;
+static const int ENDPOINT_FRONT    = nav::Corridor::ENDPOINT_FRONT;
 static const int ENDPOINT_BIDIR   = nav::Corridor::ENDPOINT_BIDIR;
 
 using namespace std;
@@ -205,41 +205,46 @@ Corridor& Plan::split(int corridor_idx, Corridor::voronoi_iterator it)
     return corridors.back();
 }
 
-void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end, std::string const& name)
+void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end)
 {
+    int current_idx = findCorridorOf(endpoint);
+    Corridor& current_corridor = corridors[current_idx];
+    bool endp_side = (is_end ? false : true);
+
+    std::string name = current_corridor.name + "_" + (is_end ? "end" : "start");
     Corridor  endp_corridor = Corridor::singleton(endpoint, name);
     if (is_end)
         endp_corridor.end_types[0] = ENDPOINT_FRONT;
     else
         endp_corridor.end_types[0] = ENDPOINT_BACK;
 
-    int current_idx = findCorridorOf(endpoint);
-    Corridor& current_corridor = corridors[current_idx];
-    bool endp_side = (is_end ? false : true);
 
     Corridor::voronoi_iterator it = current_corridor.findNearestMedian(endpoint);
 
-    if (it == current_corridor.begin())
+    if (it == current_corridor.begin() || it == (--current_corridor.end()))
     { // The end point does not split a corridor in two, just connect
       // endp_corridor to the beginning of current_corridor
-        int endp_idx = corridors.size();
-        endp_corridor.addConnection(endp_side, current_idx, false);
-        current_corridor.addConnection(false, endp_idx, endp_side);
+        int  endp_idx = corridors.size();
+        bool attach_side = !(it == current_corridor.begin());
+        for (Corridor::connection_iterator conn_it = current_corridor.connections.begin();
+                conn_it != current_corridor.connections.end(); ++conn_it)
+        {
+            if (conn_it->this_side == attach_side)
+            {
+                endp_corridor.addConnection(endp_side, conn_it->target_idx, conn_it->target_side);
+                corridors[conn_it->target_idx].addConnection(conn_it->target_side, endp_idx, endp_side);
+            }
+        }
+        current_corridor.addConnection(attach_side, endp_idx, endp_side);
+        endp_corridor.addConnection(endp_side, current_idx, attach_side);
         corridors.push_back(endp_corridor);
-        return;
-    }
-    else if (it == (--current_corridor.end()))
-    { // The end point does not split a corridor in two, just connect
-      // endp_corridor to the end of current_corridor
-        int endp_idx = corridors.size();
-        endp_corridor.addConnection(endp_side, current_idx, true);
-        current_corridor.addConnection(true, endp_idx, endp_side);
-        corridors.push_back(endp_corridor);
+        cerr << endp_corridor.connections.size() << endl;
+        cerr << "attached " << endp_corridor.name << " at the " << (attach_side ? "back" : "front") << " of " << current_corridor.name << endl;
         return;
     }
 
     // We need to split +current_corridor+ in two
-    cerr << "splitting " << current_corridor.name << flush;
+    cerr << "splitting " << current_corridor.name << " to attach " << endp_corridor.name << flush;
 
     split(current_idx, it);
 
@@ -247,7 +252,6 @@ void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end, std::str
     Corridor& front_corridor = corridors[front_idx];
     int back_idx = corridors.size() - 1;
     Corridor& back_corridor = corridors[back_idx];
-    std::cerr << ", created " << back_corridor.name << endl;
 
     front_corridor.checkConsistency();
     back_corridor.checkConsistency();
@@ -265,6 +269,7 @@ void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end, std::str
 
     if (front_corridor.isSingleton())
     {
+        cerr << "removing " << front_corridor.name << endl;
         moveConnections(back_idx, front_idx);
         if (back_corridor.isSingleton())
             throw std::logic_error("both corridors are singletons");
@@ -272,6 +277,7 @@ void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end, std::str
     }
     else if (back_corridor.isSingleton())
     {
+        cerr << "removing " << back_corridor.name << endl;
         moveConnections(front_idx, back_idx);
         removeCorridor(back_idx);
     }
@@ -340,47 +346,34 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
     static std::string indent; // for debugging purposes only
 
     if (end_idx == idx)
+    {
+        cerr << indent << "reached the end" << endl;
 	return true;
+    }
 
     Corridor& corridor = corridors[idx];
-    if (corridor.isSingleton())
-	return false;
-    if (corridor.isDeadEnd())
-        return false;
-
     stack.push_back(idx);
 
-    cerr << indent << "looking at " << corridor.name << ", cost_overhead=" << accumulated_cost_overhead << ", margin=" << cost_margin << endl;
     indent += "  ";
 
     // Some values about our input and output points
     int in_type  = corridor.end_types[in_side];
     int out_side = !in_side;
-    PointID in_p, out_p;
-    if (in_side == false) // we get in by the front point
-    {
-        in_p     = corridor.frontPoint();
-        out_p    = corridor.backPoint();
-    }
-    else
-    {
-        in_p     = corridor.backPoint();
-        out_p    = corridor.frontPoint();
-    }
-    float   in_cost  = m_nav_function.getValue(in_p.x, in_p.y);
-    float   out_cost = m_nav_function.getValue(out_p.x, out_p.y);
+    float dcost = corridor.getCostDelta(in_side);
+
+    cerr << indent << "looking at " << corridor.name << ", cost_overhead=" << accumulated_cost_overhead << ", margin=" << cost_margin << ", dcost=" << dcost << endl;
 
     // Check the currently known type for this side. If we are going backwards,
     // we'll have to check the cost threshold
     bool backwards = false;
-    if (in_type == ENDPOINT_FRONT)
+    if (in_type == ENDPOINT_BACK)
     {
 	cerr << indent << "taking it backwards" << endl;
-        if (out_cost < in_cost)
-            throw logic_error(corridor.name + " is supposed to be taken backwards, but dCost=" + lexical_cast<string>(out_cost - in_cost));
+        if (dcost < 0)
+            throw logic_error(corridor.name + " is supposed to be taken backwards, but dCost=" + lexical_cast<string>(dcost));
 
 	backwards = true;
-	accumulated_cost_overhead += (out_cost - in_cost);
+	accumulated_cost_overhead += dcost;
 	if (accumulated_cost_overhead > cost_margin)
 	{
 	    cerr << indent << "reached cost margin, cannot traverse this corridor" << endl;
@@ -431,8 +424,8 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
 
             int& orientation = orientations[2 * idx + out_side];
             if (ENDPOINT_UNKNOWN == orientation)
-                orientation = ENDPOINT_FRONT;
-            else if (ENDPOINT_BACK == orientation)
+                orientation = ENDPOINT_BACK;
+            else if (ENDPOINT_FRONT == orientation)
             {
                 corridor.bidirectional = true;
                 orientations[2 * idx + in_side] = ENDPOINT_BIDIR;
@@ -441,8 +434,8 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
 
             int& target_orientation = orientations[2 * target_idx + target_side];
             if (ENDPOINT_UNKNOWN == target_orientation)
-                target_orientation = ENDPOINT_BACK;
-            else if (ENDPOINT_FRONT == target_orientation)
+                target_orientation = ENDPOINT_FRONT;
+            else if (ENDPOINT_BACK == target_orientation)
             {
                 target_corridor.bidirectional = true;
                 target_orientation = ENDPOINT_BIDIR;
@@ -451,7 +444,7 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
 
 	    float min_cost = reach_min_cost[2 * target_idx + target_side];
 	    if (backwards)
-		min_cost += (out_cost - in_cost);
+		min_cost += dcost;
 	    if (reach_flag[2 * idx + in_side])
 		min_cost = min(reach_min_cost[2 * idx + in_side], min_cost);
 	    cerr << indent << "min cost is now " << min_cost << endl;
@@ -525,11 +518,6 @@ void Plan::markDirections_cost()
     for (size_t corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
     {
         Corridor& corridor = corridors[corridor_idx];
-	if (corridors[corridor_idx].isSingleton())
-	{
-	    cerr << "  " << corridor.name << " is a singleton" << endl;
-	    continue;
-	}
 
         // Gather a cost value for each end regions (mean value)
         Corridor::Connections::const_iterator conn_it;
@@ -549,14 +537,15 @@ void Plan::markDirections_cost()
             continue;
         }
 
-        if (costs[0] / counts[0] > costs[1] / counts[1])
-            corridor.reverse();
+        corridor.dcost = costs[1] / counts[1] - costs[0] / counts[0];
+        if (corridor.dcost > 0)
+            reverseCorridor(corridor_idx);
 
         corridor.end_types[0] = ENDPOINT_FRONT;
         corridor.end_types[1] = ENDPOINT_BACK;
 
         cerr << "corridor " << corridor.name << " is oriented FRONT => BACK as "
-            << corridor.frontPoint() << " <= " << corridor.backPoint() << endl;
+            << corridor.frontPoint() << " => " << corridor.backPoint() << " dcost=" << corridor.dcost << endl;
     }
 }
 
@@ -587,12 +576,15 @@ void Plan::removeBackToBackConnections()
 	int  target_idx  = it->target_idx;
 	bool target_side = it->target_side;
 	cerr << "initializing DFS-based DAG convertion with " << corridors[target_idx].name << " (side=" << target_side << ")" << endl;
-
-        orientations[target_idx * 2 + target_side] = ENDPOINT_BACK;
-	result.insert( make_tuple(start_idx, it->this_side, target_idx, target_side) );
+        cerr << "   start corridor:" << corridors[start_idx].name << endl;
+        cerr << "   end corridor:" << corridors[end_idx].name << endl;
 
 	vector<int> stack;
-	markDirections_DFS(result, stack, target_side, target_idx, end_idx, 0, cost_margin);
+	if (markDirections_DFS(result, stack, target_side, target_idx, end_idx, 0, cost_margin))
+        {
+            orientations[target_idx * 2 + target_side] = ENDPOINT_FRONT;
+            result.insert( make_tuple(start_idx, it->this_side, target_idx, target_side) );
+        }
     }
 
     for (size_t corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
@@ -860,5 +852,29 @@ ostream& nav::operator << (ostream& io, Plan const& plan)
         io << *it << endl;
     }
     return io;
+}
+
+void Plan::reverseCorridor(int corridor_idx)
+{
+    Corridor& corridor = corridors[corridor_idx];
+    corridor.reverse();
+
+    for (Corridor::Connections::iterator it = corridor.connections.begin();
+            it != corridor.connections.end(); ++it)
+    {
+        it->this_side = !it->this_side;
+    }
+
+    for (int i = 0; i < corridors.size(); ++i)
+    {
+        if (i == corridor_idx) continue;
+        Corridor& corridor = corridors[i];
+        for (Corridor::Connections::iterator it = corridor.connections.begin();
+                it != corridor.connections.end(); ++it)
+        {
+            if (it->target_idx == corridor_idx)
+                it->target_side = !it->target_side;
+        }
+    }
 }
 

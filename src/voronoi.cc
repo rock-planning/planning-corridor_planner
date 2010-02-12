@@ -421,11 +421,13 @@ void Corridor::reverse()
     reverseList(boundaries[0]);
     reverseList(boundaries[1]);
     std::swap(end_types[0], end_types[1]);
+    dcost = -dcost;
 }
 
 void Corridor::swap(Corridor& other)
 {
     std::swap(name, other.name);
+    std::swap(dcost, other.dcost);
     voronoi.swap(other.voronoi);
     boundaries[0].swap(other.boundaries[0]);
     boundaries[1].swap(other.boundaries[1]);
@@ -549,6 +551,18 @@ void Corridor::moveConnections(size_t prev_idx, size_t new_idx)
         int& target_idx = it->target_idx;
         if (target_idx == (int)prev_idx)
             target_idx = new_idx;
+    }
+}
+
+void Corridor::removeConnection(int target_idx, bool target_side)
+{
+    for (Connections::iterator it = connections.begin(); it != connections.end(); ++it)
+    {
+        if (it->target_idx == target_idx && it->target_side == target_side)
+        {
+            connections.erase(it++);
+            return;
+        }
     }
 }
 
@@ -823,7 +837,7 @@ void lineOrderingDFS(list<PointID>& result, PointID cur_point, int last_directio
 
     result.push_back(cur_point);
     int prefix_size = result.size();
-    cerr << string(prefix_size, ' ') << "adding " << cur_point << endl;
+    //cerr << string(prefix_size, ' ') << "adding " << cur_point << endl;
     list<PointID> temp = result;
 
     GridGraph::iterator n_it        = graph.neighboursBegin(cur_point.x, cur_point.y, PROGRESSION_MASKS[last_direction]);
@@ -835,7 +849,7 @@ void lineOrderingDFS(list<PointID>& result, PointID cur_point, int last_directio
             lineOrderingDFS(temp, n_it.getTargetPoint(), n_it.getNeighbourIndex(), graph);
             if (result.size() < temp.size()) // found a longer line
             {
-                cerr << string(prefix_size, ' ') << "updated with line starting from " << n_it.getTargetPoint() << endl;
+                //cerr << string(prefix_size, ' ') << "updated with line starting from " << n_it.getTargetPoint() << endl;
                 temp.swap(result);
             }
         }
@@ -877,12 +891,11 @@ void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
             start_point = *it - bbox.min;
         }
        
-        cerr << "starting at " << start_point << " (" << (start_point + bbox.min) << ")" << endl;
+        //cerr << "starting at " << start_point << " (" << (start_point + bbox.min) << ")" << endl;
         graph.setValue(start_point.x, start_point.y, 0);
         GridGraph::iterator n_it = graph.neighboursBegin(start_point.x, start_point.y);
 
         // Find the two longest lines. We always maintain line0.size() > line1.size()
-        // always.
         list<PointID> line0, line1;
         list<PointID> temp;
         for (; !n_it.isEnd(); ++n_it)
@@ -893,7 +906,7 @@ void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
             temp.clear();
             PointID root = n_it.getTargetPoint();
             lineOrderingDFS(temp, n_it.getTargetPoint(), n_it.getNeighbourIndex(), graph);
-            std::cerr << "temp:" << temp.size();
+            //std::cerr << "temp:" << temp.size();
 
             if (temp.size() > line0.size())
             {
@@ -903,7 +916,7 @@ void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
             else
                 line1.swap(temp);
 
-            cerr << "line0:" << line0.size() << " " << "line1:" << line1.size() << std::endl;
+            //cerr << "line0:" << line0.size() << " " << "line1:" << line1.size() << std::endl;
         }
 
         // Make one line out of line0 and line1. Don't forget to add bbox.min
@@ -944,5 +957,49 @@ void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
     }
 
     line.swap(result);
+}
+
+bool Corridor::isDeadEnd() const
+{
+    if (connections.empty())
+        return true;
+
+    int last_target = connections.front().target_idx;
+
+    bool has_front = false, has_back = false, has_multiple_targets = false;
+    for (Connections::const_iterator it = connections.begin();
+            it != connections.end(); ++it)
+    {
+        if (!it->this_side)
+            has_front = true;
+        else
+            has_back = true;
+
+        if (last_target != it->target_idx)
+            has_multiple_targets = true;
+
+        if (has_front && has_back && has_multiple_targets) return false;
+    }
+    return true;
+}
+
+void Corridor::copyOutgoingConnections(bool this_side, Corridor& other_corridor, bool other_side) const
+{
+    for (Connections::const_iterator it = connections.begin(); it != connections.end(); ++it)
+    {
+        if (it->this_side == this_side)
+        {
+            ConnectionDescriptor conn = *it;
+            conn.this_side = other_side;
+            other_corridor.connections.push_back(conn);
+        }
+    }
+}
+
+float Corridor::getCostDelta(bool in_side) const
+{
+    if (in_side)
+        return -dcost;
+    else return dcost;
 }
 

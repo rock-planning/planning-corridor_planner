@@ -89,6 +89,29 @@ namespace nav
 
     std::ostream& operator << (std::ostream& io, VoronoiPoint const& p);
 
+    /** In the plan representation, a corridor is a "tunnel" that the agent will
+     * traverse. The navigation constraint is that, once the agent got in at one
+     * side of the tunnel, it has to go out at the other side.
+     *
+     * There are two point of view: the geometrical and the cost one.
+     *
+     * The geometrical point of view is based on the voronoi line
+     * (Corridor.voronoi). From that point of view,, voronoi.front() is called
+     * the front point while voronoi.back() is called the back point.
+     *
+     * The cost point of view is based on whether the corridor descends the cost
+     * gradient or ascends it. From that point of view, the front point is the
+     * point of higher cost and the back point the point of lower cost (remember
+     * that we descend the cost function to go nearer to the goal).
+     *
+     * The mapping between the geometrical and cost point of view is saved in
+     * the Corridor::end_types array. end_types[0] is the cost representation of
+     * the geometrical front point and end_types[1] the one of the geometrical
+     * back point.
+     *
+     * I.e. if end_types[0] == ENDPOINT_BACK, it means that descending in the
+     * geometrical order will ascend the cost order.
+     */
     class Corridor
     {
     public:
@@ -103,8 +126,14 @@ namespace nav
         static const int ENDPOINT_BACK    = 2;
         static const int ENDPOINT_BIDIR   = 3;
 
-	int end_types[2];
-	bool bidirectional;
+	int   end_types[2];
+        /** The cost delta when traversing this corridor in the geometrical
+         * direction
+         *
+         * See Corridor::getCostDelta();
+         */
+        float dcost;
+	bool  bidirectional;
 
         BoundingBox bbox;
         BoundingBox median_bbox;
@@ -127,21 +156,7 @@ namespace nav
         typedef Connections::iterator connection_iterator;
         Connections connections;
 
-        bool isDeadEnd() const
-        {
-            bool has_front = false, has_back = false;
-            for (Connections::const_iterator it = connections.begin();
-                    it != connections.end(); ++it)
-            {
-                if (!has_front && !it->this_side)
-                    has_front = true;
-                else if (!has_back && it->this_side)
-                    has_back = true;
-
-                if (has_front && has_back) return false;
-            }
-            return true;
-        }
+        bool isDeadEnd() const;
 
 	Corridor();
 
@@ -164,6 +179,11 @@ namespace nav
 
 	int findSideOf(PointID const& p) const;
 
+        /** Inverts the geometrical direction of this corridor
+         *
+         * NOTE: this should not be used as-is, as the connections are left
+         * unchanged. Instead, one should use Plan::reverse()
+         */
         void reverse();
 
         void push_back(PointID const& p, VoronoiPoint const& descriptor);
@@ -182,7 +202,14 @@ namespace nav
          */
         bool isConnectedTo(int other_corridor) const;
 
+        /** Registers a new connection from this corridor to +target_idx+.
+         * +side+ and +target_side+ specify at which side of the corridor the
+         * connection is attached. \c means front and \c true means back.
+         */
         void addConnection(bool side, int target_idx, bool target_side);
+
+        /** Remove the specified connection */
+        void removeConnection(int target_idx, bool target_side);
 
         /** Removes all connections that point to \c other_corridor. It does
          * not remove them on \c other_corridor
@@ -193,6 +220,11 @@ namespace nav
          * pointing to +prev_idx+ are now pointing to +new_idx+
          */
         void moveConnections(size_t prev_idx, size_t new_idx);
+        
+        /** Copy all the connections that come from the specified side of the
+         * corridor onto the other corridor side
+         */
+        void copyOutgoingConnections(bool this_side, Corridor& other_corridor, bool other_side) const;
 
         size_t size() const { return voronoi.size(); }
 
@@ -236,6 +268,8 @@ namespace nav
         bool updateCurves();
 
         void buildBoundaries();
+
+        float getCostDelta(bool in_side) const;
     };
 
     std::ostream& operator << (std::ostream& io, Corridor const& corridor);

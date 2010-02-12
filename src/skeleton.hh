@@ -11,18 +11,21 @@ namespace nav
 {
     struct Endpoint
     {
-        PointID point;
         int     corridor_idx;
         bool    side; // false for front() and true for back()
 
-        Endpoint(PointID p, int idx, bool side)
-            : point(p), corridor_idx(idx), side(side) {}
+        Endpoint(int idx, bool side)
+            : corridor_idx(idx), side(side) {}
+
+        // Define a comparison operator to be able to put the endpoint in a set
+        bool operator < (Endpoint const& p) const
+        { return std::make_pair(corridor_idx, side) < std::make_pair(p.corridor_idx, p.side); }
     };
 
     typedef std::map<PointID, std::list<VoronoiPoint>::const_iterator> VoronoiMap;
     typedef std::multimap< PointID, std::list<VoronoiPoint> > BranchMap;
-    typedef std::list< std::list<Endpoint> > ConnectionPoints;
-    typedef std::list< std::pair<ConnectionPoints::iterator, std::set<int> > > SplitPoints;
+    typedef std::list< std::list<Endpoint> > Crossroads;
+    typedef std::list< std::pair<Crossroads::iterator, std::map<int, PointID> > > SplitPoints;
 
     struct CorridorExtractionState
     {
@@ -32,7 +35,7 @@ namespace nav
         BranchMap  branches;
         VoronoiMap voronoiMap;
 
-        ConnectionPoints connection_points;
+        Crossroads crossroads;
         SplitPoints split_points;
 
         // Keeps whether a given corridor has connection points at both sides

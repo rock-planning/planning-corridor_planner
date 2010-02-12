@@ -5,9 +5,11 @@
 #include "pool_allocator.hh"
 #include <boost/lexical_cast.hpp>
 
+#include <iterator>
 #include <iostream>
 #include <iomanip>
 #include <map>
+#include <stdexcept>
 
 using namespace boost;
 using namespace std;
@@ -20,8 +22,7 @@ static const int VALUE_SKELETON_NOT_VISITED = 2;
 // Start value for marking of skeleton points.
 //
 // buildPlan() uses (VALUE_CORRIDORS_START + n) to mark that a skeleton point is
-// part of corridor +n+, and then uses VALUE_CONNECTIONS_START (which is set to
-// VALUE_CORRIDORS_START + corridors.size()) to mark the connection points.
+// part of corridor +n+, and then uses -crossroad_idx to mark the crossroads
 static const int VALUE_CORRIDORS_START = 10;
 
 void CorridorExtractionState::addBranch(PointID const& p, std::list<VoronoiPoint>& line)
@@ -401,6 +402,18 @@ void SkeletonExtraction::extractBranches(list<VoronoiPoint> const& points, Corri
     }
 }
 
+struct GeometricEndpoint
+{
+    PointID p;
+    Endpoint endp;
+    GeometricEndpoint(PointID const& p, int idx, bool side)
+        : p(p), endp(idx, side) {}
+};
+
+static PointID get_point( GeometricEndpoint const& p )
+{ return p.p; }
+
+
 void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
 {
     // First, a dead simple step: convert each branch into a corridor. When we
@@ -409,7 +422,10 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
     //
     // We use the grid graph to check if there are places where a branch meets
     // the middle of another branch. We will post-process those later on
-    list<Endpoint> endpoints;
+    list< GeometricEndpoint > endpoints;
+    set<PointID> crossroad_points;
+    vector< set< Endpoint > > crossroads;
+
     BranchMap::iterator branch_it = state.branches.begin();
     BranchMap::iterator const branch_end = state.branches.end();
     for (; branch_it != branch_end; ++branch_it)
@@ -418,147 +434,163 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
         list<VoronoiPoint> line;
         line.swap(branch_it->second);
 
+        cerr << "handling branch ";
+        displayLine(cerr, line);
+
         // Remove all the voronoi points that have more than 2 borders
         while (!line.empty())
         {
             // the index of the corridor
             size_t corridor_idx = state.plan.corridors.size();
 
-            PointID front_point = line.front().center, back_point;
-            while (!line.empty() && line.front().borders.size() != 2)
-                line.pop_front();
+            if (line.front().borders.size() != 2)
+            {
+                int crossroad_idx = crossroads.size();
+                crossroads.push_back( set<Endpoint>() );
+                while (!line.empty() && line.front().borders.size() != 2)
+                {
+                    PointID p = line.front().center;
+                    crossroad_points.insert(p);
+                    state.graph.setValue(p.x, p.y, -crossroad_idx);
+                    line.pop_front();
+                }
+                if (line.empty())
+                    break;
+            }
 
-            Corridor::voronoi_iterator end_it   = line.begin();
+            Corridor::voronoi_iterator end_it = line.begin();
             for (; end_it != line.end(); ++end_it)
             {
-                back_point = end_it->center;
                 state.graph.setValue(end_it->center.x, end_it->center.y, VALUE_CORRIDORS_START + corridor_idx);
-
                 if (end_it->borders.size() != 2)
-                {
-                    cerr << corridor_idx << " " << end_it->borders.size() << " " << end_it->center << " " << *end_it << endl;
-                    break;
-                }
-            }
-
-            Corridor::voronoi_iterator cross_point_it = end_it;
-            for (; cross_point_it != line.end(); ++cross_point_it)
-            {
-                if (cross_point_it->borders.size() == 2)
                     break;
             }
-            if (cross_point_it == line.end())
-                back_point = line.back().center;
 
-            if (end_it != line.begin())
-            {
-                // register endpoints in +endpoints+, to create connections later on
-                endpoints.push_back(Endpoint(front_point, corridor_idx, false));
-                endpoints.push_back(Endpoint(back_point, corridor_idx, true));
+            // Finally, create the new corridor
+            Corridor& new_corridor = state.plan.newCorridor();
+            new_corridor.voronoi.splice(new_corridor.voronoi.end(), line, line.begin(), end_it);
+            cerr << "corridor " << new_corridor.name << " " << new_corridor.frontPoint() << " => " << new_corridor.backPoint() << endl;
+            new_corridor.update();
 
-                // Finally, create the new corridor
-                Corridor& new_corridor = state.plan.newCorridor();
-                new_corridor.voronoi.splice(new_corridor.voronoi.end(), line, line.begin(), end_it);
-                new_corridor.update();
-            }
+            // register endpoints in +endpoints+, to create connections later on
+            endpoints.push_back(GeometricEndpoint(new_corridor.frontPoint(), corridor_idx, false));
+            endpoints.push_back(GeometricEndpoint(new_corridor.backPoint(), corridor_idx, true));
         }
     }
     // OK, the branches set is now invalid (we spliced all the lines to the
     // corridors), so clear it
     state.branches.clear();
 
-    int const VALUE_CONNECTIONS_START = VALUE_CORRIDORS_START + state.plan.corridors.size();
-
     // Register the "obvious" connection points, i.e. the ones that are exactly
     // at the same place
-    vector< list<Endpoint> > connection_points;
-    for (list<Endpoint>::const_iterator it = endpoints.begin();
+    for (list<GeometricEndpoint>::const_iterator it = endpoints.begin();
             it != endpoints.end(); ++it)
     {
-        Endpoint endp = *it;
-        PointID p = endp.point;
+        Endpoint endp = it->endp;
+        PointID p     = it->p;
+        crossroad_points.insert(p);
         int current_endpoint = lround(state.graph.getValue(p.x, p.y));
 
-        // If the value is greater than VALUE_ENDPOINT_START, it means we have
-        // already an endpoint there.
-        if (current_endpoint >= VALUE_CONNECTIONS_START)
-            connection_points[current_endpoint - VALUE_CONNECTIONS_START].push_back(endp);
+        if (current_endpoint < 0) // It is already a crossroad
+            crossroads[-current_endpoint].insert(endp);
         else
         {
-            int connection_index = connection_points.size();
-            connection_points.push_back(list<Endpoint>());
-            connection_points.back().push_back(endp);
-            state.graph.setValue(p.x, p.y, connection_index + VALUE_CONNECTIONS_START);
+            int connection_index = crossroads.size();
+            crossroads.push_back(set<Endpoint>());
+            crossroads.back().insert(endp);
+            state.graph.setValue(p.x, p.y, -connection_index);
         }
     }
 
     // Now merge the adjacent connection points. We also search for endpoints
-    // that cut another branch in two halves.
+    // that cut another branch in two halves (registered in SplitMap below)
     //
-    // Note that we MUST NOT remove any element in connection_points. Instead,
-    // we simply make the endpoint list empty to mark that this connection point
-    // stopped being useful.
-
-    // This map is used to register the potential splits. They are filtered out
-    // later on
-    typedef map<int, set<int> > SplitMap;
+    // Note that we MUST NOT remove any element in crossroads -- since we are
+    // referring to the crossroads by their index. Instead, we simply make the
+    // endpoint list empty to mark that this connection point stopped being
+    // useful.
+    //
+    // SplitMap maps:
+    //   crossroad_idx => (corridor_idx, point)
+    //
+    // to indicate that the given crossroad may split the given corridor at the
+    // specified point
+    typedef map<int, map< int, PointID> > SplitMap;
     SplitMap potential_splits;
-    int connection_points_size = connection_points.size();
-    for (int connection_idx = 0; connection_idx < connection_points_size; ++connection_idx)
+    for (set<PointID>::const_iterator crossroad_it = crossroad_points.begin();
+            crossroad_it != crossroad_points.end(); ++crossroad_it)
     {
-        list<Endpoint>& endpoints = connection_points[connection_idx];
-        list<Endpoint>::iterator const endp_end = endpoints.end();
-        for (list<Endpoint>::iterator endp_it = endpoints.begin(); endp_it != endp_end; ++endp_it)
+        GridGraph::iterator n_it = state.graph.neighboursBegin(crossroad_it->x, crossroad_it->y);
+        int crossroad_idx = lround(-n_it.getSourceValue());
+
+        for (; !n_it.isEnd(); ++n_it)
         {
-            PointID endp = endp_it->point;
-            GridGraph::iterator n_it = state.graph.neighboursBegin(endp.x, endp.y);
-            for (; !n_it.isEnd(); ++n_it)
-            {
-                int value = lround(n_it.getTargetValue());
+            int pixel_owner = lround(n_it.getTargetValue());
+            if (pixel_owner < 0)
+            { // this is another crossroad. Merge.
+                int neighbour_crossroad = -pixel_owner;
+                if (neighbour_crossroad == crossroad_idx)
+                    continue;
 
-                if (value >= VALUE_CONNECTIONS_START)
-                { // this is another endpoint. Merge.
-                    value -= VALUE_CONNECTIONS_START;
+                SplitMap::iterator split_it = potential_splits.find(neighbour_crossroad);
+                if (split_it != potential_splits.end())
+                {
+                    potential_splits[crossroad_idx].insert(
+                            split_it->second.begin(),
+                            split_it->second.end());
+                    potential_splits.erase(split_it);
+                }
 
-                    if (value != connection_idx)
-                    {
-                        SplitMap::iterator split_it = potential_splits.find(value);
-                        if (split_it != potential_splits.end())
-                        {
-                            potential_splits[connection_idx].insert(
-                                    split_it->second.begin(),
-                                    split_it->second.end());
-                            potential_splits.erase(split_it);
-                        }
-                        endpoints.splice(endpoints.end(), connection_points[value]);
-                        n_it.setTargetValue(connection_idx + VALUE_CONNECTIONS_START);
-                    }
-                }
-                else if (value >= VALUE_CORRIDORS_START)
-                { // the target point is part of another corridor. Register as a
-                  // possible link between an endpoint and the middle of a
-                  // corridor
-                    value -= VALUE_CORRIDORS_START;
-                    potential_splits[connection_idx].insert(value);
-                }
+                n_it.setTargetValue(-crossroad_idx);
+                set<Endpoint>& points = crossroads[neighbour_crossroad];
+                crossroads[crossroad_idx].insert(points.begin(), points.end());
+                // we clear to mark that this crossroad does exist anymore
+                // See the big warning at the beginning of this code section
+                points.clear();
+            }
+            else if (pixel_owner >= VALUE_CORRIDORS_START)
+            { // the target point is part of another corridor. Register as a
+                // possible link between an endpoint and the middle of a
+                // corridor
+                potential_splits[crossroad_idx][pixel_owner - VALUE_CORRIDORS_START] = *crossroad_it;
             }
         }
     }
 
     // Filter the connection that exists from the potential_splits mapping
+    //
+    // More specifically, if a connection potentially splits a set of corridor,
+    // we check that the "splitted" corridors aren't already registered in the
+    // connection itself ... which would mean that it is a false positive.
     SplitMap::iterator split_it = potential_splits.begin();
     SplitMap::iterator const split_end = potential_splits.end();
     while (split_it != split_end)
     {
-        int connection_idx = split_it->first;
-        list<Endpoint> const& endpoints = connection_points[connection_idx];
-        for (list<Endpoint>::const_iterator endp_it = endpoints.begin(); endp_it != endpoints.end(); ++endp_it)
-            split_it->second.erase(endp_it->corridor_idx);
+        int crossroad_idx = split_it->first;
+        set<Endpoint> const& endpoints = crossroads[crossroad_idx];
+        map<int, PointID>& splitted_corridors = split_it->second;
+        for (set<Endpoint>::const_iterator endp_it = endpoints.begin(); endp_it != endpoints.end(); ++endp_it)
+            splitted_corridors.erase(endp_it->corridor_idx);
 
-        if (split_it->second.empty())
+        if (splitted_corridors.empty())
             potential_splits.erase(split_it++);
         else
+        {
+            vector<int> corridors;
+            for (map<int, PointID>::const_iterator it = splitted_corridors.begin();
+                    it != splitted_corridors.end(); ++it)
+                corridors.push_back(it->first);
+            vector<int> in_corridors;
+            transform(endpoints.begin(), endpoints.end(), back_inserter(in_corridors),
+                    bind(&Endpoint::corridor_idx, _1));
+
+            cerr << "potential split of ";
+            copy(corridors.begin(), corridors.end(), ostream_iterator<int>(cerr, ", "));
+            cerr << " by ";
+            copy(in_corridors.begin(), in_corridors.end(), ostream_iterator<int>(cerr, ", "));
+            cerr << endl;
             ++split_it;
+        }
     }
 
     // Convert the connection point and split maps into the data structures that
@@ -566,44 +598,24 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
     //
     // We filter out the connections that invalid and/or are connected to
     // nothing (i.e. endpoints that are actually not connected)
-    for (size_t connection_idx = 0; connection_idx != connection_points.size(); ++connection_idx)
+    for (size_t connection_idx = 0; connection_idx != crossroads.size(); ++connection_idx)
     {
-        list<Endpoint>& endpoints = connection_points[connection_idx];
-        if (endpoints.empty())
+        set<Endpoint>& endpoints = crossroads[connection_idx];
+        if (endpoints.size() < 2)
             continue;
+
+        Crossroads::iterator it =
+            state.crossroads.insert(state.crossroads.end(), list<Endpoint>());
+        it->insert(it->end(), endpoints.begin(), endpoints.end());
 
         SplitMap::iterator split_it =
             potential_splits.find(connection_idx);
-        if (endpoints.size() == 1 && split_it == potential_splits.end())
-        {
-            // We still have to check if there is a split that involves this
-            // corridor
-            int corridor_idx = endpoints.front().corridor_idx;
-            SplitMap::const_iterator split_it;
-            for (split_it = potential_splits.begin(); split_it != potential_splits.end(); ++split_it)
-            {
-                if (split_it->second.count(corridor_idx))
-                    break;
-            }
-
-            if (split_it == potential_splits.end())
-            {
-                cerr << "potential dead end: " << endpoints.front().point << " " << endpoints.front().corridor_idx << endl;
-                state.simple_connectivity_corridors.push_back(endpoints.front().corridor_idx);
-            }
-            continue;
-        }
-
-        ConnectionPoints::iterator it =
-            state.connection_points.insert(state.connection_points.end(), list<Endpoint>());
-        it->swap(connection_points[connection_idx]);
-
         if (split_it != potential_splits.end())
         {
             SplitPoints::iterator state_split =
                 state.split_points.insert(
                        state.split_points.end(),
-                       make_pair(it, set<int>()) );
+                       make_pair(it, map<int, PointID>()) );
             state_split->second.swap(split_it->second);
         }
     }
@@ -611,8 +623,8 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
 
 pair<int, int> SkeletonExtraction::removeDeadEnds(CorridorExtractionState& state)
 {
-    int start_corridor = state.plan.findCorridorOf(state.plan.getStartPoint());
-    int end_corridor   = state.plan.findCorridorOf(state.plan.getEndPoint());
+    int start_corridor = state.plan.findStartCorridor();
+    int end_corridor   = state.plan.findEndCorridor();
     set<int> end_corridors;
     end_corridors.insert(start_corridor);
     end_corridors.insert(end_corridor);
@@ -622,34 +634,46 @@ pair<int, int> SkeletonExtraction::removeDeadEnds(CorridorExtractionState& state
 
 void SkeletonExtraction::removeDeadEnds(CorridorExtractionState& state, set<int> keepalive)
 {
-redo:
-    size_t const start_size = state.plan.corridors.size();
-    size_t i = 0;
-    while (i < state.plan.corridors.size())
+    set<int> to_remove;
+
+    for (size_t corridor_idx = 0; corridor_idx < state.plan.corridors.size(); ++corridor_idx)
     {
-        if (keepalive.count(i))
-        {
-            ++i;
+        if (keepalive.count(corridor_idx))
             continue;
-        }
 
-        if (state.plan.corridors[i].isDeadEnd())
+        Corridor& corridor = state.plan.corridors[corridor_idx];
+        if (corridor.isSingleton())
         {
-            set<int> new_keepalive;
-            for (set<int>::const_iterator it = keepalive.begin(); it != keepalive.end(); ++it)
+            set<int> connected_to = corridor.connectivity();
+            if (connected_to.size() > 1)
             {
-                if (*it > i) new_keepalive.insert(*it - 1);
-                else new_keepalive.insert(*it);
-            }
-            new_keepalive.swap(keepalive);
+                while (!connected_to.empty())
+                {
+                    int source_idx = *(connected_to.begin());
+                    connected_to.erase(connected_to.begin());
 
-            state.plan.removeCorridor(i);
+                    set<int>::const_iterator missing = find_if(connected_to.begin(), connected_to.end(),
+                            !bind(&Corridor::isConnectedTo, ref(state.plan.corridors[source_idx]), _1));
+
+                    if (missing == connected_to.end())
+                        corridor.removeConnectionsTo(source_idx);
+                }
+
+            }
+
+            if (corridor.connections.size() < 2)
+                to_remove.insert(corridor_idx);
         }
-        else ++i;
+        else if (corridor.isDeadEnd())
+            to_remove.insert(corridor_idx);
     }
 
-    if (start_size != state.plan.corridors.size())
-        goto redo;
+    if (!to_remove.empty())
+    {
+        for_each(to_remove.rbegin(), to_remove.rend(),
+                bind(&Plan::removeCorridor, ref(state.plan), _1));
+        removeDeadEnds(state);
+    }
 }
 
 void SkeletonExtraction::registerConnections(CorridorExtractionState& state)
@@ -658,8 +682,8 @@ void SkeletonExtraction::registerConnections(CorridorExtractionState& state)
     //
     // We do this before applying the split, as Plan::split will update the
     // connections for us
-    for (ConnectionPoints::const_iterator conn_it = state.connection_points.begin();
-            conn_it != state.connection_points.end(); ++conn_it)
+    for (Crossroads::const_iterator conn_it = state.crossroads.begin();
+            conn_it != state.crossroads.end(); ++conn_it)
     {
         list<Endpoint>::const_iterator const conn_end = conn_it->end();
 
@@ -685,15 +709,15 @@ void SkeletonExtraction::applySplits(CorridorExtractionState& state)
     SplitPoints::iterator const split_end = state.split_points.end();
     for (; split_it != split_end; ++split_it)
     {
-        ConnectionPoints::iterator conn_it = split_it->first;
-        PointID conn_p = conn_it->front().point;
-
+        Crossroads::iterator conn_it = split_it->first;
         list< pair<int, int> > split_corridors;
 
-        set<int> const& corridors = split_it->second;
-        for (set<int>::const_iterator corridor_it = corridors.begin(); corridor_it != corridors.end(); ++corridor_it)
+        map<int, PointID> const& corridors = split_it->second;
+        for (map<int, PointID>::const_iterator corridor_it = corridors.begin();
+                corridor_it != corridors.end(); ++corridor_it)
         {
-            int corridor_idx = *corridor_it;
+            int corridor_idx = corridor_it->first;
+            PointID conn_p   = corridor_it->second;
             Corridor& corridor = state.plan.corridors[corridor_idx];
             Corridor::voronoi_iterator split_point =
                 corridor.findNearestMedian(conn_p);
@@ -720,16 +744,18 @@ void SkeletonExtraction::applySplits(CorridorExtractionState& state)
             SplitPoints::iterator split_update_it = split_it;
             for (++split_update_it; split_update_it != split_end; ++split_update_it)
             {
-                if (!split_update_it->second.count(corridor_idx))
+                map<int, PointID>::iterator other_split =
+                    split_update_it->second.find(corridor_idx);
+                if (other_split == split_update_it->second.end())
                     continue;
 
-                PointID p           = split_update_it->first->front().point;
+                PointID p           = other_split->second;
                 PointID front_match = corridor.findNearestMedian(p)->center;
                 PointID back_match  = back_corridor.findNearestMedian(p)->center;
                 if (front_match.distance2(p) > back_match.distance2(p))
                 {
-                    split_update_it->second.erase(corridor_idx);
-                    split_update_it->second.insert(back_idx);
+                    split_update_it->second.erase(other_split);
+                    split_update_it->second.insert(make_pair(back_idx, p));
                 }
             }
 
@@ -790,8 +816,11 @@ Plan SkeletonExtraction::buildPlan(PointID const& start_point, PointID const& en
 
     registerConnections(state);
     applySplits(state);
+
+    state.plan.createEndpointCorridor(state.plan.getStartPoint(), false);
+    state.plan.createEndpointCorridor(state.plan.getEndPoint(), true);
+
     removeDeadEnds(state);
-    
     return state.plan;
 }
 

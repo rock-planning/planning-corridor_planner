@@ -66,10 +66,6 @@ namespace nav
 
 	void checkConsistency() const;
 
-        int findStartCorridor() const;
-        int findEndCorridor() const;
-        void createEndpointCorridor(PointID const& endpoint, bool is_end, std::string const& name);
-
         /** Remove crossroads that simply connects two corridors (i.e. not real
          * crossroads)
          */
@@ -142,6 +138,28 @@ namespace nav
          * while the new corridor contains the back part.
          */
         Corridor& split(int corridor_idx, Corridor::voronoi_iterator it);
+
+        /** Returns the index of the start corridor. It is always a singleton
+         * corridor. Note that it must be created explicitely with
+         * createEndpointCorridor
+         */
+        int findStartCorridor() const;
+
+        /** Returns the index of the end corridor. It is always a singleton
+         * corridor. Note that it must be created explicitely with
+         * createEndpointCorridor
+         */
+        int findEndCorridor() const;
+
+        /** Create a singleton corridor that contains +endpoint+, and connect it
+         * to the nearest corridor that is already in the plan
+         */
+        void createEndpointCorridor(PointID const& endpoint, bool is_end);
+
+        /** Inverts the geometrical direction of this corridor, and updates
+         * the connections accordingly
+         */
+        void reverseCorridor(int corridor_idx);
     };
     std::ostream& operator << (std::ostream& io, Plan const& plan);
 }
