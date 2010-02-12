@@ -621,61 +621,6 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
     }
 }
 
-pair<int, int> SkeletonExtraction::removeDeadEnds(CorridorExtractionState& state)
-{
-    int start_corridor = state.plan.findStartCorridor();
-    int end_corridor   = state.plan.findEndCorridor();
-    set<int> end_corridors;
-    end_corridors.insert(start_corridor);
-    end_corridors.insert(end_corridor);
-    removeDeadEnds(state, end_corridors);
-    return make_pair(start_corridor, end_corridor);
-}
-
-void SkeletonExtraction::removeDeadEnds(CorridorExtractionState& state, set<int> keepalive)
-{
-    set<int> to_remove;
-
-    for (size_t corridor_idx = 0; corridor_idx < state.plan.corridors.size(); ++corridor_idx)
-    {
-        if (keepalive.count(corridor_idx))
-            continue;
-
-        Corridor& corridor = state.plan.corridors[corridor_idx];
-        if (corridor.isSingleton())
-        {
-            set<int> connected_to = corridor.connectivity();
-            if (connected_to.size() > 1)
-            {
-                while (!connected_to.empty())
-                {
-                    int source_idx = *(connected_to.begin());
-                    connected_to.erase(connected_to.begin());
-
-                    set<int>::const_iterator missing = find_if(connected_to.begin(), connected_to.end(),
-                            !bind(&Corridor::isConnectedTo, ref(state.plan.corridors[source_idx]), _1));
-
-                    if (missing == connected_to.end())
-                        corridor.removeConnectionsTo(source_idx);
-                }
-
-            }
-
-            if (corridor.connections.size() < 2)
-                to_remove.insert(corridor_idx);
-        }
-        else if (corridor.isDeadEnd())
-            to_remove.insert(corridor_idx);
-    }
-
-    if (!to_remove.empty())
-    {
-        for_each(to_remove.rbegin(), to_remove.rend(),
-                bind(&Plan::removeCorridor, ref(state.plan), _1));
-        removeDeadEnds(state);
-    }
-}
-
 void SkeletonExtraction::registerConnections(CorridorExtractionState& state)
 {
     // Register the connections we know already
@@ -820,7 +765,6 @@ Plan SkeletonExtraction::buildPlan(PointID const& start_point, PointID const& en
     state.plan.createEndpointCorridor(state.plan.getStartPoint(), false);
     state.plan.createEndpointCorridor(state.plan.getEndPoint(), true);
 
-    removeDeadEnds(state);
     return state.plan;
 }
 

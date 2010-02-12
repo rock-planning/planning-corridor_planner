@@ -151,16 +151,6 @@ namespace nav
          */
         void computeConnections(CorridorExtractionState& state);
 
-        /** Removes corridors that are dead ends (they neither connect two other
-         * corridors with each other, nor do they lead to the start and end
-         * points)
-         */
-        void removeDeadEnds(CorridorExtractionState& state, std::set<int> keepalive);
-
-        /** \overload
-         */
-        std::pair<int, int> removeDeadEnds(CorridorExtractionState& state);
-
         Plan buildPlan(PointID const& start_point, PointID const& end_point, GridGraph const& nav_function,
             std::list<VoronoiPoint> const& points);
 

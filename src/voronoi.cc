@@ -417,6 +417,7 @@ void reverseList(list<T>& l)
 
 void Corridor::reverse()
 {
+    name = "rev(" + name + ")";
     reverseList(voronoi);
     reverseList(boundaries[0]);
     reverseList(boundaries[1]);
@@ -428,6 +429,7 @@ void Corridor::swap(Corridor& other)
 {
     std::swap(name, other.name);
     std::swap(dcost, other.dcost);
+    std::swap(bidirectional, other.bidirectional);
     voronoi.swap(other.voronoi);
     boundaries[0].swap(other.boundaries[0]);
     boundaries[1].swap(other.boundaries[1]);
@@ -548,9 +550,8 @@ void Corridor::moveConnections(size_t prev_idx, size_t new_idx)
 {
     for (Connections::iterator it = connections.begin(); it != connections.end(); ++it)
     {
-        int& target_idx = it->target_idx;
-        if (target_idx == (int)prev_idx)
-            target_idx = new_idx;
+        if (it->target_idx == (int)prev_idx)
+            it->target_idx = new_idx;
     }
 }
 
@@ -985,6 +986,11 @@ bool Corridor::isDeadEnd() const
         if (has_front && has_back && has_multiple_targets) return false;
     }
     return true;
+}
+
+void Corridor::moveOutgoingConnections(Corridor& other_corridor)
+{
+    connections.splice(connections.end(), other_corridor.connections);
 }
 
 void Corridor::copyOutgoingConnections(bool this_side, Corridor& other_corridor, bool other_side) const

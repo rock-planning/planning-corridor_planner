@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <boost/lexical_cast.hpp>
 #include <boost/tuple/tuple_comparison.hpp>
+#include <iterator>
+#include "skeleton.hh"
 
 // #include <CGAL/Cartesian.h>
 // #include <CGAL/convex_hull_2.h>
@@ -83,30 +85,11 @@ void Plan::concat(Plan const& other)
             c->target_idx += merge_start;
 }
 
-void Plan::moveConnections(size_t into_idx, size_t from_idx)
+void Plan::moveConnections(size_t from_idx, size_t into_idx)
 {
-    Corridor::Connections& from = corridors[from_idx].connections;
-    Corridor::Connections& into = corridors[into_idx].connections;
-    Corridor::Connections::iterator conn_it;
-
-    conn_it = into.begin();
-    while (conn_it != into.end())
-    {
-        size_t target_idx = conn_it->target_idx;
-        if (target_idx == from_idx)
-            into.erase(conn_it++);
-        else ++conn_it;
-    }
-
-    conn_it = from.begin();
-    while (conn_it != from.end())
-    {
-        size_t target_idx = conn_it->target_idx;
-        if (target_idx != into_idx)
-            into.splice(into.end(), from, conn_it++);
-        else
-            ++conn_it;
-    }
+    corridors[from_idx].removeConnectionsTo(into_idx);
+    corridors[into_idx].moveOutgoingConnections(corridors[from_idx]);
+    corridors[into_idx].removeConnectionsTo(from_idx);
 
     for (size_t i = 0; i < corridors.size(); ++i)
     {
@@ -270,7 +253,7 @@ void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end)
     if (front_corridor.isSingleton())
     {
         cerr << "removing " << front_corridor.name << endl;
-        moveConnections(back_idx, front_idx);
+        moveConnections(front_idx, back_idx);
         if (back_corridor.isSingleton())
             throw std::logic_error("both corridors are singletons");
         removeCorridor(front_idx);
@@ -278,66 +261,154 @@ void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end)
     else if (back_corridor.isSingleton())
     {
         cerr << "removing " << back_corridor.name << endl;
-        moveConnections(front_idx, back_idx);
+        moveConnections(back_idx, front_idx);
         removeCorridor(back_idx);
     }
 }
 
 void Plan::simplify()
 {
+    cerr << "checking consistency before simplification" << endl;
+    checkConsistency();
+
+    // WARN: removeNullCorridors() works only on an UNDIRECTED graph
+    removeNullCorridors();
+    removeDeadEnds();
+
     vector<int> useful_corridors;
     useful_corridors.resize(corridors.size(), 0);
-
-    cerr << "after fixing line orderings" << endl;
-    checkConsistency();
-
-    // BIG FAT NOTE: cannot use findStartCorridor() here as the start corridor
-    // is not yet created.
-    useful_corridors[findCorridorOf(m_start)] = USEFUL;
-    useful_corridors[findCorridorOf(m_end)]   = USEFUL;
-
-    markUselessCorridors(useful_corridors);
-    removeUselessCorridors(useful_corridors);
-
-    cerr << "after simplification pass on undirected graph" << endl;
-    checkConsistency();
-
-    // Create two singleton corridors for the start and end points
-
-    // cerr << "end regions:" << endl;
-    // for (size_t i = 0; i < corridors.size(); ++i)
-    // {
-    //     Corridor& corridor = corridors[i];
-    //     //corridor.buildEndRegions();
-
-    //     cerr << "  " << corridors[i].name << ":" << endl;
-    //     if (corridor.end_regions[0].empty() || corridor.end_regions[1].empty())
-    //     {
-    //         int line_count = 0;
-    //         for (Corridor::voronoi_const_iterator median_it = corridor.voronoi.begin();
-    //                 median_it != corridor.voronoi.end(); ++median_it)
-    //         {
-    //             if (++line_count > 10)
-    //             {
-    //                 cerr << endl << "    ";
-    //                 line_count = 0;
-    //             }
-    //             cerr << " " << median_it->center;
-    //         }
-    //         cerr << endl;
-    //     }
-
-    //     for (int j = 0; j < 2; ++j)
-    //         cerr << "    " << corridors[i].end_regions[j] << endl;
-    // }
+    useful_corridors[findStartCorridor()] = USEFUL;
+    useful_corridors[findEndCorridor()]   = USEFUL;
 
     removeBackToBackConnections();
-
+    removeDeadEnds();
     mergeSimpleCrossroads_directed();
+    removeDeadEnds();
 
     cerr << "merged simple crossroads" << endl;
     checkConsistency();
 }
+
+void Plan::removeDeadEnds()
+{
+    cerr << "removing dead ends" << endl;
+    int start_corridor = findStartCorridor();
+    int end_corridor   = findEndCorridor();
+    set<int> end_corridors;
+    end_corridors.insert(start_corridor);
+    end_corridors.insert(end_corridor);
+    removeDeadEnds(end_corridors);
+}
+
+void Plan::removeDeadEnds(set<int> keepalive)
+{
+    // Each tuple is
+    //  has_front_connection, has_back_connection, has_multiple_neighbours, last_neighbour
+    typedef tuple<bool, bool, bool, int> DeadEndState;
+    vector<DeadEndState> states;
+    states.resize(corridors.size(), make_tuple(false, false, false, -1));
+
+    for (int corridor_idx = 0; corridor_idx < (int)corridors.size(); ++corridor_idx)
+    {
+        cerr << "corridor " << corridors[corridor_idx].name << ": " << endl;
+        tuple<bool, bool, bool, int>& this_state = states[corridor_idx];
+
+        Corridor::Connections const& connections = corridors[corridor_idx].connections;
+        for (Corridor::const_connection_iterator conn_it = connections.begin();
+                conn_it != connections.end(); ++conn_it)
+        {
+            cerr << "   conn: " << conn_it->this_side << " " << corridors[conn_it->target_idx].name << " " << conn_it->target_side << endl;
+            this_state.get<0>() |= !conn_it->this_side;
+            this_state.get<1>() |=  conn_it->this_side;
+            this_state.get<2>() |= (this_state.get<3>() != -1 && this_state.get<3>() != conn_it->target_idx);
+            this_state.get<3>() = conn_it->target_idx;
+            cerr << "   this_state: " << this_state.get<0>() << " " << this_state.get<1>() << " "
+                << this_state.get<2>() << " " << corridors[this_state.get<3>()].name << endl;
+
+            tuple<bool, bool, bool, int>& target_state = states[conn_it->target_idx];
+            target_state.get<0>() |= !conn_it->target_side;
+            target_state.get<1>() |=  conn_it->target_side;
+            target_state.get<2>() |= (target_state.get<3>() != -1 && target_state.get<3>() != corridor_idx);
+            target_state.get<3>() = corridor_idx;
+            cerr << "   target_state: " << target_state.get<0>() << " " << target_state.get<1>()
+                << " " << target_state.get<2>() << " " << corridors[target_state.get<3>()].name << endl;
+        }
+    }
+
+    for (int idx = states.size() - 1; idx >= 0; --idx)
+    {
+        if (keepalive.count(idx))
+            continue;
+
+        tuple<bool, bool, bool, int> state = states[idx];
+        if (!(state.get<0>() && state.get<1>() && state.get<2>()))
+        {
+            cerr << "corridor " << corridors[idx].name << " is a dead end" << endl;
+            removeCorridor(idx);
+        }
+    }
+    if (corridors.size() != states.size()) // we have removed some corridors
+        removeDeadEnds();
+}
+
+void Plan::removeNullCorridors()
+{
+    int start_corridor = findStartCorridor();
+    int end_corridor   = findEndCorridor();
+    set<int> end_corridors;
+    end_corridors.insert(start_corridor);
+    end_corridors.insert(end_corridor);
+    removeNullCorridors(end_corridors);
+}
+
+
+void Plan::removeNullCorridors(set<int> keepalive)
+{
+    set<int> to_remove;
+
+    for (size_t corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
+    {
+        if (keepalive.count(corridor_idx))
+            continue;
+
+        Corridor& corridor = corridors[corridor_idx];
+        if (!corridor.isSingleton())
+            continue;
+
+        set<int> connected_to = corridor.connectivity();
+        if (connected_to.size() > 1)
+        {
+            while (!connected_to.empty())
+            {
+                int source_idx = *(connected_to.begin());
+                connected_to.erase(connected_to.begin());
+
+                set<int>::const_iterator missing = find_if(connected_to.begin(), connected_to.end(),
+                        !bind(&Corridor::isConnectedTo, ref(corridors[source_idx]), _1));
+
+                if (missing == connected_to.end())
+                    corridor.removeConnectionsTo(source_idx);
+            }
+
+        }
+
+        if (corridor.connections.size() < 2)
+            to_remove.insert(corridor_idx);
+    }
+
+    if (!to_remove.empty())
+    {
+        cerr << "found the following null corridors: ";
+        copy(to_remove.begin(), to_remove.end(),
+                ostream_iterator<int>(cerr, ", "));
+        cerr << endl;
+
+        for_each(to_remove.rbegin(), to_remove.rend(),
+                bind(&Plan::removeCorridor, this, _1));
+        removeNullCorridors();
+    }
+}
+
 
 bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result, 
 	std::vector<int>& stack, int in_side, int idx, int end_idx,
@@ -427,6 +498,7 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
                 orientation = ENDPOINT_BACK;
             else if (ENDPOINT_FRONT == orientation)
             {
+                cerr << indent << corridor.name << " is bidirectional" << endl;
                 corridor.bidirectional = true;
                 orientations[2 * idx + in_side] = ENDPOINT_BIDIR;
                 orientation = ENDPOINT_BIDIR;
@@ -437,6 +509,7 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
                 target_orientation = ENDPOINT_FRONT;
             else if (ENDPOINT_BACK == target_orientation)
             {
+                cerr << indent << target_corridor.name << " is bidirectional" << endl;
                 target_corridor.bidirectional = true;
                 target_orientation = ENDPOINT_BIDIR;
                 orientations[2 * target_idx + !target_side] = ENDPOINT_BIDIR;
@@ -693,55 +766,140 @@ void Plan::removeUselessCorridors(vector<int>& useful)
     }
 }
 
+static int solveMergeMappings(map<int, int> const& merge_mappings, int idx)
+{
+    map<int, int>::const_iterator it = merge_mappings.find(idx);
+    while (it != merge_mappings.end())
+    {
+        idx = it->second;
+        it = merge_mappings.find(idx);
+    }
+    return idx;
+}
+
 void Plan::mergeSimpleCrossroads_directed()
 {
-    vector<int> in_connectivity(corridors.size(), 0);
-    vector<int> out_connectivity(corridors.size(), 0);
+    int start_corridor = findStartCorridor();
+    int end_corridor   = findEndCorridor();
 
-    for (size_t i = 0; i < corridors.size(); ++i)
+    map< Endpoint, int > endpoint_to_crossroad;
+    vector< list<Endpoint> > crossroads;
+
+    for (size_t corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
     {
-        set<int> connectivity = corridors[i].connectivity();
-        for (set<int>::const_iterator it = connectivity.begin();
-                it != connectivity.end(); ++it)
-            in_connectivity[*it]++;
+        Corridor::Connections& connections = corridors[corridor_idx].connections;
 
-        out_connectivity[i] = connectivity.size();
-    }
-
-    for (int i = corridors.size() - 1; i >= 0; --i)
-    {
-        if (out_connectivity[i] == 0 && in_connectivity[i] == 0)
+        bool not_already_there;
+        for (int side = 0; side < 2; ++side)
         {
-            removeCorridor(i);
-            in_connectivity.erase(in_connectivity.begin() + i);
-            out_connectivity.erase(out_connectivity.begin() + i);
+            Endpoint this_endpoint(corridor_idx, side);
+
+            // Check if there is already an owner for this endpoint, and add it
+            // if it is not the case.
+            map<Endpoint, int>::iterator endpoint_owner;
+            tie(endpoint_owner, not_already_there) =
+                endpoint_to_crossroad.insert( make_pair(this_endpoint, crossroads.size()) );
+            if (not_already_there)
+            {
+                crossroads.push_back( list<Endpoint>() );
+                crossroads.back().push_back(this_endpoint);
+            }
+
+            int crossroad_idx = endpoint_owner->second;
+            list<Endpoint>& crossroad = crossroads[crossroad_idx];
+
+            // Check all the connections. Either merge adjacent crossroads, or
+            // add the adjacent points to +crossroad+.
+            Corridor::const_connection_iterator conn_it;
+            for (conn_it = connections.begin(); conn_it != connections.end(); ++conn_it)
+            {
+                if (conn_it->this_side != side) continue;
+
+                Endpoint target_endpoint(conn_it->target_idx, conn_it->target_side);
+                map<Endpoint, int>::iterator target_owner;
+                tie(target_owner, not_already_there) =
+                    endpoint_to_crossroad.insert( make_pair(target_endpoint, crossroad_idx) );
+                if (not_already_there)
+                    crossroad.push_back(target_endpoint);
+                else if (target_owner->second != crossroad_idx) 
+                {
+                    list<Endpoint>& old_crossroad = crossroads[target_owner->second];
+                    for (list<Endpoint>::const_iterator endp_it = old_crossroad.begin();
+                            endp_it != old_crossroad.end(); ++endp_it)
+                        endpoint_to_crossroad[*endp_it] = crossroad_idx;
+                    crossroad.splice(crossroad.end(), old_crossroad);
+                }
+            }
         }
     }
 
-    for (int i = 0; i < (int)corridors.size(); ++i)
+    set<int> to_remove;
+    for (int corridor_idx = 0; corridor_idx < (int)corridors.size(); ++corridor_idx)
     {
-	if (corridors[i].isSingleton()) continue;
-	if (out_connectivity[i] != 1) continue;
+        Corridor& corridor = corridors[corridor_idx];
+        if (!corridor.isSingleton()) continue;
 
-        int target_idx = corridors[i].connections.front().target_idx;
-        if (corridors[target_idx].isSingleton()) continue;
-        if (in_connectivity[target_idx] > 1) continue;
+        int in_idx = endpoint_to_crossroad[ Endpoint(corridor_idx, false) ];
+        list<Endpoint>& in_crossroad = crossroads[in_idx];
+        int out_idx = endpoint_to_crossroad[ Endpoint(corridor_idx, true) ];
+        list<Endpoint>& out_crossroad = crossroads[out_idx];
 
-        if (corridors[i].bidirectional || corridors[target_idx].bidirectional)
+        if (in_crossroad.empty() || out_crossroad.empty())
+        {
+            cerr << corridor.name << " is a null corridor" << endl;
+            to_remove.insert(corridor_idx);
+        }
+    }
+
+    // Mapping from an already merged corridor to the corridor into which is has
+    // been merged
+    cerr << "found " << crossroads.size() << " crossroads" << endl;
+    map<int, int> merge_mappings;
+    for (int crossroad_idx = 0; crossroad_idx < (int)crossroads.size(); ++crossroad_idx)
+    {
+        cerr << "crossroad " << crossroad_idx << " has " << crossroads[crossroad_idx].size() << " endpoints" << endl;
+        if (crossroads[crossroad_idx].size() != 2)
             continue;
 
-        Corridor& source = corridors[i];
-        Corridor& target = corridors[target_idx];
-        cerr << "merging " << target.name << " + " << source.name << " out=" << out_connectivity[i] << " in=" << in_connectivity[target_idx] << endl;
-        target.merge(source);
-        moveConnections(target_idx, i);
-        removeCorridor(i);
+        Endpoint c0_endp = crossroads[crossroad_idx].front();
+        int c0_idx = c0_endp.corridor_idx;
+        c0_idx = solveMergeMappings(merge_mappings, c0_idx);
+        Corridor& c0 = corridors[c0_idx];
 
-	in_connectivity[target_idx] = in_connectivity[i];
-        in_connectivity.erase(in_connectivity.begin() + i);
-        out_connectivity.erase(out_connectivity.begin() + i);
-        --i;
+        Endpoint c1_endp = crossroads[crossroad_idx].back();
+        int c1_idx = c1_endp.corridor_idx;
+        c1_idx = solveMergeMappings(merge_mappings, c1_idx);
+        Corridor& c1 = corridors[c1_idx];
+
+        if (c0.bidirectional ^ c1.bidirectional)
+            continue;
+        if (c0_idx == start_corridor || c1_idx == start_corridor ||
+                c0_idx == end_corridor || c1_idx == end_corridor)
+            continue;
+
+        if (c1_endp.side == c0_endp.side)
+            reverseCorridor(c1_idx);
+
+        if (c0_endp.side == false)
+        {
+            // grafting c1.back onto
+            moveConnections(c0_idx, c1_idx);
+            c1.merge(c0);
+            merge_mappings[c0_idx] = c1_idx;
+            to_remove.insert(c0_idx);
+        }
+        else
+        {
+            moveConnections(c1_idx, c0_idx);
+            c0.merge(c1);
+            merge_mappings[c1_idx] = c0_idx;
+            to_remove.insert(c1_idx);
+        }
     }
+
+    for (set<int>::const_reverse_iterator it = to_remove.rbegin();
+            it != to_remove.rend(); ++it)
+        removeCorridor(*it);
 }
 
 int Plan::markNextCorridors(set<int>& stack, int corridor_idx, vector<int>& useful) const
@@ -767,7 +925,7 @@ int Plan::markNextCorridors(set<int>& stack, int corridor_idx, vector<int>& usef
 
         if (child_type == USEFUL)
         {
-            cerr << corridor_idx << " is useful" << endl;
+            cerr << corridors[corridor_idx].name << " is useful" << endl;
             useful[corridor_idx] = USEFUL;
         }
         else if (child_type == NOT_USEFUL)
@@ -776,12 +934,11 @@ int Plan::markNextCorridors(set<int>& stack, int corridor_idx, vector<int>& usef
 
     if (not_useful == c.connections.size())
     {
-        cerr << corridor_idx << " is not useful" << endl;
+        cerr << corridors[corridor_idx].name << " is not useful" << endl;
         useful[corridor_idx] = NOT_USEFUL;
     }
     if (useful[corridor_idx] == 0)
-        cerr << corridor_idx << " is left undetermined" << endl;
-
+        cerr << corridors[corridor_idx].name << " is left undetermined" << endl;
 
     stack.erase(stack_it);
     return useful[corridor_idx];
@@ -865,7 +1022,7 @@ void Plan::reverseCorridor(int corridor_idx)
         it->this_side = !it->this_side;
     }
 
-    for (int i = 0; i < corridors.size(); ++i)
+    for (int i = 0; i < (int)corridors.size(); ++i)
     {
         if (i == corridor_idx) continue;
         Corridor& corridor = corridors[i];

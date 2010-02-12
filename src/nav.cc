@@ -402,10 +402,11 @@ tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(
     outputExtractionState(xSize, ySize, basename + "-branches.tif", image, build_plan_state);
 
     { Profile profiler("removing dead ends");
-        build_plan_state.plan.createEndpointCorridor(build_plan_state.plan.getStartPoint(), false);
-        build_plan_state.plan.createEndpointCorridor(build_plan_state.plan.getEndPoint(), true);
-        build_plan_state.plan.removeDeadEnds();
+         build_plan_state.plan.createEndpointCorridor(build_plan_state.plan.getStartPoint(), false);
+         build_plan_state.plan.createEndpointCorridor(build_plan_state.plan.getEndPoint(), true);
+         build_plan_state.plan.removeDeadEnds();
     }
+    outputPlan(xSize, ySize, basename + "-skeleton", image, build_plan_state.plan);
 
     Plan plan;
     { Profile profiler("doing the whole plan building at once");
@@ -418,7 +419,6 @@ tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(
         plan.corridors[i].name = name_prefix + plan.corridors[i].name;
 
     cerr << plan.corridors.size() << " corridors found" << endl;
-
     outputPlan(xSize, ySize, basename, image, plan);
 
     plan.simplify();

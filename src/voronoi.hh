@@ -154,6 +154,7 @@ namespace nav
 
         typedef std::list<ConnectionDescriptor> Connections;
         typedef Connections::iterator connection_iterator;
+        typedef Connections::const_iterator const_connection_iterator;
         Connections connections;
 
         bool isDeadEnd() const;
@@ -225,6 +226,11 @@ namespace nav
          * corridor onto the other corridor side
          */
         void copyOutgoingConnections(bool this_side, Corridor& other_corridor, bool other_side) const;
+
+        /** Copy all outgoing connections from +other_corridor+ onto this
+         * corridor.
+         */
+        void moveOutgoingConnections(Corridor& other_corridor);
 
         size_t size() const { return voronoi.size(); }
 

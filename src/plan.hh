@@ -160,6 +160,11 @@ namespace nav
          * the connections accordingly
          */
         void reverseCorridor(int corridor_idx);
+
+        void removeDeadEnds();
+        void removeDeadEnds(std::set<int> keepalive);
+        void removeNullCorridors();
+        void removeNullCorridors(std::set<int> keepalive);
     };
     std::ostream& operator << (std::ostream& io, Plan const& plan);
 }
