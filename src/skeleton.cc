@@ -489,17 +489,11 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
         Endpoint endp = it->endp;
         PointID p     = it->p;
         crossroad_points.insert(p);
-        int current_endpoint = lround(state.graph.getValue(p.x, p.y));
 
-        if (current_endpoint < 0) // It is already a crossroad
-            crossroads[-current_endpoint].insert(endp);
-        else
-        {
-            int connection_index = crossroads.size();
-            crossroads.push_back(set<Endpoint>());
-            crossroads.back().insert(endp);
-            state.graph.setValue(p.x, p.y, -connection_index);
-        }
+        int connection_index = crossroads.size();
+        crossroads.push_back(set<Endpoint>());
+        crossroads.back().insert(endp);
+        state.graph.setValue(p.x, p.y, -connection_index);
     }
 
     // Now merge the adjacent connection points. We also search for endpoints
