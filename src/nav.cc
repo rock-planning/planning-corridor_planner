@@ -217,19 +217,15 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
             int target_idx = conn_it->target_idx;
             bool target_singleton = plan.corridors[target_idx].isSingleton();
 
-            if (!seen.count(target_idx))
-            {
-                int in_side  = conn_it->this_side;
-                if (this_singleton)
-                    in_side = false;
-                int out_side = conn_it->target_side;
-                if (target_singleton)
-                    out_side = false;
+            int in_side  = conn_it->this_side;
+            if (this_singleton)
+                in_side = false;
+            int out_side = conn_it->target_side;
+            if (target_singleton)
+                out_side = false;
 
-                dot << "  c" << corridor_idx << "_" << in_side
-                    << " -> c" << target_idx << "_" << out_side << " [weight=3];\n";
-                seen.insert(target_idx);
-            }
+            dot << "  c" << corridor_idx << "_" << in_side
+                << " -> c" << target_idx << "_" << out_side << " [weight=3];\n";
         }
     }
     dot << "}\n";
