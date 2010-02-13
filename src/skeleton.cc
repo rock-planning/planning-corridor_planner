@@ -481,6 +481,10 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
     // corridors), so clear it
     state.branches.clear();
 
+    // Get a copy of the graph, as we need to know by whom the endpoints are
+    // owned.
+    GridGraph ownerships(state.graph);
+
     // Register the "obvious" connection points, i.e. the ones that are exactly
     // at the same place
     for (list<GeometricEndpoint>::const_iterator it = endpoints.begin();
@@ -515,10 +519,15 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
             crossroad_it != crossroad_points.end(); ++crossroad_it)
     {
         GridGraph::iterator n_it = state.graph.neighboursBegin(crossroad_it->x, crossroad_it->y);
+        int owner_idx = lround(ownerships.getValue(crossroad_it->x, crossroad_it->y)) - VALUE_CORRIDORS_START;
         int crossroad_idx = lround(-n_it.getSourceValue());
 
         for (; !n_it.isEnd(); ++n_it)
         {
+            int neighbour_owner_idx = lround(ownerships.getValue(n_it.x(), n_it.y())) - VALUE_CORRIDORS_START;
+            if (owner_idx >= 0 && neighbour_owner_idx == owner_idx)
+                continue;
+
             int pixel_owner = lround(n_it.getTargetValue());
             if (pixel_owner < 0)
             { // this is another crossroad. Merge.
