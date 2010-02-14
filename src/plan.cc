@@ -534,51 +534,6 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
     return reach_flag[2 * idx + in_side];
 }
 
-//template<typename It>
-//pair<int, int> Plan::findEndpointType(
-//        ConnectionTypes const& dfs_types,
-//        EndpointTypes   const& cost_types,
-//        InboundConnections const& inbound_connections,
-//        size_t corridor_idx, It begin, It end) const
-//{
-    //Corridor const& corridor = corridors[corridor_idx];
-    //for (It it = begin; it != end; ++it)
-    //{
-    //    Corridor::Connections::const_iterator conn_it =
-    //        corridor.findConnectionFrom(it->center);
-
-    //    if (conn_it == corridor.connections.end())
-    //    {
-    //        InboundConnections::const_iterator inbound_it = inbound_connections.find(corridor_idx);
-    //        if (inbound_it == inbound_connections.end())
-    //            continue;
-
-    //        list<Corridor::ConnectionDescriptor> const& inbound = inbound_it->second;
-    //        for (conn_it = inbound.begin(); conn_it != inbound.end(); ++conn_it)
-    //        {
-    //            if (conn_it->get<0>() == it->center)
-    //                break;
-    //        }
-
-    //        if (conn_it == corridor.connections.end())
-    //            continue;
-    //    }
-
-    //    ConnectionTypes::const_iterator type_it = dfs_types.find(make_pair(corridor_idx, conn_it->get<1>()));
-    //    if (type_it != dfs_types.end())
-    //    {
-    //        int dfs_type = 0, cost_type = 0;
-    //        dfs_type = type_it->second;
-    //        if (dfs_type == CONNECTION_BIDIR)
-    //            cost_type = cost_types.find( &(*conn_it) )->second;
-
-    //        cerr << "  found type of endpoint " << conn_it->get<0>() << " connected to " << corridors[conn_it->get<1>()].name << endl;
-    //        return make_pair(dfs_type, cost_type);
-    //    }
-    //}
-//    throw runtime_error("cannot find type for endpoint");
-//}
-
 void Plan::markDirections_cost()
 {
     // Now, try to determine the leftovers (i.e. the bidirectional corridors) by
