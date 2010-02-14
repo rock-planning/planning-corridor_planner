@@ -179,36 +179,7 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
         Corridor const& corridor = plan.corridors[corridor_idx];
         string corridor_name = corridor.name;
 
-        if (corridor.isSingleton())
-        {
-            dot << "  c" << corridor_idx << "_0 "
-                << "[label=\"" << corridor_name << "\", color=\""
-                << colorToDot(color) << "\"]\n";
-        }
-        else
-        {
-            ostringstream node_setup;
-            node_setup << "[fixedsize=true, width=0.1, height=0.1, label=\"\", style=filled, shape=circle, "
-                << "color=\"" << colorToDot(color) << "\"];\n";
-
-            dot << "  c" << corridor_idx << "_0 " << node_setup.str();
-            dot << "  c" << corridor_idx << "_1 " << node_setup.str();
-            dot << "  c" << corridor_idx << "_0 -> c" << corridor_idx
-                << "_1 [label=\"" << corridor_name << "\", color=\""
-                << colorToDot(color) << "\"]\n";
-
-            if (corridor.bidirectional)
-            {
-                dot << "  c" << corridor_idx << "_1 -> c" << corridor_idx << "_0 [color=\""
-                    << colorToDot(color) << "\"]\n";
-            }
-        }
-
-
-        std::set<int> seen;
-        if (corridor.voronoi.size() == 1)
-            cerr << " corridor " << corridor.name << " is of size 1" << endl;
-
+        bool backwards = false;
         Corridor::Connections const& connections = corridor.connections;
         Corridor::Connections::const_iterator conn_it;
         bool this_singleton = corridor.isSingleton();
@@ -224,9 +195,41 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
             if (target_singleton)
                 out_side = false;
 
+            if (in_side == false)
+                backwards = true;
+
             dot << "  c" << corridor_idx << "_" << in_side
                 << " -> c" << target_idx << "_" << out_side << " [weight=3];\n";
         }
+
+        if (corridor.isSingleton())
+        {
+            dot << "  c" << corridor_idx << "_0 "
+                << "[label=\"" << corridor_name << "\", color=\""
+                << colorToDot(color) << "\"]\n";
+        }
+        else
+        {
+            ostringstream node_setup;
+            node_setup << "[fixedsize=true, width=0.1, height=0.1, label=\"\", style=filled, shape=circle, "
+                << "color=\"" << colorToDot(color) << "\"];\n";
+
+            dot << "  c" << corridor_idx << "_0 " << node_setup.str();
+            dot << "  c" << corridor_idx << "_1 " << node_setup.str();
+
+            int in_side = backwards, out_side = !backwards;
+            dot << "  c" << corridor_idx << "_" << in_side << " -> c" << corridor_idx
+                << "_" << out_side << " [label=\"" << corridor_name << "\", color=\""
+                << colorToDot(color) << "\"]\n";
+
+            if (corridor.bidirectional)
+            {
+                dot << "  c" << corridor_idx << "_1 -> c" << corridor_idx << "_0 [color=\""
+                    << colorToDot(color) << "\"]\n";
+            }
+        }
+
+
     }
     dot << "}\n";
 }
