@@ -154,14 +154,19 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
     for (size_t corridor_idx = 0; corridor_idx < plan.corridors.size(); ++corridor_idx)
     {
         Corridor& c = plan.corridors[corridor_idx];
+        if (c.buildCurves())
+        {
+        }
+        else
+        {
+            markPoints(c.boundaries[0], xSize, color_image, colors[corridor_idx]);
+            markPoints(c.boundaries[1], xSize, color_image, colors[corridor_idx]);
 
-        markPoints(c.boundaries[0], xSize, color_image, colors[corridor_idx]);
-        markPoints(c.boundaries[1], xSize, color_image, colors[corridor_idx]);
-
-        vector<PointID> points;
-        transform(c.voronoi.begin(), c.voronoi.end(),
-                back_inserter(points), bind(&VoronoiPoint::center, _1));
-        markPoints(points, xSize, color_image, colors[corridor_idx]);
+            vector<PointID> points;
+            transform(c.voronoi.begin(), c.voronoi.end(),
+                    back_inserter(points), bind(&VoronoiPoint::center, _1));
+            markPoints(points, xSize, color_image, colors[corridor_idx]);
+        }
     }
 
     string corridor_out = basename + "-corridors.tif";

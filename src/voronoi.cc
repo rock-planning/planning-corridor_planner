@@ -776,7 +776,6 @@ ostream& nav::operator << (ostream& io, Corridor const& corridor)
 
 bool Corridor::updateCurves()
 {
-    cerr << "generating curves for " << name << endl;
     boundary_curves[0].clear();
     boundary_curves[1].clear();
     median_curve.clear();
@@ -785,11 +784,13 @@ bool Corridor::updateCurves()
     boundaries[1].unique();
 
     if (boundaries[0].size() < 2) return false;
+    if (boundaries[1].size() < 2) return false;
+    if (median_curve.getPointCount() < 2) return false;
+
     for (list<PointID>::const_iterator it = boundaries[0].begin(); it != boundaries[0].end(); ++it)
         boundary_curves[0].addPoint(Eigen::Vector3d(it->x, it->y, 0));
     boundary_curves[0].update();
 
-    if (boundaries[1].size() < 2) return false;
     for (list<PointID>::const_iterator it = boundaries[1].begin(); it != boundaries[1].end(); ++it)
         boundary_curves[1].addPoint(Eigen::Vector3d(it->x, it->y, 0));
     boundary_curves[1].update();
@@ -798,14 +799,11 @@ bool Corridor::updateCurves()
     Corridor::voronoi_const_iterator const median_end = voronoi.end();
     for (; median_it != median_end; ++median_it)
         median_curve.addPoint(Eigen::Vector3d(median_it->center.x, median_it->center.y, 0));
-    if (median_curve.getPointCount() < 2)
-        return false;
     median_curve.update();
 
     boundary_curves[0].simplify(2);
     boundary_curves[1].simplify(2);
     median_curve.simplify(2);
-
     return true;
 }
 

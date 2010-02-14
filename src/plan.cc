@@ -270,6 +270,9 @@ void Plan::simplify()
     removeDeadEnds();
     mergeSimpleCrossroads_directed();
     removeDeadEnds();
+
+    for (int i = 0; i < corridors.size(); ++i)
+        corridors[i].update();
 }
 
 void Plan::removeDeadEnds()
