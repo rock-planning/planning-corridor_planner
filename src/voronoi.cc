@@ -9,7 +9,6 @@
 #include <iostream>
 #include <functional>
 
-#define DEBUG
 using namespace std;
 using namespace boost;
 using namespace nav;
@@ -510,16 +509,6 @@ void Corridor::update()
 	if (min_dist > 1)
 	    boundaries[boundary_idx].reverse();
     }
-
-    cerr << "corridor " << name << endl;
-    cerr << "   bbox: " << bbox << endl;
-    cerr << "   median_bbox: " << median_bbox << endl;
-    cerr << "   voronoi: ";
-    displayLine(cerr, voronoi);
-    cerr << "   boundaries[0]";
-    displayLine(cerr, boundaries[0]);
-    cerr << "   boundaries[1]";
-    displayLine(cerr, boundaries[1]);
 }
 
 void Corridor::addConnection(bool side, int target_idx, bool target_side)
@@ -637,8 +626,6 @@ static void mergeLines(Line& self, Line& other)
 
 void Corridor::merge(Corridor& other)
 {
-    cerr << "merging " << name << " + " << other.name << endl;
-
     if (bidirectional ^ other.bidirectional)
         throw runtime_error("cannot merge a bidirectional corridor with a non-bidirectional one");
     
@@ -701,6 +688,7 @@ void Corridor::merge(Corridor& other)
     bbox.merge(other.bbox);
     median_bbox.merge(other.median_bbox);
 
+#ifdef DEBUG
     cerr << endl << "result.voronoi:";
     displayLine(cerr, voronoi);
     cerr << endl << "result.boundaries[0]:";
@@ -709,6 +697,7 @@ void Corridor::merge(Corridor& other)
     displayLine(cerr, boundaries[1]);
 
     checkConsistency();
+#endif
 }
 
 bool Corridor::contains(PointID const& p) const
@@ -934,8 +923,6 @@ void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
         else
         {
             int order = findConcatenationOrder(result, line0);
-            cerr << "looking to concatenate new=(" << line0.front() << "," << line0.back() << ") to current=(" << result.front() << "," << result.back() << ")" << endl;
-            cerr << "concatenation order: " << order << endl;
             if (order / 2 == 0) // attach to result.front
             {
                 if (order % 2 == 0)
@@ -944,7 +931,6 @@ void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
                     line0.reverse();
                     // now attach to line0.back
                 }
-                cerr << "attaching (" << line0.front() << "," << line0.back() << ") before (" << result.front() << "," << result.back() << ")" << endl;
                 result.splice(result.begin(), line0);
             }
             else // attach to result.back
@@ -955,7 +941,6 @@ void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
                     line0.reverse();
                     // now attach to line0.front
                 }
-                cerr << "attaching (" << line0.front() << "," << line0.back() << ") after (" << result.front() << "," << result.back() << ")" << endl;
                 result.splice(result.end(), line0);
             }
         }

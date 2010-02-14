@@ -27,9 +27,6 @@ static const int VALUE_CORRIDORS_START = 10;
 
 void CorridorExtractionState::addBranch(PointID const& p, std::list<VoronoiPoint>& line)
 {
-    std::cerr << std::string(depth, ' ') << "adding branch at " << p << " of size " << line.size() << std::endl;
-    displayLine(std::cerr, line);
-
     BranchMap::iterator it = branches.insert( make_pair(p, list<VoronoiPoint>()) );
     it->second.swap(line);
 }
@@ -86,8 +83,6 @@ list<VoronoiPoint> SkeletonExtraction::process()
         }
     }
 
-// displayHeightMap(cerr);
-
     // The points that are part of the median line. The parents are stored in
     // the +parents+ map.
     CandidateSet skeleton;
@@ -101,8 +96,6 @@ list<VoronoiPoint> SkeletonExtraction::process()
         {
             height_t* c_ptr   = *candidates.begin();
             height_t  c_value = *c_ptr;
-            // cerr << "taking " << pointFromPtr(c_ptr) << "(" << (void*)c_ptr << ")=" << (int)c_value << endl;
-            // cerr << "  with borders " << parents[c_ptr] << endl;
 
             candidates.erase(candidates.begin());
 
@@ -121,7 +114,6 @@ list<VoronoiPoint> SkeletonExtraction::process()
             {
                 height_t* neighbour        = c_ptr   + displacement[i];
                 height_t propagated_value = c_value + addVal[i]; 
-                //cerr <<  "  " << pointFromPtr(neighbour) << "(" << (void*)neighbour << ")=" << (int)*neighbour << " ~ " << propagated_value << endl;
                 if (*neighbour > propagated_value) // needs to be propagated further
                 {
                     *neighbour = propagated_value;
@@ -137,22 +129,14 @@ list<VoronoiPoint> SkeletonExtraction::process()
                 }
                 else if (*neighbour == propagated_value || (addVal[i] == 1 && *neighbour == c_value))
                 {
-                    //cerr <<  "   ... found border ?" << parents[neighbour] << flush;
                     if (!parents[neighbour].isBorderAdjacent( parents[c_ptr] ))
                     {
-                        //cerr << " yes" << endl;
-
                         skeleton.insert( neighbour );
                         parents[neighbour].mergeBorders( parents[c_ptr] );
                     }
                     else if (*neighbour == propagated_value)
                     {
-                        //cerr << " no" << endl;
                         parents[neighbour].mergeBorders( parents[c_ptr] );
-                    }
-                    else
-                    {
-                        //cerr << " no" << endl;
                     }
                 }
             }
@@ -169,8 +153,6 @@ list<VoronoiPoint> SkeletonExtraction::process()
             borders[0].swap(borders[1]);
         }
     }
-
-    //displayHeightMap(cerr);
 
     list<VoronoiPoint> result;
     for (CandidateSet::const_iterator it = skeleton.begin(); it != skeleton.end(); ++it)
@@ -332,7 +314,6 @@ bool lineOrderingDFS(PointID const& cur_point, int neighbour_mask,
 
     state.graph.setValue(cur_point.x, cur_point.y, VALUE_SKELETON_VISITED);
     VoronoiMap::iterator voronoi_it = state.voronoiMap.find(cur_point);
-    cerr << string(state.depth, ' ') << "visiting " << cur_point << endl;
     parent_line.push_back( *(voronoi_it->second) );
     state.voronoiMap.erase(voronoi_it);
     state.depth++;
@@ -434,9 +415,6 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
         list<VoronoiPoint> line;
         line.swap(branch_it->second);
 
-        cerr << "handling branch ";
-        displayLine(cerr, line);
-
         // Remove all the voronoi points that have more than 2 borders
         while (!line.empty())
         {
@@ -469,7 +447,6 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
             // Finally, create the new corridor
             Corridor& new_corridor = state.plan.newCorridor();
             new_corridor.voronoi.splice(new_corridor.voronoi.end(), line, line.begin(), end_it);
-            cerr << "corridor " << new_corridor.name << " " << new_corridor.frontPoint() << " => " << new_corridor.backPoint() << endl;
             new_corridor.update();
 
             // register endpoints in +endpoints+, to create connections later on
@@ -578,22 +555,7 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
         if (splitted_corridors.empty())
             potential_splits.erase(split_it++);
         else
-        {
-            vector<int> corridors;
-            for (map<int, PointID>::const_iterator it = splitted_corridors.begin();
-                    it != splitted_corridors.end(); ++it)
-                corridors.push_back(it->first);
-            vector<int> in_corridors;
-            transform(endpoints.begin(), endpoints.end(), back_inserter(in_corridors),
-                    bind(&Endpoint::corridor_idx, _1));
-
-            cerr << "potential split of ";
-            copy(corridors.begin(), corridors.end(), ostream_iterator<int>(cerr, ", "));
-            cerr << " by ";
-            copy(in_corridors.begin(), in_corridors.end(), ostream_iterator<int>(cerr, ", "));
-            cerr << endl;
             ++split_it;
-        }
     }
 
     // Convert the connection point and split maps into the data structures that
@@ -683,7 +645,6 @@ void SkeletonExtraction::applySplits(CorridorExtractionState& state)
 
 
             size_t back_idx = state.plan.corridors.size();
-            cerr << "splitting " << corridor.name << " at " << split_point->center << " for " << conn_p << endl;
             Corridor& back_corridor = state.plan.split(corridor_idx, split_point);
 
             // Unfortunately, it is possible that the same corridor is split
