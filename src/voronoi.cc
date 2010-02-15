@@ -257,9 +257,9 @@ void nav::displayMedianLine(ostream& io, list<VoronoiPoint> const& skel, int xmi
 Corridor::Corridor()
     : bidirectional(false)
 {
-    boundary_curves[0].setGeometricResolution(1.1);
-    boundary_curves[1].setGeometricResolution(1.1);
-    median_curve.setGeometricResolution(1.1);
+    boundary_curves[0].setGeometricResolution(0.5);
+    boundary_curves[1].setGeometricResolution(0.5);
+    median_curve.setGeometricResolution(0.5);
     end_types[0] = end_types[1] = 0;
 }
 
