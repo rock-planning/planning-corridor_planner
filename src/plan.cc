@@ -842,14 +842,14 @@ void Plan::mergeSimpleCrossroads_directed()
         {
             // grafting c1.back onto
             moveConnections(c0_idx, c1_idx);
-            c1.merge(c0);
+            c1.concat(c0);
             merge_mappings[c0_idx] = c1_idx;
             to_remove.insert(c0_idx);
         }
         else
         {
             moveConnections(c1_idx, c0_idx);
-            c0.merge(c1);
+            c0.concat(c1);
             merge_mappings[c1_idx] = c0_idx;
             to_remove.insert(c1_idx);
         }

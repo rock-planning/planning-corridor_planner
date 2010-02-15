@@ -193,7 +193,7 @@ namespace nav
         /** Merge \c corridor into this one, updating its border, median line
          * and bounding box
          */
-        void merge(Corridor& corridor);
+        void concat(Corridor& corridor);
 
         /** Returns the set of corridors this one is connected to */
         std::set<int> connectivity() const;

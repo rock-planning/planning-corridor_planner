@@ -638,64 +638,49 @@ static void mergeLines(Line& self, Line& other)
     return mergeLines<Line>(self, other, min_dist.get<0>(), min_dist.get<1>());
 }
 
-void Corridor::merge(Corridor& other)
+void Corridor::concat(Corridor& other)
 {
     cerr << "merging " << name << " + " << other.name << endl;
 
     if (bidirectional ^ other.bidirectional)
         throw runtime_error("cannot merge a bidirectional corridor with a non-bidirectional one");
-    
-    // It is assumed that both corridors are ordered FRONT => BACK. After the
-    // merge, the ordering is therefore kept.
-    {
-        int self_endpoint, other_endpoint;
-        tie(self_endpoint, other_endpoint, boost::tuples::ignore) =
-            lineMinDist(voronoi, other.voronoi);
-
-        if (self_endpoint == 0 && other_endpoint == 1)
-        {
-            other.merge(*this);
-            swap(other);
-            return;
-        }
-    }
 
 #ifdef DEBUG
-    cerr << endl << "voronoi:";
+    cerr << endl << name << ".concat(" << other.name << ")";
+    cerr << endl << name << ".voronoi:";
     displayLine(cerr, voronoi);
-    cerr << endl << "boundaries[0]:";
+    cerr << endl << name << ".boundaries[0]:";
     displayLine(cerr, boundaries[0]);
-    cerr << "boundaries[1]:";
+    cerr << name << ".boundaries[1]:";
     displayLine(cerr, boundaries[1]);
 
-    cerr << endl << "other.voronoi:";
+    cerr << endl << other.name << ".voronoi:";
     displayLine(cerr, other.voronoi);
-    cerr << endl << "other.boundaries[0]:";
+    cerr << endl << other.name << ".boundaries[0]:";
     displayLine(cerr, other.boundaries[0]);
-    cerr << "other.boundaries[1]:";
+    cerr << other.name << ".boundaries[1]:";
     displayLine(cerr, other.boundaries[1]);
+
+    checkConsistency();
 #endif
-
-    // The boundaries are ordered in the same way than the voronoi is. The only
-    // thing we need to determine is the mapping between the boundaries.
-    PointID endpoint = voronoi.back().center;
+    
     voronoi.splice(voronoi.end(), other.voronoi);
-
-    float distances[4];
+    double distances[4];
     distances[0] = boundaries[0].back().distance2(other.boundaries[0].front());
     distances[1] = boundaries[0].back().distance2(other.boundaries[1].front());
     distances[2] = boundaries[1].back().distance2(other.boundaries[0].front());
     distances[3] = boundaries[1].back().distance2(other.boundaries[1].front());
-    int min_d_idx = std::min_element(distances, distances + 4) - distances;
-    if (min_d_idx == 0 || min_d_idx == 3)
+    int min_distance = min_element(distances, distances + 4) - distances;
+
+    if (min_distance == 0 || min_distance == 3)
     {
-        mergeLines(boundaries[0], other.boundaries[0], true, false);
-        mergeLines(boundaries[1], other.boundaries[1], true, false);
+        boundaries[0].splice(boundaries[0].end(), other.boundaries[0]);
+        boundaries[1].splice(boundaries[1].end(), other.boundaries[1]);
     }
     else
     {
-        mergeLines(boundaries[0], other.boundaries[1], true, false);
-        mergeLines(boundaries[1], other.boundaries[0], true, false);
+        boundaries[1].splice(boundaries[1].end(), other.boundaries[0]);
+        boundaries[0].splice(boundaries[0].end(), other.boundaries[1]);
     }
 
     if (name != other.name)
@@ -704,6 +689,7 @@ void Corridor::merge(Corridor& other)
     bbox.merge(other.bbox);
     median_bbox.merge(other.median_bbox);
 
+#ifdef DEBUG
     cerr << endl << "result.voronoi:";
     displayLine(cerr, voronoi);
     cerr << endl << "result.boundaries[0]:";
@@ -712,6 +698,7 @@ void Corridor::merge(Corridor& other)
     displayLine(cerr, boundaries[1]);
 
     checkConsistency();
+#endif
 }
 
 bool Corridor::contains(PointID const& p) const
