@@ -21,7 +21,8 @@
 
 #include <vector>
 #include <eigen2/Eigen/Core>
-#include "sisl.h"
+
+struct SISLCurve;
 
 namespace geometry
 {

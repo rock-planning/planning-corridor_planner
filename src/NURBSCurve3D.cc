@@ -17,6 +17,7 @@
  */
 
 #include "NURBSCurve3D.hh"
+#include "sisl/sisl.h"
 
 #include <stdexcept>
 #include <vector>
