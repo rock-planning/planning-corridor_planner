@@ -448,6 +448,9 @@ void Corridor::push_back(VoronoiPoint const& descriptor)
 
 void Corridor::update()
 {
+    boundaries[0].clear();
+    boundaries[1].clear();
+
     // Compute the tangent along the voronoi line, add the points to the
     // boundary sets and update the bounding boxes while we're at it
     Corridor::voronoi_const_iterator left  = voronoi.end();
