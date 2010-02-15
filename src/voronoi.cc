@@ -799,9 +799,9 @@ bool Corridor::updateCurves()
         median_curve.addPoint(Eigen::Vector3d(median_it->center.x, median_it->center.y, 0));
     median_curve.update();
 
-    boundary_curves[0].simplify(2);
-    boundary_curves[1].simplify(2);
-    median_curve.simplify(2);
+    boundary_curves[0].simplify(0.5);
+    boundary_curves[1].simplify(0.5);
+    median_curve.simplify(0.5);
     return true;
 }
 
