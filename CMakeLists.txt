@@ -3,22 +3,29 @@ cmake_minimum_required(VERSION 2.6)
 SET(PROJECT_VERSION 0.1)
 
 SET (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-INCLUDE(FindPkgConfig)
-INCLUDE(RPATHHandling)
-INCLUDE(CTest)
-INCLUDE(GenerateDoxygenDoc)
+include(FindPkgConfig)
+include(RPATHHandling)
+include(CTest)
+include(GenerateDoxygenDoc)
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR})
-CMAKE_USE_FULL_RPATH("${CMAKE_INSTALL_PREFIX}/lib")
+include_directories(${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR})
+cmake_use_full_rpath("${CMAKE_INSTALL_PREFIX}/lib")
 
-FIND_PACKAGE(Boost REQUIRED COMPONENTS unit_test_framework)
+pkg_check_modules(BASE_LIB REQUIRED "base-lib")
+include_directories(${BASE_LIB_INCLUDE_DIRS})
+link_directories(${BASE_LIB_LIBRARY_DIRS})
+
+add_subdirectory(src)
+configure_file(${CMAKE_SOURCE_DIR}/nav.pc.in ${CMAKE_BINARY_DIR}/nav.pc @ONLY)
+install(FILES ${CMAKE_BINARY_DIR}/nav.pc
+    DESTINATION lib/pkgconfig)
+
+find_package(Boost REQUIRED COMPONENTS unit_test_framework)
 IF (Boost_UNIT_TEST_FRAMEWORK_FOUND)
     MESSAGE(STATUS "boost/test found ... building test suite")
     ADD_SUBDIRECTORY(test)
 ENDIF(Boost_UNIT_TEST_FRAMEWORK_FOUND)
-
-ADD_SUBDIRECTORY(src)
 

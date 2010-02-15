@@ -7,7 +7,7 @@
 #include <boost/tuple/tuple.hpp>
 #include "point.hh"
 
-#include "NURBSCurve3D.hh"
+#include <base/geometry/NURBSCurve3D.h>
 #include "geometry.hh"
 
 namespace nav
@@ -118,8 +118,8 @@ namespace nav
         std::list<VoronoiPoint> voronoi;
         std::list<PointID> boundaries[2];
 
-        geometry::NURBSCurve3D median_curve;
-        geometry::NURBSCurve3D boundary_curves[2];
+        base::geometry::NURBSCurve3D median_curve;
+        base::geometry::NURBSCurve3D boundary_curves[2];
 
         static const int ENDPOINT_UNKNOWN = 0;
         static const int ENDPOINT_FRONT   = 1;

@@ -1,0 +1,12 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=@CMAKE_INSTALL_PREFIX@
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: nav
+Description: Base algorithms for autonomous navigation
+Depends: base-lib
+Version: @PROJECT_VERSION@
+Libs: -L${libdir} -lNav
+Cflags: -I${includedir}
+
