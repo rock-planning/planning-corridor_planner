@@ -442,6 +442,7 @@ tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(
     outputPlan(xSize, ySize, basename, image, plan);
 
     plan.simplify();
+    cerr << plan.corridors.size() << " corridors in simplified plan" << endl;
     outputPlan(xSize, ySize, basename + "-simplified", image, plan);
     
     return make_tuple(plan, xSize, ySize, image);
