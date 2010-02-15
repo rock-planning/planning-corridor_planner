@@ -775,28 +775,41 @@ ostream& nav::operator << (ostream& io, Corridor const& corridor)
     return io;
 }
 
-bool Corridor::updateCurves()
+bool Corridor::updateCurves(double discount_factor)
 {
     boundary_curves[0].clear();
     boundary_curves[1].clear();
     median_curve.clear();
 
+    double const new_point_factor = 1.0 - discount_factor;
+
     if (boundaries[0].size() < 2) return false;
     if (boundaries[1].size() < 2) return false;
     if (voronoi.size() < 2) return false;
 
-    for (list<PointID>::const_iterator it = boundaries[0].begin(); it != boundaries[0].end(); ++it)
-        boundary_curves[0].addPoint(Eigen::Vector3d(it->x, it->y, 0));
-    boundary_curves[0].update();
-
-    for (list<PointID>::const_iterator it = boundaries[1].begin(); it != boundaries[1].end(); ++it)
-        boundary_curves[1].addPoint(Eigen::Vector3d(it->x, it->y, 0));
-    boundary_curves[1].update();
+    for (int boundary_idx = 0; boundary_idx < 2; ++boundary_idx)
+    {
+        Eigen::Vector3d last_point = Eigen::Vector3d(boundaries[boundary_idx].front().x, boundaries[boundary_idx].front().y, 0);
+        for (list<PointID>::const_iterator it = boundaries[boundary_idx].begin(); it != boundaries[boundary_idx].end(); ++it)
+        {
+            Eigen::Vector3d point = new_point_factor * Eigen::Vector3d(it->x, it->y, 0) + discount_factor * last_point;
+            boundary_curves[boundary_idx].addPoint(point);
+            last_point = point;
+        }
+        boundary_curves[boundary_idx].update();
+    }
 
     Corridor::voronoi_const_iterator median_it = voronoi.begin();
     Corridor::voronoi_const_iterator const median_end = voronoi.end();
+    PointID first_point = voronoi.front().center;
+    Eigen::Vector3d last_point = Eigen::Vector3d(first_point.x, first_point.y, 0);
     for (; median_it != median_end; ++median_it)
-        median_curve.addPoint(Eigen::Vector3d(median_it->center.x, median_it->center.y, 0));
+    {
+        PointID p  = median_it->center;
+        Eigen::Vector3d point = new_point_factor * Eigen::Vector3d(p.x, p.y, 0) + discount_factor * last_point;
+        median_curve.addPoint(point);
+        last_point = point;
+    }
     median_curve.update();
 
     boundary_curves[0].simplify(0.5);

@@ -271,7 +271,11 @@ namespace nav
 
         static Corridor singleton(PointID const& p, std::string const& name = "");
 
-        bool updateCurves();
+        /** Creates the NURBSCurve3D for the boundary and the voronoi median
+         * line. To make the B-splines usable, the pixel lines are smoothed by a
+         * IIR filter with the provided discount factor
+         */
+        bool updateCurves(double discount_factor = 0.5);
 
         void buildBoundaries();
 
