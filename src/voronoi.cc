@@ -781,9 +781,6 @@ bool Corridor::updateCurves()
     boundary_curves[1].clear();
     median_curve.clear();
 
-    boundaries[0].unique();
-    boundaries[1].unique();
-
     if (boundaries[0].size() < 2) return false;
     if (boundaries[1].size() < 2) return false;
     if (median_curve.getPointCount() < 2) return false;
