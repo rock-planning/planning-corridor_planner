@@ -39,6 +39,17 @@ NURBSCurve3D::~NURBSCurve3D ()
         freeCurve(curve);
 }
 
+NURBSCurve3D::NURBSCurve3D(NURBSCurve3D const& source)
+    : curve(source.curve ? copyCurve(source.curve) : 0)
+    , points(source.points)
+    , geometric_resolution(source.geometric_resolution)
+    , curve_order(source.curve_order)
+    , start_param(source.start_param)
+    , end_param(source.end_param)
+    , curve_length(source.curve_length)
+{
+}
+
 Vector3d NURBSCurve3D::getPoint(double _param)
 {
     if (_param < start_param || _param > end_param) 

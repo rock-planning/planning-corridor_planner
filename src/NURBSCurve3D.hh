@@ -40,6 +40,8 @@ namespace geometry
 	    explicit NURBSCurve3D(double geometric_resolution = 0, double order = 3);
 	    ~NURBSCurve3D();
 
+            NURBSCurve3D(NURBSCurve3D const& source);
+
             /** Changes the default geometric resolution */
             void setGeometricResolution(double _geores) { geometric_resolution = _geores; }
 
