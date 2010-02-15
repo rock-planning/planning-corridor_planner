@@ -154,11 +154,27 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
     for (size_t corridor_idx = 0; corridor_idx < plan.corridors.size(); ++corridor_idx)
     {
         Corridor& c = plan.corridors[corridor_idx];
-        if (c.buildCurves())
+        cerr << c.boundaries[0].size() << " " << c.boundaries[1].size() << " " << c.voronoi.size() << endl;
+        if (c.updateCurves())
         {
+            cerr << "displaying " << c.name << " using curves" << endl;
+            vector<PointID> points;
+            geometry::NURBSCurve3D* curves[3] = { &c.boundary_curves[0], &c.boundary_curves[1], &c.median_curve };
+            for (int i = 0; i < 3; ++i)
+            {
+                double delta = curves[i]->getUnitParameter() / 10;
+                double end   = curves[i]->getEndParam();
+                for (double t = 0; t < end; t += delta)
+                {
+                    Eigen::Vector3d p = curves[i]->getPoint(t);
+                    points.push_back(PointID(p.x(), p.y()));
+                }
+            }
+            markPoints(points, xSize, color_image, colors[corridor_idx]);
         }
         else
         {
+            cerr << "displaying " << c.name << " using raw points" << endl;
             markPoints(c.boundaries[0], xSize, color_image, colors[corridor_idx]);
             markPoints(c.boundaries[1], xSize, color_image, colors[corridor_idx]);
 
