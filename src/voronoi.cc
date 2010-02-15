@@ -783,7 +783,7 @@ bool Corridor::updateCurves()
 
     if (boundaries[0].size() < 2) return false;
     if (boundaries[1].size() < 2) return false;
-    if (median_curve.getPointCount() < 2) return false;
+    if (voronoi.size() < 2) return false;
 
     for (list<PointID>::const_iterator it = boundaries[0].begin(); it != boundaries[0].end(); ++it)
         boundary_curves[0].addPoint(Eigen::Vector3d(it->x, it->y, 0));
