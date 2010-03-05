@@ -315,8 +315,10 @@ namespace nav {
     public:
         explicit GridGraph(size_t width = 0, size_t height = 0, float value = 0);
 
-        int getWidth() const { return m_width; }
-        int getHeight() const { return m_height; }
+        int getXSize() const { return m_width; }
+        int getWidth() const { return getXSize(); }
+        int getYSize() const { return m_height; }
+        int getHeight() const { return getYSize(); }
 
         /** Clears all edges in the graph, and initialize the floating-point
          * value to the given \c new_value */
