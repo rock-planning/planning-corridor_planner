@@ -472,11 +472,11 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
             }
 
             Corridor::voronoi_iterator end_it = line.begin();
-            VoronoiPoint const* last_point;
+            VoronoiPoint const* last_point = 0;
             for (; end_it != line.end(); ++end_it)
             {
                 state.graph.setValue(end_it->center.x, end_it->center.y, VALUE_CORRIDORS_START + corridor_idx);
-                if (end_it->borders.size() != 2 || (end_it != line.begin() && !last_point->isBorderAdjacent(*end_it)))
+                if (end_it->borders.size() != 2 || (last_point && !last_point->isBorderAdjacent(*end_it)))
                     break;
 
                 last_point = &*end_it;
