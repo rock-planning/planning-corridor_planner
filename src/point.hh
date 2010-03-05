@@ -7,6 +7,8 @@
 #include <cmath>
 #include <stdlib.h>
 
+#include <Eigen/Core>
+
 namespace nav {
     template<typename T>
     struct Point
@@ -76,6 +78,9 @@ namespace nav {
             : Point<int>(x, y) {}
         PointID(Point<int> const& p)
             : Point<int>(p) {}
+
+        Eigen::Vector3d toEigen() const
+        { return Eigen::Vector3d(x, y, 0); }
 
         bool operator == (PointID const& p) const
         {
