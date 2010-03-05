@@ -292,7 +292,7 @@ void Plan::simplify()
     mergeSimpleCrossroads_directed();
     removeDeadEnds();
 
-    for (int i = 0; i < corridors.size(); ++i)
+    for (size_t i = 0; i < corridors.size(); ++i)
         corridors[i].update();
 
     DEBUG_OUT("merged simple crossroads");
