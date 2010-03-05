@@ -92,7 +92,6 @@ namespace nav
 
     public:
         SkeletonExtraction(size_t width, size_t height);
-        SkeletonExtraction(DStar const& nav_function, int x, int y, float expand);
         ~SkeletonExtraction();
 
         void displayHeightMap(std::ostream& io) const;
