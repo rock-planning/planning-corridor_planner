@@ -11,6 +11,13 @@
 #include <map>
 #include <stdexcept>
 
+#undef DEBUG
+#ifdef DEBUG
+#define DEBUG_OUT(x) cerr << x << endl;
+#else
+#define DEBUG_OUT(x)
+#endif
+
 using namespace boost;
 using namespace std;
 using namespace nav;
@@ -27,8 +34,10 @@ static const int VALUE_CORRIDORS_START = 10;
 
 void CorridorExtractionState::addBranch(PointID const& p, std::list<VoronoiPoint>& line)
 {
-    std::cerr << std::string(depth, ' ') << "adding branch at " << p << " of size " << line.size() << std::endl;
-    displayLine(std::cerr, line);
+#ifndef DEBUG
+    DEBUG_OUT(std::string(depth, ' ') << "adding branch at " << p << " of size " << line.size());
+    displayLine(cerr, line);
+#endif
 
     BranchMap::iterator it = branches.insert( make_pair(p, list<VoronoiPoint>()) );
     it->second.swap(line);
@@ -101,8 +110,8 @@ list<VoronoiPoint> SkeletonExtraction::process()
         {
             height_t* c_ptr   = *candidates.begin();
             height_t  c_value = *c_ptr;
-            // cerr << "taking " << pointFromPtr(c_ptr) << "(" << (void*)c_ptr << ")=" << (int)c_value << endl;
-            // cerr << "  with borders " << parents[c_ptr] << endl;
+            DEBUG_OUT("taking " << pointFromPtr(c_ptr) << "(" << (void*)c_ptr << ")=" << (int)c_value);
+            DEBUG_OUT("  with borders " << parents[c_ptr]);
 
             candidates.erase(candidates.begin());
 
@@ -121,7 +130,7 @@ list<VoronoiPoint> SkeletonExtraction::process()
             {
                 height_t* neighbour        = c_ptr   + displacement[i];
                 height_t propagated_value = c_value + addVal[i]; 
-                //cerr <<  "  " << pointFromPtr(neighbour) << "(" << (void*)neighbour << ")=" << (int)*neighbour << " ~ " << propagated_value << endl;
+                DEBUG_OUT( "  " << pointFromPtr(neighbour) << "(" << (void*)neighbour << ")=" << (int)*neighbour << " ~ " << propagated_value);
                 if (*neighbour > propagated_value) // needs to be propagated further
                 {
                     *neighbour = propagated_value;
@@ -137,22 +146,24 @@ list<VoronoiPoint> SkeletonExtraction::process()
                 }
                 else if (*neighbour == propagated_value || (addVal[i] == 1 && *neighbour == c_value))
                 {
-                    //cerr <<  "   ... found border ?" << parents[neighbour] << flush;
+#ifndef DEBUG
+                    cerr <<  "   ... found border ?" << parents[neighbour] << flush;
+#endif
                     if (!parents[neighbour].isBorderAdjacent( parents[c_ptr] ))
                     {
-                        //cerr << " yes" << endl;
+                        DEBUG_OUT(" yes");
 
                         skeleton.insert( neighbour );
                         parents[neighbour].mergeBorders( parents[c_ptr] );
                     }
                     else if (*neighbour == propagated_value)
                     {
-                        //cerr << " no" << endl;
+                        DEBUG_OUT(" no");
                         parents[neighbour].mergeBorders( parents[c_ptr] );
                     }
                     else
                     {
-                        //cerr << " no" << endl;
+                        DEBUG_OUT(" no");
                     }
                 }
             }
@@ -332,7 +343,7 @@ bool lineOrderingDFS(PointID const& cur_point, int neighbour_mask,
 
     state.graph.setValue(cur_point.x, cur_point.y, VALUE_SKELETON_VISITED);
     VoronoiMap::iterator voronoi_it = state.voronoiMap.find(cur_point);
-    cerr << string(state.depth, ' ') << "visiting " << cur_point << endl;
+    DEBUG_OUT(string(state.depth, ' ') << "visiting " << cur_point);
     parent_line.push_back( *(voronoi_it->second) );
     state.voronoiMap.erase(voronoi_it);
     state.depth++;
@@ -434,8 +445,10 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
         list<VoronoiPoint> line;
         line.swap(branch_it->second);
 
+#ifdef DEBUG
         cerr << "handling branch ";
         displayLine(cerr, line);
+#endif
 
         // Remove all the voronoi points that have more than 2 borders
         while (!line.empty())
@@ -472,7 +485,7 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
             // Finally, create the new corridor
             Corridor& new_corridor = state.plan.newCorridor();
             new_corridor.voronoi.splice(new_corridor.voronoi.end(), line, line.begin(), end_it);
-            cerr << "corridor " << new_corridor.name << " " << new_corridor.frontPoint() << " => " << new_corridor.backPoint() << endl;
+            DEBUG_OUT("corridor " << new_corridor.name << " " << new_corridor.frontPoint() << " => " << new_corridor.backPoint());
             new_corridor.update();
 
             // register endpoints in +endpoints+, to create connections later on
@@ -590,11 +603,13 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
             transform(endpoints.begin(), endpoints.end(), back_inserter(in_corridors),
                     bind(&Endpoint::corridor_idx, _1));
 
+#ifdef DEBUG
             cerr << "potential split of ";
             copy(corridors.begin(), corridors.end(), ostream_iterator<int>(cerr, ", "));
             cerr << " by ";
             copy(in_corridors.begin(), in_corridors.end(), ostream_iterator<int>(cerr, ", "));
             cerr << endl;
+#endif
             ++split_it;
         }
     }
@@ -686,7 +701,7 @@ void SkeletonExtraction::applySplits(CorridorExtractionState& state)
 
 
             size_t back_idx = state.plan.corridors.size();
-            cerr << "splitting " << corridor.name << " at " << split_point->center << " for " << conn_p << endl;
+            DEBUG_OUT("splitting " << corridor.name << " at " << split_point->center << " for " << conn_p);
             Corridor& back_corridor = state.plan.split(corridor_idx, split_point);
 
             // Unfortunately, it is possible that the same corridor is split

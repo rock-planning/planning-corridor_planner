@@ -12,6 +12,13 @@
 // #include <CGAL/Cartesian.h>
 // #include <CGAL/convex_hull_2.h>
 
+#undef DEBUG
+#ifdef DEBUG
+#define DEBUG_OUT(x) cerr << x << endl;
+#else
+#define DEBUG_OUT(x)
+#endif
+
 const int nav::Plan::USEFUL;
 const int nav::Plan::NOT_USEFUL;
 
@@ -150,7 +157,7 @@ Corridor& Plan::split(int corridor_idx, Corridor::voronoi_iterator it)
 		    front_corridor.boundaries[boundary_index],
 		    boundary_it[boundary_index],
 		    front_corridor.boundaries[boundary_index].end());
-	    cerr << "   splitting boundary " << boundary_index << " at " << *boundary_it[boundary_index] << " for " << p << endl;
+	    DEBUG_OUT("   splitting boundary " << boundary_index << " at " << *boundary_it[boundary_index] << " for " << p);
         }
     }
 
@@ -221,13 +228,13 @@ void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end)
         current_corridor.addConnection(attach_side, endp_idx, endp_side);
         endp_corridor.addConnection(endp_side, current_idx, attach_side);
         corridors.push_back(endp_corridor);
-        cerr << endp_corridor.connections.size() << endl;
-        cerr << "attached " << endp_corridor.name << " at the " << (attach_side ? "back" : "front") << " of " << current_corridor.name << endl;
+        DEBUG_OUT(endp_corridor.connections.size());
+        DEBUG_OUT("attached " << endp_corridor.name << " at the " << (attach_side ? "back" : "front") << " of " << current_corridor.name);
         return;
     }
 
     // We need to split +current_corridor+ in two
-    cerr << "splitting " << current_corridor.name << " to attach " << endp_corridor.name << flush;
+    DEBUG_OUT("splitting " << current_corridor.name << " to attach " << endp_corridor.name);
 
     split(current_idx, it);
 
@@ -252,7 +259,7 @@ void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end)
 
     if (front_corridor.isSingleton())
     {
-        cerr << "removing " << front_corridor.name << endl;
+        DEBUG_OUT("removing " << front_corridor.name);
         moveConnections(front_idx, back_idx);
         if (back_corridor.isSingleton())
             throw std::logic_error("both corridors are singletons");
@@ -260,7 +267,7 @@ void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end)
     }
     else if (back_corridor.isSingleton())
     {
-        cerr << "removing " << back_corridor.name << endl;
+        DEBUG_OUT("removing " << back_corridor.name);
         moveConnections(back_idx, front_idx);
         removeCorridor(back_idx);
     }
@@ -268,7 +275,7 @@ void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end)
 
 void Plan::simplify()
 {
-    cerr << "checking consistency before simplification" << endl;
+    DEBUG_OUT("checking consistency before simplification");
     checkConsistency();
 
     // WARN: removeNullCorridors() works only on an UNDIRECTED graph
@@ -288,13 +295,13 @@ void Plan::simplify()
     for (int i = 0; i < corridors.size(); ++i)
         corridors[i].update();
 
-    cerr << "merged simple crossroads" << endl;
+    DEBUG_OUT("merged simple crossroads");
     checkConsistency();
 }
 
 void Plan::removeDeadEnds()
 {
-    cerr << "removing dead ends" << endl;
+    DEBUG_OUT("removing dead ends");
     int start_corridor = findStartCorridor();
     int end_corridor   = findEndCorridor();
     set<int> end_corridors;
@@ -313,28 +320,26 @@ void Plan::removeDeadEnds(set<int> keepalive)
 
     for (int corridor_idx = 0; corridor_idx < (int)corridors.size(); ++corridor_idx)
     {
-        cerr << "corridor " << corridors[corridor_idx].name << ": " << endl;
+        DEBUG_OUT("corridor " << corridors[corridor_idx].name << ": ");
         tuple<bool, bool, bool, int>& this_state = states[corridor_idx];
 
         Corridor::Connections const& connections = corridors[corridor_idx].connections;
         for (Corridor::const_connection_iterator conn_it = connections.begin();
                 conn_it != connections.end(); ++conn_it)
         {
-            cerr << "   conn: " << conn_it->this_side << " " << corridors[conn_it->target_idx].name << " " << conn_it->target_side << endl;
+            DEBUG_OUT("   conn: " << conn_it->this_side << " " << corridors[conn_it->target_idx].name << " " << conn_it->target_side);
             this_state.get<0>() |= !conn_it->this_side;
             this_state.get<1>() |=  conn_it->this_side;
             this_state.get<2>() |= (this_state.get<3>() != -1 && this_state.get<3>() != conn_it->target_idx);
             this_state.get<3>() = conn_it->target_idx;
-            cerr << "   this_state: " << this_state.get<0>() << " " << this_state.get<1>() << " "
-                << this_state.get<2>() << " " << corridors[this_state.get<3>()].name << endl;
+            DEBUG_OUT("   this_state: " << this_state.get<0>() << " " << this_state.get<1>() << " " << this_state.get<2>() << " " << corridors[this_state.get<3>()].name);
 
             tuple<bool, bool, bool, int>& target_state = states[conn_it->target_idx];
             target_state.get<0>() |= !conn_it->target_side;
             target_state.get<1>() |=  conn_it->target_side;
             target_state.get<2>() |= (target_state.get<3>() != -1 && target_state.get<3>() != corridor_idx);
             target_state.get<3>() = corridor_idx;
-            cerr << "   target_state: " << target_state.get<0>() << " " << target_state.get<1>()
-                << " " << target_state.get<2>() << " " << corridors[target_state.get<3>()].name << endl;
+            DEBUG_OUT("   target_state: " << target_state.get<0>() << " " << target_state.get<1>() << " " << target_state.get<2>() << " " << corridors[target_state.get<3>()].name);
         }
     }
 
@@ -346,7 +351,7 @@ void Plan::removeDeadEnds(set<int> keepalive)
         tuple<bool, bool, bool, int> state = states[idx];
         if (!(state.get<0>() && state.get<1>() && state.get<2>()))
         {
-            cerr << "corridor " << corridors[idx].name << " is a dead end" << endl;
+            DEBUG_OUT("corridor " << corridors[idx].name << " is a dead end");
             removeCorridor(idx);
         }
     }
@@ -401,10 +406,12 @@ void Plan::removeNullCorridors(set<int> keepalive)
 
     if (!to_remove.empty())
     {
+#ifdef DEBUG
         cerr << "found the following null corridors: ";
         copy(to_remove.begin(), to_remove.end(),
                 ostream_iterator<int>(cerr, ", "));
         cerr << endl;
+#endif
 
         for_each(to_remove.rbegin(), to_remove.rend(),
                 bind(&Plan::removeCorridor, this, _1));
@@ -421,7 +428,7 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
 
     if (end_idx == idx)
     {
-        cerr << indent << "reached the end" << endl;
+        DEBUG_OUT(indent << "reached the end");
 	return true;
     }
 
@@ -435,14 +442,14 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
     int out_side = !in_side;
     float dcost = corridor.getCostDelta(in_side);
 
-    cerr << indent << "looking at " << corridor.name << ", cost_overhead=" << accumulated_cost_overhead << ", margin=" << cost_margin << ", dcost=" << dcost << endl;
+    DEBUG_OUT(indent << "looking at " << corridor.name << ", cost_overhead=" << accumulated_cost_overhead << ", margin=" << cost_margin << ", dcost=" << dcost);
 
     // Check the currently known type for this side. If we are going backwards,
     // we'll have to check the cost threshold
     bool backwards = false;
     if (in_type == ENDPOINT_BACK)
     {
-	cerr << indent << "taking it backwards" << endl;
+	DEBUG_OUT(indent << "taking it backwards");
         if (dcost < 0)
             throw logic_error(corridor.name + " is supposed to be taken backwards, but dCost=" + lexical_cast<string>(dcost));
 
@@ -450,9 +457,9 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
 	accumulated_cost_overhead += dcost;
 	if (accumulated_cost_overhead > cost_margin)
 	{
-	    cerr << indent << "reached cost margin, cannot traverse this corridor" << endl;
+	    DEBUG_OUT(indent << "reached cost margin, cannot traverse this corridor");
 	    indent.resize(indent.size() - 2);
-	    cerr << indent << "done " << corridors[idx].name << endl;
+	    DEBUG_OUT(indent << "done " << corridors[idx].name);
 	    stack.pop_back();
 	    return false;
 	}
@@ -460,9 +467,9 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
 
     if (reach_flag[2 * idx + in_side])
     {
-	cerr << indent << "corridor " << corridors[idx].name << " reaches the exit with cost " << reach_min_cost[2 * idx + in_side] << endl;
+	DEBUG_OUT(indent << "corridor " << corridors[idx].name << " reaches the exit with cost " << reach_min_cost[2 * idx + in_side]);
 	indent.resize(indent.size() - 2);
-	cerr << indent << "done " << corridors[idx].name << endl;
+	DEBUG_OUT(indent << "done " << corridors[idx].name);
 	stack.pop_back();
 	return (accumulated_cost_overhead + reach_min_cost[2 * idx + in_side] < cost_margin);
     }
@@ -483,7 +490,7 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
 	// And we forget about loops
         if (find(stack.begin(), stack.end(), target_idx) != stack.end())
 	{
-	    cerr << indent << corridors[target_idx].name << " is on the stack" << endl;
+	    DEBUG_OUT(indent << corridors[target_idx].name << " is on the stack");
             continue;
 	}
 
@@ -492,8 +499,8 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
 
 	if (markDirections_DFS(result, stack, target_side, target_idx, end_idx, accumulated_cost_overhead, cost_margin))
 	{
-	    cerr << indent << "reached end point through " << corridors[target_idx].name << endl;
-	    cerr << indent << "keeping connection" << endl;
+	    DEBUG_OUT(indent << "reached end point through " << corridors[target_idx].name);
+	    DEBUG_OUT(indent << "keeping connection");
 	    result.insert( make_tuple(idx, it->this_side, target_idx, it->target_side) );
 
             int& orientation = orientations[2 * idx + out_side];
@@ -501,7 +508,7 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
                 orientation = ENDPOINT_BACK;
             else if (ENDPOINT_FRONT == orientation)
             {
-                cerr << indent << corridor.name << " is bidirectional" << endl;
+                DEBUG_OUT(indent << corridor.name << " is bidirectional");
                 corridor.bidirectional = true;
                 orientations[2 * idx + in_side] = ENDPOINT_BIDIR;
                 orientation = ENDPOINT_BIDIR;
@@ -512,7 +519,7 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
                 target_orientation = ENDPOINT_FRONT;
             else if (ENDPOINT_BACK == target_orientation)
             {
-                cerr << indent << target_corridor.name << " is bidirectional" << endl;
+                DEBUG_OUT(indent << target_corridor.name << " is bidirectional");
                 target_corridor.bidirectional = true;
                 target_orientation = ENDPOINT_BIDIR;
                 orientations[2 * target_idx + !target_side] = ENDPOINT_BIDIR;
@@ -523,7 +530,7 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
 		min_cost += dcost;
 	    if (reach_flag[2 * idx + in_side])
 		min_cost = min(reach_min_cost[2 * idx + in_side], min_cost);
-	    cerr << indent << "min cost is now " << min_cost << endl;
+	    DEBUG_OUT(indent << "min cost is now " << min_cost);
 
 	    reach_flag[2 * idx + in_side] = true;
 	    reach_min_cost[2 * idx + in_side] = min_cost;
@@ -533,7 +540,7 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
     stack.pop_back();
 
     indent.resize(indent.size() - 2);
-    cerr << indent << "done " << corridors[idx].name << endl;
+    DEBUG_OUT(indent << "done " << corridors[idx].name);
     return reach_flag[2 * idx + in_side];
 }
 
@@ -564,7 +571,7 @@ void Plan::markDirections_cost()
 
         if (counts[0] == 0 || counts[1] == 0)
         {
-	    cerr << "  " << corridor.name << " is a dead end" << endl;
+	    DEBUG_OUT("  " << corridor.name << " is a dead end");
             continue;
         }
 
@@ -575,8 +582,7 @@ void Plan::markDirections_cost()
         corridor.end_types[0] = ENDPOINT_FRONT;
         corridor.end_types[1] = ENDPOINT_BACK;
 
-        cerr << "corridor " << corridor.name << " is oriented FRONT => BACK as "
-            << corridor.frontPoint() << " => " << corridor.backPoint() << " dcost=" << corridor.dcost << endl;
+        DEBUG_OUT("corridor " << corridor.name << " is oriented FRONT => BACK as " << corridor.frontPoint() << " => " << corridor.backPoint() << " dcost=" << corridor.dcost);
     }
 }
 
@@ -606,9 +612,9 @@ void Plan::removeBackToBackConnections()
     {
 	int  target_idx  = it->target_idx;
 	bool target_side = it->target_side;
-	cerr << "initializing DFS-based DAG convertion with " << corridors[target_idx].name << " (side=" << target_side << ")" << endl;
-        cerr << "   start corridor:" << corridors[start_idx].name << endl;
-        cerr << "   end corridor:" << corridors[end_idx].name << endl;
+	DEBUG_OUT("initializing DFS-based DAG convertion with " << corridors[target_idx].name << " (side=" << target_side << ")");
+        DEBUG_OUT("   start corridor:" << corridors[start_idx].name);
+        DEBUG_OUT("   end corridor:" << corridors[end_idx].name);
 
 	vector<int> stack;
 	if (markDirections_DFS(result, stack, target_side, target_idx, end_idx, 0, cost_margin))
@@ -678,7 +684,7 @@ int Plan::findCorridorOf(PointID const& endp) const
     if (owner == -1)
         throw std::runtime_error("no owner for the given point");
 
-    std::cerr << "corridor " << corridors[owner].name << " is closest to " << endp << " with d == " << min_distance << std::endl;
+    DEBUG_OUT("corridor " << corridors[owner].name << " is closest to " << endp << " with d == " << min_distance);
     return owner;
 }
 
@@ -713,14 +719,14 @@ void Plan::removeUselessCorridors(vector<int>& useful)
     {
         if (useful[i] == NOT_USEFUL)
         {
-            //cerr << "  corridor " << i << " is not useful" << endl;
+            //DEBUG_OUT("  corridor " << i << " is not useful");
             removeCorridor(i);
             useful.erase(useful.begin() + i);
         }
         //else if (useful[i] == USEFUL)
-        //    //cerr << "  corridor " << i << " is useful" << endl;
+        //    //DEBUG_OUT("  corridor " << i << " is useful");
         //else
-        //    //cerr << "  corridor " << i << " is undetermined" << endl;
+        //    //DEBUG_OUT("  corridor " << i << " is undetermined");
     }
 }
 
@@ -804,18 +810,18 @@ void Plan::mergeSimpleCrossroads_directed()
 
         if (in_crossroad.empty() || out_crossroad.empty())
         {
-            cerr << corridor.name << " is a null corridor" << endl;
+            DEBUG_OUT(corridor.name << " is a null corridor");
             to_remove.insert(corridor_idx);
         }
     }
 
     // Mapping from an already merged corridor to the corridor into which is has
     // been merged
-    cerr << "found " << crossroads.size() << " crossroads" << endl;
+    DEBUG_OUT("found " << crossroads.size() << " crossroads");
     map<int, int> merge_mappings;
     for (int crossroad_idx = 0; crossroad_idx < (int)crossroads.size(); ++crossroad_idx)
     {
-        cerr << "crossroad " << crossroad_idx << " has " << crossroads[crossroad_idx].size() << " endpoints" << endl;
+        DEBUG_OUT("crossroad " << crossroad_idx << " has " << crossroads[crossroad_idx].size() << " endpoints");
         if (crossroads[crossroad_idx].size() != 2)
             continue;
 
@@ -883,7 +889,7 @@ int Plan::markNextCorridors(set<int>& stack, int corridor_idx, vector<int>& usef
 
         if (child_type == USEFUL)
         {
-            cerr << corridors[corridor_idx].name << " is useful" << endl;
+            DEBUG_OUT(corridors[corridor_idx].name << " is useful");
             useful[corridor_idx] = USEFUL;
         }
         else if (child_type == NOT_USEFUL)
@@ -892,11 +898,11 @@ int Plan::markNextCorridors(set<int>& stack, int corridor_idx, vector<int>& usef
 
     if (not_useful == c.connections.size())
     {
-        cerr << corridors[corridor_idx].name << " is not useful" << endl;
+        DEBUG_OUT(corridors[corridor_idx].name << " is not useful");
         useful[corridor_idx] = NOT_USEFUL;
     }
     if (useful[corridor_idx] == 0)
-        cerr << corridors[corridor_idx].name << " is left undetermined" << endl;
+        DEBUG_OUT(corridors[corridor_idx].name << " is left undetermined");
 
     stack.erase(stack_it);
     return useful[corridor_idx];
@@ -914,9 +920,9 @@ void Plan::checkConsistency() const
 	//{
 	//    for (Corridor::voronoi_const_iterator it = corridor.median.begin();
 	//	    it != corridor.median.end(); ++it)
-	//	cerr << " " << it->center << endl;
+	//	DEBUG_OUT(" " << it->center);
 
-	//    cerr << end_regions << " end regions for corridor " << corridor.name << endl;
+	//    DEBUG_OUT(end_regions << " end regions for corridor " << corridor.name);
 	//}
 
         Corridor::Connections const& connections = corridor.connections;
@@ -925,10 +931,10 @@ void Plan::checkConsistency() const
         {
             size_t target_idx = it->target_idx;
             if (target_idx == i)
-                cerr << "  " << corridor.name << " is looping on itself" << endl;
+                DEBUG_OUT("  " << corridor.name << " is looping on itself");
 
             if (target_idx < 0 || target_idx >= corridors.size())
-                cerr << "  wrong target index in connection from " << corridor.name << ": " << target_idx << endl;
+                DEBUG_OUT("  wrong target index in connection from " << corridor.name << ": " << target_idx);
         }
     }
 }

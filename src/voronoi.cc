@@ -9,7 +9,13 @@
 #include <iostream>
 #include <functional>
 
-#define DEBUG
+#undef DEBUG
+#ifdef DEBUG
+#define DEBUG_OUT(x) cerr << x << endl;
+#else
+#define DEBUG_OUT(x)
+#endif
+
 using namespace std;
 using namespace boost;
 using namespace nav;
@@ -308,7 +314,7 @@ int Corridor::findSideOf(PointID const& p) const
 	return 1;
     else return 0;
 
-    cerr << name << " " << p << " is not in an end region" << endl;
+    DEBUG_OUT(name << " " << p << " is not in an end region");
     throw runtime_error("given point is not in one of the end regions");
 }
 
@@ -334,7 +340,7 @@ static bool checkMonotonicCurve(Container const& container)
         PointID new_direction = (queue.back() - queue.front());
         if (direction * new_direction < 0)
         {
-            cerr << "going backwards at " << queue.front() << " => " << *(++queue.rbegin()) << " , " << queue.back() << endl;
+            DEBUG_OUT("going backwards at " << queue.front() << " => " << *(++queue.rbegin()) << " , " << queue.back());
             return false;
         }
         queue.pop_front();
@@ -376,7 +382,7 @@ bool Corridor::checkConsistency() const
     //                 bind(&VoronoiPoint::center, _1) == p) == voronoi.end())
     //     {
     //         result = false;
-    //         cerr << "connection point " << p << " is not in the voronoi" << endl;
+    //         DEBUG_OUT("connection point " << p << " is not in the voronoi");
     //     }
     // }
 
@@ -514,15 +520,17 @@ void Corridor::update()
 	    boundaries[boundary_idx].reverse();
     }
 
-    cerr << "corridor " << name << endl;
-    cerr << "   bbox: " << bbox << endl;
-    cerr << "   median_bbox: " << median_bbox << endl;
+    DEBUG_OUT("corridor " << name);
+    DEBUG_OUT("   bbox: " << bbox);
+    DEBUG_OUT("   median_bbox: " << median_bbox);
+#ifdef DEBUG
     cerr << "   voronoi: ";
     displayLine(cerr, voronoi);
     cerr << "   boundaries[0]";
     displayLine(cerr, boundaries[0]);
     cerr << "   boundaries[1]";
     displayLine(cerr, boundaries[1]);
+#endif
 }
 
 void Corridor::addConnection(bool side, int target_idx, bool target_side)
@@ -640,7 +648,9 @@ static void mergeLines(Line& self, Line& other)
 
 void Corridor::concat(Corridor& other)
 {
-    cerr << "merging " << name << " + " << other.name << endl;
+#ifdef DEBUG
+    DEBUG_OUT("merging " << name << " + " << other.name);
+#endif
 
     if (bidirectional ^ other.bidirectional)
         throw runtime_error("cannot merge a bidirectional corridor with a non-bidirectional one");
@@ -836,7 +846,7 @@ void lineOrderingDFS(list<PointID>& result, PointID cur_point, int last_directio
 
     result.push_back(cur_point);
     int prefix_size = result.size();
-    //cerr << string(prefix_size, ' ') << "adding " << cur_point << endl;
+    //DEBUG_OUT(string(prefix_size, ' ') << "adding " << cur_point);
     list<PointID> temp = result;
 
     GridGraph::iterator n_it        = graph.neighboursBegin(cur_point.x, cur_point.y, PROGRESSION_MASKS[last_direction]);
@@ -848,7 +858,7 @@ void lineOrderingDFS(list<PointID>& result, PointID cur_point, int last_directio
             lineOrderingDFS(temp, n_it.getTargetPoint(), n_it.getNeighbourIndex(), graph);
             if (result.size() < temp.size()) // found a longer line
             {
-                //cerr << string(prefix_size, ' ') << "updated with line starting from " << n_it.getTargetPoint() << endl;
+                //DEBUG_OUT(string(prefix_size, ' ') << "updated with line starting from " << n_it.getTargetPoint());
                 temp.swap(result);
             }
         }
@@ -890,7 +900,7 @@ void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
             start_point = *it - bbox.min;
         }
        
-        //cerr << "starting at " << start_point << " (" << (start_point + bbox.min) << ")" << endl;
+        //DEBUG_OUT("starting at " << start_point << " (" << (start_point + bbox.min) << ")");
         graph.setValue(start_point.x, start_point.y, 0);
         GridGraph::iterator n_it = graph.neighboursBegin(start_point.x, start_point.y);
 
@@ -932,8 +942,8 @@ void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
         else
         {
             int order = findConcatenationOrder(result, line0);
-            cerr << "looking to concatenate new=(" << line0.front() << "," << line0.back() << ") to current=(" << result.front() << "," << result.back() << ")" << endl;
-            cerr << "concatenation order: " << order << endl;
+            DEBUG_OUT("looking to concatenate new=(" << line0.front() << "," << line0.back() << ") to current=(" << result.front() << "," << result.back() << ")");
+            DEBUG_OUT("concatenation order: " << order);
             if (order / 2 == 0) // attach to result.front
             {
                 if (order % 2 == 0)
@@ -942,7 +952,7 @@ void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
                     line0.reverse();
                     // now attach to line0.back
                 }
-                cerr << "attaching (" << line0.front() << "," << line0.back() << ") before (" << result.front() << "," << result.back() << ")" << endl;
+                DEBUG_OUT("attaching (" << line0.front() << "," << line0.back() << ") before (" << result.front() << "," << result.back() << ")");
                 result.splice(result.begin(), line0);
             }
             else // attach to result.back
@@ -953,7 +963,7 @@ void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
                     line0.reverse();
                     // now attach to line0.front
                 }
-                cerr << "attaching (" << line0.front() << "," << line0.back() << ") after (" << result.front() << "," << result.back() << ")" << endl;
+                DEBUG_OUT("attaching (" << line0.front() << "," << line0.back() << ") after (" << result.front() << "," << result.back() << ")");
                 result.splice(result.end(), line0);
             }
         }
