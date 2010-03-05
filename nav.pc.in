@@ -8,5 +8,5 @@ Description: Base algorithms for autonomous navigation
 Depends: base-lib
 Version: @PROJECT_VERSION@
 Libs: -L${libdir} -lNav
-Cflags: -I${includedir}
+Cflags: -I${includedir}/nav
 

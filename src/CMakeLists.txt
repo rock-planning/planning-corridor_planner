@@ -3,7 +3,7 @@ find_package(GDAL REQUIRED)
 add_definitions(${GDAL_CFLAGS})
 include_directories(${GDAL_INCLUDE_DIRS})
 
-add_library(Nav SHARED dstar.cc voronoi.cc skeleton.cc plan.cc)
+add_library(Nav SHARED dstar.cc voronoi.cc skeleton.cc plan.cc corridor_planner.cc)
 target_link_libraries(Nav ${GDAL_LIBRARIES} ${BASE_LIB_LIBRARIES})
 
 pkg_check_modules(BASE_TYPES REQUIRED "base-types")
@@ -17,5 +17,6 @@ target_link_libraries(fix_terrain_classes Nav)
 install(TARGETS Nav
     LIBRARY DESTINATION lib)
 install(FILES merge.hh plan.hh skeleton.hh voronoi.hh point.hh
+    corridor_planner.hh dstar.hh pool_allocator.hh geometry.hh
     DESTINATION include/nav)
 
