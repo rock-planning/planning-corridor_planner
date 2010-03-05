@@ -14,6 +14,12 @@
 #include <sstream>
 #include <algorithm>
 
+#include <stdexcept>
+
+#include <Eigen/Geometry>
+#include <Eigen/LU>
+#include <Eigen/SVD>
+
 using namespace std;
 using namespace nav;
 using namespace boost::lambda;
@@ -66,13 +72,44 @@ std::list<TerrainClass> TerrainClass::load(std::string const& path)
     return classes;
 }
 
+PointID TraversabilityMap::toLocal(Eigen::Vector3d const& v) const
+{
+    Eigen::Transform3d world_to_local(getLocalToWorld().inverse());
+    Eigen::Vector3i raster3d = (world_to_local * v).cast<int>();
+    return PointID(raster3d.x(), raster3d.y());
+}
+
+Eigen::Vector3d TraversabilityMap::toWorld(PointID const& v) const
+{
+    return getLocalToWorld() * v.toEigen();
+}
+
 TraversabilityMap* TraversabilityMap::load(std::string const& path, TerrainClasses const& classes)
 {
+    GDALAllRegister();
+
     auto_ptr<GDALDataset> set((GDALDataset*) GDALOpen(path.c_str(), GA_ReadOnly));
+    if (!set.get())
+        throw std::runtime_error("GDAL cannot open the specified file");
+
     GDALRasterBand* band = set->GetRasterBand(1);
+    if (!band)
+        throw std::runtime_error("there is no raster band in this file");
+
     double transform[6];
     set->GetGeoTransform(transform);
-    float scale = transform[1];
+
+    Eigen::Transform3d local_to_world;
+    local_to_world.matrix() <<
+        transform[1], transform[2], 0, transform[0],
+        transform[4], transform[5], 0, transform[3],
+        0, 0, 1, 0,
+        0, 0, 0, 1;
+
+    Eigen::Matrix3d rotation, scaling;
+    local_to_world.computeScalingRotation(&scaling, &rotation);
+    if (fabs(fabs(scaling(0, 0) - fabs(scaling(1, 1)))) > 0.001)
+        throw std::runtime_error("cannot use maps that have non-square pixels");
 
     int width  = band->GetXSize();
     int height = band->GetYSize();
@@ -101,20 +138,28 @@ TraversabilityMap* TraversabilityMap::load(std::string const& path, TerrainClass
         }
     }
 
-    auto_ptr<TraversabilityMap> map(new TraversabilityMap(width, height, scale, 0));
+    auto_ptr<TraversabilityMap> map(new TraversabilityMap(width, height,
+                local_to_world, 0));
     map->fill(data);
     return map.release();
 }
 
 TraversabilityMap::TraversabilityMap(size_t width, size_t height, uint8_t init)
-    : GridMap(width, height), m_scale(1.0)
+    : GridMap(width, height)
     , m_values((width * height + 1) / 2, init) { }
 
-TraversabilityMap::TraversabilityMap(size_t width, size_t height, float scale, uint8_t init)
-    : GridMap(width, height), m_scale(scale)
-    , m_values((width * height + 1) / 2, init) { }
+TraversabilityMap::TraversabilityMap(size_t width, size_t height,
+        Eigen::Transform3d const& local_to_world, uint8_t init)
+    : GridMap(width, height)
+    , m_local_to_world(local_to_world)
+    , m_values((width * height + 1) / 2, init)
+{
+    Eigen::Matrix3d rotation, scaling;
+    local_to_world.computeScalingRotation(&scaling, &rotation);
+    m_scale = scaling(0, 0);
+}
 
-float TraversabilityMap::getScale() const { return m_scale; }
+float TraversabilityMap::getScale() const { return fabs(m_scale); }
 
 void TraversabilityMap::fill(vector<uint8_t> const& values)
 {

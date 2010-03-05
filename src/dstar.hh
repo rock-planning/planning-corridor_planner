@@ -13,6 +13,8 @@
 #include <iosfwd>
 #include "pool_allocator.hh"
 
+#include <Eigen/Geometry>
+
 namespace nav {
     /** Basic tools for maps which are regular grids */
     class GridMap
@@ -54,7 +56,8 @@ namespace nav {
      */
     class TraversabilityMap : public GridMap
     {
-        /** The size, in meters, of one pixel */
+        Eigen::Transform3d m_local_to_world;
+
         float m_scale;
 
         /** The vector of values. Traversability is encoded on 4-bits fields, which
@@ -70,10 +73,25 @@ namespace nav {
 
         /** Creates a new map with the given size in the X and Y axis */
         TraversabilityMap(size_t xsize, size_t ysize, boost::uint8_t fill = 0);
-        TraversabilityMap(size_t xsize, size_t ysize, float scale, boost::uint8_t fill = 0);
+        TraversabilityMap(size_t xsize, size_t ysize,
+                Eigen::Transform3d const& local_to_world,
+                boost::uint8_t fill = 0);
 
         /** Returns the size, in meters, of one pixel */
         float getScale() const;
+
+        /** Transforms 3D coordinates in the world frame into 2D coordinates in
+         * the raster frame
+         */
+        PointID toLocal(Eigen::Vector3d const& v) const;
+
+        /** Transforms 2D coordinates in the raster frame into 3D coordinates in
+         * the worldframe
+         */
+        Eigen::Vector3d toWorld(PointID const& v) const;
+
+        /** Returns the transformation from raster to world frame */
+        Eigen::Transform3d getLocalToWorld() const { return m_local_to_world; }
 
         /** Fills the map with the given traversability */
         void fill(boost::uint8_t value);
