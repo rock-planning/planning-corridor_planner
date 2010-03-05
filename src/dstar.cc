@@ -361,7 +361,6 @@ void DStar::initialize(int goal_x, int goal_y)
 
     m_graph.setValue(goal_x, goal_y, 0);
     insert(goal_x, goal_y, 0);
-    update();
 }
 
 float DStar::costOfClass(int i) const { return m_cost_of_class[i]; }
