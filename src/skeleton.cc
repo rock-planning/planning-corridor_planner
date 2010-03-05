@@ -421,10 +421,6 @@ struct GeometricEndpoint
         : p(p), endp(idx, side) {}
 };
 
-static PointID get_point( GeometricEndpoint const& p )
-{ return p.p; }
-
-
 void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
 {
     // First, a dead simple step: convert each branch into a corridor. When we
