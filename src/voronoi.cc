@@ -792,39 +792,41 @@ bool Corridor::updateCurves(double discount_factor)
     median_curve.clear();
 
     double const new_point_factor = 1.0 - discount_factor;
-
-    if (boundaries[0].size() < 2) return false;
-    if (boundaries[1].size() < 2) return false;
-    if (voronoi.size() < 2) return false;
-
-    for (int boundary_idx = 0; boundary_idx < 2; ++boundary_idx)
-    {
-        Eigen::Vector3d last_point = Eigen::Vector3d(boundaries[boundary_idx].front().x, boundaries[boundary_idx].front().y, 0);
-        for (list<PointID>::const_iterator it = boundaries[boundary_idx].begin(); it != boundaries[boundary_idx].end(); ++it)
-        {
-            Eigen::Vector3d point = new_point_factor * Eigen::Vector3d(it->x, it->y, 0) + discount_factor * last_point;
-            boundary_curves[boundary_idx].addPoint(point);
-            last_point = point;
-        }
-        boundary_curves[boundary_idx].update();
-    }
+    double const simplification_tolerance = 0.5;
 
     Corridor::voronoi_const_iterator median_it = voronoi.begin();
     Corridor::voronoi_const_iterator const median_end = voronoi.end();
     PointID first_point = voronoi.front().center;
     Eigen::Vector3d last_point = Eigen::Vector3d(first_point.x, first_point.y, 0);
+    vector<Eigen::Vector3d> median_points;
     for (; median_it != median_end; ++median_it)
     {
         PointID p  = median_it->center;
         Eigen::Vector3d point = new_point_factor * Eigen::Vector3d(p.x, p.y, 0) + discount_factor * last_point;
-        median_curve.addPoint(point);
+        median_points.push_back(point);
         last_point = point;
     }
-    median_curve.update();
+    median_curve.interpolate(median_points);
+    median_curve.simplify(simplification_tolerance);
 
-    boundary_curves[0].simplify(0.5);
-    boundary_curves[1].simplify(0.5);
-    median_curve.simplify(0.5);
+    for (int boundary_idx = 0; boundary_idx < 2; ++boundary_idx)
+    {
+        if (boundaries[boundary_idx].empty())
+            continue;
+
+        Eigen::Vector3d last_point = Eigen::Vector3d(boundaries[boundary_idx].front().x, boundaries[boundary_idx].front().y, 0);
+        vector<Eigen::Vector3d> boundary_points;
+        for (list<PointID>::const_iterator it = boundaries[boundary_idx].begin(); it != boundaries[boundary_idx].end(); ++it)
+        {
+            Eigen::Vector3d point = new_point_factor * Eigen::Vector3d(it->x, it->y, 0) + discount_factor * last_point;
+            boundary_points.push_back(point);
+            last_point = point;
+        }
+
+        boundary_curves[boundary_idx].interpolate(boundary_points);
+        boundary_curves[boundary_idx].simplify(simplification_tolerance);
+    }
+
     return true;
 }
 
