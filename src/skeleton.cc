@@ -34,7 +34,7 @@ static const int VALUE_CORRIDORS_START = 10;
 
 void CorridorExtractionState::addBranch(PointID const& p, std::list<VoronoiPoint>& line)
 {
-#ifndef DEBUG
+#ifdef DEBUG
     DEBUG_OUT(std::string(depth, ' ') << "adding branch at " << p << " of size " << line.size());
     displayLine(cerr, line);
 #endif
@@ -146,7 +146,7 @@ list<VoronoiPoint> SkeletonExtraction::process()
                 }
                 else if (*neighbour == propagated_value || (addVal[i] == 1 && *neighbour == c_value))
                 {
-#ifndef DEBUG
+#ifdef DEBUG
                     cerr <<  "   ... found border ?" << parents[neighbour] << flush;
 #endif
                     if (!parents[neighbour].isBorderAdjacent( parents[c_ptr] ))
