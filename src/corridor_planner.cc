@@ -53,20 +53,25 @@ void CorridorPlanner::setMarginFactor(double factor)
 }
 
 /** Call to set the start and goal positions */
-void CorridorPlanner::setPositions(Eigen::Vector2d const& current, Eigen::Vector2d const& goal)
+void CorridorPlanner::setWorldPositions(Eigen::Vector2d const& current, Eigen::Vector2d const& goal)
 {
     PointID current_i = map->toLocal(Eigen::Vector3d(current.x(), current.y(), 0)),
         goal_i = map->toLocal(Eigen::Vector3d(goal.x(), goal.y(), 0));
+    setRasterPositions(Eigen::Vector2i(current_i.x, current_i.y), Eigen::Vector2i(goal_i.x, goal_i.y));
+}
 
-    if (current_i != m_current)
+/** Call to set the start and goal positions */
+void CorridorPlanner::setRasterPositions(Eigen::Vector2i const& current, Eigen::Vector2i const& goal)
+{
+    if (current != m_current)
     {
-        m_current = current_i;
+        m_current = current;
         requireProcessing(SKELETON);
     }
-    if (goal_i != m_goal)
+    if (goal != m_goal)
     {
-        m_goal = goal_i;
-        dstar->initialize(goal_i.x, goal_i.y);
+        m_goal = goal;
+        dstar->initialize(goal.x(), goal.y());
         requireProcessing(DSTAR);
     }
 }
@@ -95,7 +100,7 @@ void CorridorPlanner::extractSkeleton()
     if (isProcessingRequired(SKELETON))
     {
         voronoi_points =
-                skeleton->processDStar(*dstar, m_current.x, m_current.y, m_expand);
+                skeleton->processDStar(*dstar, m_current.x(), m_current.y(), m_expand);
         processed();
     }
 }
@@ -105,7 +110,7 @@ void CorridorPlanner::computePlan()
 {
     if (isProcessingRequired(PLAN))
     {
-        plan = skeleton->buildPlan(m_current, m_goal, dstar->graph(), voronoi_points);
+        plan = skeleton->buildPlan(PointID(m_current.x(), m_current.y()), PointID(m_goal.x(), m_goal.y()), dstar->graph(), voronoi_points);
         processed();
     }
 }

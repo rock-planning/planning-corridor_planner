@@ -11,9 +11,7 @@
 #include <stdexcept>
 #include <boost/tuple/tuple.hpp>
 
-#include "dstar.hh"
-#include "skeleton.hh"
-#include "merge.hh"
+#include "corridor_planner.hh"
 #include <boost/lambda/lambda.hpp>
 #include <boost/bind.hpp>
 
@@ -255,197 +253,89 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
     dot << "}\n";
 }
 
-void outputExtractionState(int xSize, int ySize, std::string const& out, vector<uint8_t> const& image, CorridorExtractionState const& state)
+void exportNavigationFunction(CorridorPlanner const& planner, size_t xSize, size_t ySize, std::vector<uint8_t> const& base_image, std::string const& out_file)
 {
-    vector<Corridor> const& corridors = state.plan.corridors;
+    GridGraph const& graph = planner.dstar->graph();
+    std::cerr << "  saving result in " << out_file << std::endl;
 
-    cerr << "found " << corridors.size() << " corridors" << endl;
+    // Find the maximum cost in the dstar output, filtering out actual
+    // obstacles
+    float max_val = 0;
+    for (size_t y = 0; y < ySize; ++y)
+    {
+        for (size_t x = 0; x < xSize; ++x)
+        {
+            float val = graph.getValue(x, y);
+            if (val < 10000 && max_val < val)
+                max_val = val;
+        }
+    }
+
+    // Now display
     vector<RGBColor> color_image;
-    for (size_t i = 0; i < image.size(); ++i)
-        color_image.push_back(RGBColor(image[i]));
+    for (size_t i = 0; i < base_image.size(); ++i)
+        color_image.push_back(RGBColor(base_image[i]));
 
-    // Get colors. Note that we take two more colors to mark the connections
-    vector<RGBColor> colors = allocateColors(corridors.size() + 2);
-
-    // First mark the branches
-    for (vector<Corridor>::const_iterator it = corridors.begin(); it != corridors.end(); ++it)
+    for (size_t y = 0; y < ySize; ++y)
     {
-        vector<PointID> points;
-        list<VoronoiPoint> const& voronoi_points = it->voronoi;
-        points.resize(voronoi_points.size());
-        transform(voronoi_points.begin(), voronoi_points.end(), points.begin(),
-                boost::bind(&VoronoiPoint::center, _1));
-
-        markPoints(points, xSize, color_image, colors.back());
-        colors.pop_back();
+        for (size_t x = 0; x < xSize; ++x)
+        {
+            float val = graph.getValue(x, y);
+            RGBColor color;
+            if (val < 100000)
+                color = RGBColor(128, 128, 255 * (val / max_val));
+            else
+                color = RGBColor(0, 0, 0);
+            color_image[y * xSize + x] = color;
+        }
     }
 
-    // Then mark the connection with the two leftover colors
-    Crossroads const& connections = state.crossroads;
-    SplitPoints const& splits = state.split_points;
-    RGBColor connection_color = colors[0];
-    RGBColor split_color = colors[1];
-    for (Crossroads::const_iterator it = connections.begin(); it != connections.end(); ++it)
-    {
-        vector<PointID> points;
-        points.reserve(points.size() + it->size());
-        for (list<Endpoint>::const_iterator endp_it = it->begin(); endp_it != it->end(); ++endp_it)
-        {
-            int target_idx   = endp_it->corridor_idx;
-            bool target_side = endp_it->side;
-            PointID p = state.plan.corridors[target_idx].getEndpoint(target_side);
-            points.push_back(p);
-        }
-
-        //cerr << "connection points: ";
-        //displayLine(cerr, points, std::_Identity<PointID>());
-        SplitPoints::const_iterator split_it;
-        for (split_it = splits.begin(); split_it != splits.end(); ++split_it)
-        {
-            if (split_it->first == it)
-                break;
-        }
-
-        RGBColor color;
-        if (split_it != splits.end())
-            color = RGBColor(255, 200, 200);
-        else
-            color = RGBColor(255, 255, 255);
-        markPoints(points, xSize, color_image, color);
-    }
-
-    std::cerr << "  saving result in " << out << std::endl;
-    saveColorImage(out, xSize, ySize, color_image);
+    std::cerr << "  saving result in " << out_file << std::endl;
+    saveColorImage(out_file, xSize, ySize, color_image);
 }
 
-
-tuple<Plan, uint32_t, uint32_t, vector<uint8_t> > do_terrain(
-        char name_prefix,
-        std::string const& basename, std::string const& terrain, TerrainClasses const& terrain_classes,
+void do_plan(char name_prefix,
+        std::string const& basename, std::string const& terrain_file, std::string const& terrain_classes,
         int x0, int y0, int x1, int y1, float expand)
 {
-    // Load the file and run D*
-    TraversabilityMap* map = TraversabilityMap::load(terrain, terrain_classes);
-    if (!map)
-        throw std::runtime_error("cannot load file");
+    CorridorPlanner planner;
+    planner.init(terrain_classes, terrain_file);
+    planner.setRasterPositions(Eigen::Vector2i(x0, y0), Eigen::Vector2i(x1, y1));
+    planner.setMarginFactor(expand);
 
-    DStar algo(*map, terrain_classes);
-    GridGraph const& graph = algo.graph();
-    uint32_t const xSize = graph.xSize(), ySize = graph.ySize();
+    { Profile profiler("dstar");
+        planner.computeDStar();
+    }
+    std::cerr << "  done ... checking solution consistency" << std::endl;
+    planner.dstar->checkSolutionConsistency();
 
     // Load the original terrain file, we will superimpose some data later on
     // it.
-    auto_ptr<GDALDataset> set((GDALDataset*) GDALOpen(terrain.c_str(), GA_ReadOnly));
+    GridGraph const& graph = planner.dstar->graph();
+    uint32_t const xSize = graph.xSize(), ySize = graph.ySize();
+    auto_ptr<GDALDataset> set((GDALDataset*) GDALOpen(terrain_file.c_str(), GA_ReadOnly));
     GDALRasterBand* band = set->GetRasterBand(1);
     vector<uint8_t> image(xSize * ySize);
     band->RasterIO(GF_Read, 0, 0, xSize, ySize, &image[0], xSize, ySize, GDT_Byte, 0, 0);
 
-    std::cerr << "applying D* on a " << graph.xSize() << "x" << graph.ySize() << " map, target point is " << x1 << "x" << y1 << std::endl;
-    { Profile profiler("dstar");
-        algo.initialize(x1, y1);
-    }
-    std::cerr << "  done ... checking solution consistency" << std::endl;
-    algo.checkSolutionConsistency();
+    string dstar_out = basename + "-dstar.tif";
+    exportNavigationFunction(planner, xSize, ySize, image, dstar_out);
 
-    {
-        string dstar_out = basename + "-dstar.tif";
-        std::cerr << "  saving result in " << dstar_out << std::endl;
-
-        // Find the maximum cost in the dstar output, filtering out actual
-        // obstacles
-        float max_val = 0;
-        for (size_t y = 0; y < ySize; ++y)
-        {
-            for (size_t x = 0; x < xSize; ++x)
-            {
-                float val = graph.getValue(x, y);
-                if (val < 10000 && max_val < val)
-                    max_val = val;
-            }
-        }
-
-        // Now display
-        vector<RGBColor> color_image;
-        for (size_t i = 0; i < image.size(); ++i)
-            color_image.push_back(RGBColor(image[i]));
-
-        for (size_t y = 0; y < ySize; ++y)
-        {
-            for (size_t x = 0; x < xSize; ++x)
-            {
-                float val = graph.getValue(x, y);
-                RGBColor color;
-                if (val < 100000)
-                    color = RGBColor(128, 128, 255 * (val / max_val));
-                else
-                    color = RGBColor(0, 0, 0);
-                color_image[y * xSize + x] = color;
-            }
-        }
-
-        string out = basename + "-dstar.tif";
-        std::cerr << "  saving result in " << out << std::endl;
-        saveColorImage(out, xSize, ySize, color_image);
-    }
-    
-    list<VoronoiPoint> result;
-    SkeletonExtraction skel(xSize, ySize);
-    { Profile profiler("computing skeleton");
-        result = skel.processDStar(algo, x0, y0, expand);
+    { Profile profiler("skeleton");
+        planner.extractSkeleton();
     }
 
-    { 
-        pair<PointSet, PointSet> border = skel.getBorderAndInside();
-        vector<RGBColor> color_image;
-        for (size_t i = 0; i < image.size(); ++i)
-            color_image.push_back(RGBColor(image[i]));
-
-        markPoints(border.first, xSize, color_image, RGBColor(128, 128, 255));
-        markPoints(border.second, xSize, color_image, RGBColor(100, 100, 200));
-
-        vector<PointID> points;
-        points.resize(result.size());
-        transform(result.begin(), result.end(), points.begin(),
-                boost::bind(&VoronoiPoint::center, _1));
-        markPoints(points, xSize, color_image, RGBColor(128, 255, 128));
-
-        string out = basename + "-border.tif";
-        std::cerr << "  saving result in " << out << std::endl;
-        saveColorImage(out, xSize, ySize, color_image);
+    { Profile profiler("plan building");
+        planner.computePlan();
+        cerr << planner.plan.corridors.size() << " corridors found" << endl;
     }
+    outputPlan(xSize, ySize, basename + "-plan", image, planner.plan);
 
-    CorridorExtractionState build_plan_state(PointID(x0, y0), PointID(x1, y1), algo.graph());
-    { Profile profiler("extracting corridors and computing connections");
-        skel.extractBranches(result, build_plan_state);
-        skel.computeConnections(build_plan_state);
+    { Profile profiler("plan simplification");
+        planner.simplifyPlan();
+        cerr << planner.plan.corridors.size() << " corridors found" << endl;
     }
-    outputExtractionState(xSize, ySize, basename + "-branches.tif", image, build_plan_state);
-
-    { Profile profiler("removing dead ends");
-         build_plan_state.plan.createEndpointCorridor(build_plan_state.plan.getStartPoint(), false);
-         build_plan_state.plan.createEndpointCorridor(build_plan_state.plan.getEndPoint(), true);
-         build_plan_state.plan.removeDeadEnds();
-    }
-    outputPlan(xSize, ySize, basename + "-skeleton", image, build_plan_state.plan);
-
-    Plan plan;
-    { Profile profiler("doing the whole plan building at once");
-        SkeletonExtraction skel(xSize, ySize);
-        list<VoronoiPoint> skeleton = skel.processDStar(algo, x0, y0, expand);
-        plan = skel.buildPlan(PointID(x0, y0), PointID(x1, y1), algo.graph(), skeleton);
-    }
-
-    for (size_t i = 0; i < plan.corridors.size(); ++i)
-        plan.corridors[i].name = name_prefix + plan.corridors[i].name;
-
-    cerr << plan.corridors.size() << " corridors found" << endl;
-    outputPlan(xSize, ySize, basename, image, plan);
-
-    plan.simplify();
-    cerr << plan.corridors.size() << " corridors in simplified plan" << endl;
-    outputPlan(xSize, ySize, basename + "-simplified", image, plan);
-    
-    return make_tuple(plan, xSize, ySize, image);
+    outputPlan(xSize, ySize, basename + "-plan-simplified", image, planner.plan);
 }
 
 int main(int argc, char** argv)
@@ -481,42 +371,19 @@ int main(int argc, char** argv)
 	exit(1);
 
     }
-    GDALAllRegister();
 
     string terrain_file    = argv[1];
     string terrain_classes = argv[2];
     int x1 = boost::lexical_cast<int>(argv[3]);
     int y1 = boost::lexical_cast<int>(argv[4]);
     std::string out_basename = argv[5];
- 
-    // Load the terrain classes
-    TerrainClasses classes = TerrainClass::load(terrain_classes);
-
     int x0 = boost::lexical_cast<int>(argv[6]);
     int y0 = boost::lexical_cast<int>(argv[7]);
     float expand = boost::lexical_cast<float>(argv[8]);
 
-    int xSize, ySize; vector<uint8_t> image;
-    Plan original;
-    tie(original, xSize, ySize, image) = do_terrain('a', out_basename, terrain_file + ".tif", classes, x0, y0, x1, y1, expand);
-
-    return 0;
-    Plan blocked = do_terrain('b', out_basename + "-blocked", terrain_file + "-blocked.tif", classes, 446, 328, x1, y1, expand).get<0>();
-
-    for (size_t i = 0; i < original.corridors.size(); ++i)
-        original.corridors[i].name = string("a") + boost::lexical_cast<std::string>(i);
-    for (size_t i = 0; i < blocked.corridors.size(); ++i)
-        blocked.corridors[i].name = string("b") + boost::lexical_cast<std::string>(i);
-
-    PlanMerge merger;
-
-    outputPlan(xSize, ySize, out_basename + "-left", image, original);
-    outputPlan(xSize, ySize, out_basename + "-right", image, blocked);
-
-    merger.merge(original, blocked, 0.5, 0.2);
-
-    cerr << merger.corridors.size() << " corridors in merged plan" << endl;
-    outputPlan(xSize, ySize, out_basename + "-merge", image, merger);
+    do_plan('c', out_basename, terrain_file, terrain_classes,
+          x0, y0, x1, y1, expand);
+ 
     return 0;
 }
 

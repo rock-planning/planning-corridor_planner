@@ -29,8 +29,8 @@ namespace nav
     private:
         std::list<VoronoiPoint>  voronoi_points;
 
-        PointID m_current;
-        PointID m_goal;
+        Eigen::Vector2i m_current;
+        Eigen::Vector2i m_goal;
 
         enum STATES
         {
@@ -52,7 +52,10 @@ namespace nav
         void init(std::string const& terrain_classes, std::string const& map);
 
         /** Call to set the start and goal positions */
-        void setPositions(Eigen::Vector2d const& current, Eigen::Vector2d const& goal);
+        void setWorldPositions(Eigen::Vector2d const& current, Eigen::Vector2d const& goal);
+
+        /** Call to set the start and goal positions */
+        void setRasterPositions(Eigen::Vector2i const& current, Eigen::Vector2i const& goal);
 
         void setMarginFactor(double factor);
 
