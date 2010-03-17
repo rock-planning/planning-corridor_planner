@@ -449,7 +449,14 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
         displayLine(cerr, line);
 #endif
 
-        // Remove all the voronoi points that have more than 2 borders
+        {
+            int crossroad_idx = crossroads.size();
+            crossroads.push_back( set<Endpoint>() );
+            PointID p = branch_it->first;
+            crossroad_points.insert(p);
+            state.graph.setValue(p.x, p.y, -crossroad_idx);
+        }
+
         while (!line.empty())
         {
             // the index of the corridor
