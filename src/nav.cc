@@ -253,10 +253,30 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
     dot << "}\n";
 }
 
+void exportSkeleton(CorridorPlanner const& planner, size_t xSize, size_t ySize, std::vector<uint8_t> const& base_image, std::string const& out_file)
+{
+    vector<RGBColor> color_image;
+    for (size_t i = 0; i < base_image.size(); ++i)
+        color_image.push_back(RGBColor(base_image[i]));
+
+    std::list<VoronoiPoint> const& points = planner.voronoi_points;
+    for (std::list<VoronoiPoint>::const_iterator it = points.begin(); it != points.end(); ++it)
+    {
+        for (VoronoiPoint::BorderList::const_iterator border_it = it->borders.begin();
+                border_it != it->borders.end(); ++border_it)
+        {
+            markPoints(*border_it, xSize, color_image, RGBColor(200, 200, 200));
+        }
+        color_image[it->center.y * xSize + it->center.x] = RGBColor(255, 255, 255);
+    }
+
+    std::cerr << "  saving result in " << out_file << std::endl;
+    saveColorImage(out_file, xSize, ySize, color_image);
+}
+
 void exportNavigationFunction(CorridorPlanner const& planner, size_t xSize, size_t ySize, std::vector<uint8_t> const& base_image, std::string const& out_file)
 {
     GridGraph const& graph = planner.dstar->graph();
-    std::cerr << "  saving result in " << out_file << std::endl;
 
     // Find the maximum cost in the dstar output, filtering out actual
     // obstacles
@@ -324,6 +344,7 @@ void do_plan(char name_prefix,
     { Profile profiler("skeleton");
         planner.extractSkeleton();
     }
+    exportSkeleton(planner, xSize, ySize, image, basename + "-skeleton.tif");
 
     { Profile profiler("plan building");
         planner.computePlan();
