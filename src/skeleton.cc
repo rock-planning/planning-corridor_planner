@@ -356,7 +356,10 @@ bool lineOrderingDFS(PointID const& cur_point, int neighbour_mask,
         if (target_value != VALUE_SKELETON_NOT_VISITED) // either not actual point, or already visited
         {
             if (target_value == VALUE_SKELETON_VISITED)
+            {
+                DEBUG_OUT("  rejected " << n_it.getTargetPoint());
                 detached = false;
+            }
             continue;
         }
 
@@ -456,11 +459,13 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
             {
                 int crossroad_idx = crossroads.size();
                 crossroads.push_back( set<Endpoint>() );
+                DEBUG_OUT("created crossroad " << crossroad_idx);
                 while (!line.empty() && line.front().borders.size() != 2)
                 {
                     PointID p = line.front().center;
                     crossroad_points.insert(p);
                     state.graph.setValue(p.x, p.y, -crossroad_idx);
+                    DEBUG_OUT("  added " << p);
                     line.pop_front();
                 }
                 if (line.empty())
@@ -509,6 +514,7 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
         int connection_index = crossroads.size();
         crossroads.push_back(set<Endpoint>());
         crossroads.back().insert(endp);
+        DEBUG_OUT("created crossroad " << connection_index << " at " << p << " for " << state.plan.corridors[endp.corridor_idx].name);
         state.graph.setValue(p.x, p.y, -connection_index);
     }
 
@@ -559,6 +565,7 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
                 n_it.setTargetValue(-crossroad_idx);
                 set<Endpoint>& points = crossroads[neighbour_crossroad];
                 crossroads[crossroad_idx].insert(points.begin(), points.end());
+                DEBUG_OUT("merged crossroad " << neighbour_crossroad << " into " << crossroad_idx << " at " << n_it.getTargetPoint());
                 // we clear to mark that this crossroad does exist anymore
                 // See the big warning at the beginning of this code section
                 points.clear();
