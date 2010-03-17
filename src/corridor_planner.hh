@@ -26,9 +26,9 @@ namespace nav
         DStar*              dstar;
         Plan                plan;
 
-    private:
         std::list<VoronoiPoint>  voronoi_points;
 
+    private:
         Eigen::Vector2i m_current;
         Eigen::Vector2i m_goal;
 
