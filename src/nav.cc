@@ -152,7 +152,6 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
     for (size_t corridor_idx = 0; corridor_idx < plan.corridors.size(); ++corridor_idx)
     {
         Corridor& c = plan.corridors[corridor_idx];
-        cerr << c.boundaries[0].size() << " " << c.boundaries[1].size() << " " << c.voronoi.size() << endl;
         if (c.updateCurves())
         {
             cerr << "displaying " << c.name << " using curves" << endl;
