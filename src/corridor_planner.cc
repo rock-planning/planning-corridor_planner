@@ -57,6 +57,13 @@ void CorridorPlanner::setWorldPositions(Eigen::Vector2d const& current, Eigen::V
 {
     PointID current_i = map->toLocal(Eigen::Vector3d(current.x(), current.y(), 0)),
         goal_i = map->toLocal(Eigen::Vector3d(goal.x(), goal.y(), 0));
+    std::cerr << "current position:\n"
+        << "   world: " << current
+        << "   raster: " << Eigen::Vector2i(current_i.x, current_i.y) << std::endl;
+    std::cerr << "goal position:\n"
+        << "   world: " << goal
+        << "   raster: " << Eigen::Vector2i(goal_i.x, goal_i.y) << std::endl;
+
     setRasterPositions(Eigen::Vector2i(current_i.x, current_i.y), Eigen::Vector2i(goal_i.x, goal_i.y));
 }
 
