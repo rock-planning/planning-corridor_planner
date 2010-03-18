@@ -710,24 +710,6 @@ void Plan::markUselessCorridors(vector<int>& useful)
 
 }
 
-void Plan::removeUselessCorridors(vector<int>& useful)
-{
-    // Now remove the not useful corridors
-    for (int i = corridors.size() - 1; i >= 0; --i)
-    {
-        if (useful[i] == NOT_USEFUL)
-        {
-            //DEBUG_OUT("  corridor " << i << " is not useful");
-            removeCorridor(i);
-            useful.erase(useful.begin() + i);
-        }
-        //else if (useful[i] == USEFUL)
-        //    //DEBUG_OUT("  corridor " << i << " is useful");
-        //else
-        //    //DEBUG_OUT("  corridor " << i << " is undetermined");
-    }
-}
-
 static int solveMergeMappings(map<int, int> const& merge_mappings, int idx)
 {
     map<int, int>::const_iterator it = merge_mappings.find(idx);
