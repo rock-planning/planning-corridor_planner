@@ -161,8 +161,9 @@ namespace nav
          */
         void reverseCorridor(int corridor_idx);
 
-        void removeDeadEnds();
-        void removeDeadEnds(std::set<int> keepalive);
+        bool removeDeadEnds();
+        bool removeDeadEnds(std::set<int> keepalive);
+
         void removeNullCorridors();
         void removeNullCorridors(std::set<int> keepalive);
     };

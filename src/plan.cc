@@ -294,7 +294,7 @@ void Plan::simplify()
     checkConsistency();
 }
 
-void Plan::removeDeadEnds()
+bool Plan::removeDeadEnds()
 {
     DEBUG_OUT("removing dead ends");
     int start_corridor = findStartCorridor();
@@ -302,10 +302,10 @@ void Plan::removeDeadEnds()
     set<int> end_corridors;
     end_corridors.insert(start_corridor);
     end_corridors.insert(end_corridor);
-    removeDeadEnds(end_corridors);
+    return removeDeadEnds(end_corridors);
 }
 
-void Plan::removeDeadEnds(set<int> keepalive)
+bool Plan::removeDeadEnds(set<int> keepalive)
 {
     // Each tuple is
     //  has_front_connection, has_back_connection, has_multiple_neighbours, last_neighbour
@@ -351,7 +351,11 @@ void Plan::removeDeadEnds(set<int> keepalive)
         }
     }
     if (corridors.size() != states.size()) // we have removed some corridors
+    {
         removeDeadEnds();
+        return true;
+    }
+    return false;
 }
 
 void Plan::removeNullCorridors()
