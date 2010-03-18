@@ -281,6 +281,17 @@ void Plan::simplify()
 
     removeBackToBackConnections();
     removeDeadEnds();
+
+    bool did_something = true;
+    while (did_something)
+    {
+        did_something = false;
+        if (removeUselessCorridorConnections())
+        {
+            removeDeadEnds();
+            did_something = true;
+        }
+    }
     mergeSimpleCrossroads_directed();
     removeDeadEnds();
 
@@ -909,4 +920,67 @@ void Plan::reverseCorridor(int corridor_idx)
         }
     }
 }
+
+bool Plan::removeUselessCorridorConnections()
+{
+    int start_corridor = findStartCorridor();
+    int end_corridor   = findEndCorridor();
+    set<int> end_corridors;
+    end_corridors.insert(start_corridor);
+    end_corridors.insert(end_corridor);
+    return removeUselessCorridorConnections(end_corridors);
+}
+
+bool Plan::removeUselessCorridorConnections(set<int> const& keepalive)
+{
+    bool did_something = true, result = false;
+    while (did_something)
+    {
+        did_something = false;
+        for (size_t corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
+        {
+            if (keepalive.count(corridor_idx))
+                continue;
+            if (removeUselessCorridorConnections(corridor_idx))
+                did_something = result = true;
+        }
+    }
+
+    return result;
+}
+
+bool Plan::removeUselessCorridorConnections(int corridor_idx)
+{
+    Corridor& corridor = corridors[corridor_idx];
+
+    set<int> connectivity[2];
+    set< pair<bool, int> > useless;
+    for (Corridor::const_connection_iterator conn_it = corridor.connections.begin();
+            conn_it != corridor.connections.end(); ++conn_it)
+    {
+        bool already_there = !connectivity[conn_it->this_side].
+            insert(conn_it->target_idx).second;
+        if (already_there)
+            useless.insert( make_pair(conn_it->this_side, conn_it->target_idx) );
+    }
+
+    if (useless.empty())
+        return false;
+
+    for (set< pair<bool, int> >::iterator it = useless.begin();
+            it != useless.end(); ++it)
+    {
+        bool this_side  = it->first;
+        int useless_idx = it->second;
+        Corridor& useless_corridor = corridors[useless_idx];
+        for (Corridor::const_connection_iterator conn_it = useless_corridor.connections.begin();
+                conn_it != useless_corridor.connections.end(); ++conn_it)
+        {
+            corridor.addConnection(this_side, conn_it->target_idx, conn_it->target_side);
+        }
+        corridor.removeConnectionsTo(useless_idx);
+    }
+    return true;
+}
+
 
