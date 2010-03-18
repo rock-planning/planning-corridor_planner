@@ -282,11 +282,6 @@ void Plan::simplify()
     removeNullCorridors();
     removeDeadEnds();
 
-    vector<int> useful_corridors;
-    useful_corridors.resize(corridors.size(), 0);
-    useful_corridors[findStartCorridor()] = USEFUL;
-    useful_corridors[findEndCorridor()]   = USEFUL;
-
     removeBackToBackConnections();
     removeDeadEnds();
     mergeSimpleCrossroads_directed();
