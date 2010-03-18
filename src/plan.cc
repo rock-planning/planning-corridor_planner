@@ -368,6 +368,26 @@ void Plan::removeNullCorridors()
     removeNullCorridors(end_corridors);
 }
 
+bool Plan::filterNullSingleton(int corridor_idx)
+{
+    Corridor& corridor = corridors[corridor_idx];
+    set<int> connected_to = corridor.connectivity();
+    if (connected_to.size() < 2)
+        return true;
+
+    while (!connected_to.empty())
+    {
+        int source_idx = *(connected_to.begin());
+        connected_to.erase(connected_to.begin());
+
+        set<int>::const_iterator missing = find_if(connected_to.begin(), connected_to.end(),
+                !bind(&Corridor::isConnectedTo, ref(corridors[source_idx]), _1));
+
+        if (missing == connected_to.end())
+            corridor.removeConnectionsTo(source_idx);
+    }
+    return (corridor.connections.size() < 2);
+}
 
 void Plan::removeNullCorridors(set<int> keepalive)
 {
@@ -378,29 +398,8 @@ void Plan::removeNullCorridors(set<int> keepalive)
         if (keepalive.count(corridor_idx))
             continue;
 
-        Corridor& corridor = corridors[corridor_idx];
-        if (!corridor.isSingleton())
-            continue;
-
-        set<int> connected_to = corridor.connectivity();
-        if (connected_to.size() > 1)
-        {
-            while (!connected_to.empty())
-            {
-                int source_idx = *(connected_to.begin());
-                connected_to.erase(connected_to.begin());
-
-                set<int>::const_iterator missing = find_if(connected_to.begin(), connected_to.end(),
-                        !bind(&Corridor::isConnectedTo, ref(corridors[source_idx]), _1));
-
-                if (missing == connected_to.end())
-                    corridor.removeConnectionsTo(source_idx);
-            }
-
-        }
-
-        if (corridor.connections.size() < 2)
-            to_remove.insert(corridor_idx);
+        if (corridors[corridor_idx].isSingleton() && filterNullSingleton(corridor_idx))
+                to_remove.insert(corridor_idx);
     }
 
     if (!to_remove.empty())
