@@ -19,9 +19,6 @@
 #define DEBUG_OUT(x)
 #endif
 
-const int nav::Plan::USEFUL;
-const int nav::Plan::NOT_USEFUL;
-
 static const int ENDPOINT_UNKNOWN = nav::Corridor::ENDPOINT_UNKNOWN;
 static const int ENDPOINT_BACK   = nav::Corridor::ENDPOINT_BACK;
 static const int ENDPOINT_FRONT    = nav::Corridor::ENDPOINT_FRONT;
@@ -686,30 +683,6 @@ int Plan::findCorridorOf(PointID const& endp) const
     return owner;
 }
 
-void Plan::markUselessCorridors(vector<int>& useful)
-{
-    // Now, do a depth-first search. The useful corridors are the ones that
-    // helps connecting an endpoint corridor to another endpoint corridor
-    set<int> dfs_stack;
-
-    vector<int> original_useful = useful;
-    for (size_t i = 0; i < corridors.size(); ++i)
-    {
-        if (original_useful[i] == USEFUL)
-        {
-            dfs_stack.clear();
-            markNextCorridors(dfs_stack, i, useful);
-        }
-    }
-
-    for (size_t i = 0; i < useful.size(); ++i)
-    {
-        if (useful[i] == 0)
-            useful[i] = NOT_USEFUL;
-    }
-
-}
-
 static int solveMergeMappings(map<int, int> const& merge_mappings, int idx)
 {
     map<int, int>::const_iterator it = merge_mappings.find(idx);
@@ -844,48 +817,6 @@ void Plan::mergeSimpleCrossroads_directed()
     for (set<int>::const_reverse_iterator it = to_remove.rbegin();
             it != to_remove.rend(); ++it)
         removeCorridor(*it);
-}
-
-int Plan::markNextCorridors(set<int>& stack, int corridor_idx, vector<int>& useful) const
-{
-    Corridor const& c = corridors[corridor_idx];
-    Corridor::Connections::const_iterator conn_it;
-
-    set<int>::iterator stack_it = stack.insert(corridor_idx).first;
-    size_t not_useful = 0;
-    for (conn_it = c.connections.begin(); conn_it != c.connections.end(); ++conn_it)
-    {
-        int target_idx = conn_it->target_idx;
-
-        int child_type;
-        if (stack.count(target_idx))
-            child_type = useful[target_idx];
-        else if (useful[target_idx] == NOT_USEFUL)
-            child_type = NOT_USEFUL;
-        else if (useful[target_idx] == USEFUL)
-            child_type = USEFUL;
-        else
-            child_type = markNextCorridors(stack, target_idx, useful);
-
-        if (child_type == USEFUL)
-        {
-            DEBUG_OUT(corridors[corridor_idx].name << " is useful");
-            useful[corridor_idx] = USEFUL;
-        }
-        else if (child_type == NOT_USEFUL)
-            ++not_useful;
-    }
-
-    if (not_useful == c.connections.size())
-    {
-        DEBUG_OUT(corridors[corridor_idx].name << " is not useful");
-        useful[corridor_idx] = NOT_USEFUL;
-    }
-    if (useful[corridor_idx] == 0)
-        DEBUG_OUT(corridors[corridor_idx].name << " is left undetermined");
-
-    stack.erase(stack_it);
-    return useful[corridor_idx];
 }
 
 void Plan::checkConsistency() const

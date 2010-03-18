@@ -20,37 +20,6 @@ namespace nav
         /** An index used to have unique names for the corridors */
         int m_corridor_names;
 
-        /** Marks in \c useful the useless corridors. Useless corridors are the
-         * corridors that don't connect one endpoint with another
-         *
-         * @see simplify
-         */
-        void markUselessCorridors(std::vector<int>& useful);
-
-        /** Removes the corridors that are marked as useless in \c useful.
-         *
-         * @see simplify
-         */
-        void removeUselessCorridors(std::vector<int>& useful);
-
-        /** Constants used by markNextCorridors and removeUselessCorridors */
-        static const int USEFUL = 1;
-        static const int NOT_USEFUL = 2;
-
-        /** This method is used by removeUselessCorridors to search for useless
-         * corridors. We use for that a DFS, where
-         * <ul>
-         *   <li> \c stack is the DFS stack
-         *   <li> \c corridor_idx is the corridor to be considered at this step
-         *   <li> \c useful is the set of usefulness flags
-         * </ul>
-         *
-         * The method calls itself recursively on the children of \c
-         * corridor_idx whose usefulness is still undetermined. If one child is
-         * useful, then the corridor is useful as well.
-         */
-        int markNextCorridors(std::set<int>& stack, int corridor_idx, std::vector<int>& useful) const;
-
         typedef std::map< std::pair<int, int>, int > ConnectionTypes; 
 	typedef std::map< Corridor::ConnectionDescriptor const*, int > EndpointTypes;
 
