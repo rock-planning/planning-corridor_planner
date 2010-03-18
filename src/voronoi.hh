@@ -195,6 +195,9 @@ namespace nav
          */
         void concat(Corridor& corridor);
 
+        /** Returns the set of corridors the specified side is connected to */
+        std::set<int> connectivity(bool side) const;
+
         /** Returns the set of corridors this one is connected to */
         std::set<int> connectivity() const;
 

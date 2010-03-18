@@ -754,6 +754,17 @@ bool Corridor::operator == (Corridor const& other) const
     return voronoi == other.voronoi;
 }
 
+std::set<int> Corridor::connectivity(bool side) const
+{
+    set<int> result;
+    for (Connections::const_iterator it = connections.begin(); it != connections.end(); ++it)
+    {
+        if (it->this_side == side)
+            result.insert(it->target_idx);
+    }
+    return result;
+}
+
 set<int> Corridor::connectivity() const
 {
     set<int> result;
