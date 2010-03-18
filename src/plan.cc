@@ -316,32 +316,32 @@ bool Plan::removeDeadEnds()
 bool Plan::removeDeadEnds(set<int> keepalive)
 {
     // Each tuple is
-    //  has_front_connection, has_back_connection, has_multiple_neighbours, last_neighbour
-    typedef tuple<bool, bool, bool, int> DeadEndState;
+    //  has_front_in_connection[0], has_front_out_connection[1], has_back_in_connection[2], has_back_out_connection[3], has_multiple_neighbours[4], last_neighbour[5]
+    typedef tuple<bool, bool, bool, bool, bool, int> DeadEndState;
     vector<DeadEndState> states;
-    states.resize(corridors.size(), make_tuple(false, false, false, -1));
+    states.resize(corridors.size(), DeadEndState(false, false, false, false, false, -1));
 
     for (int corridor_idx = 0; corridor_idx < (int)corridors.size(); ++corridor_idx)
     {
         DEBUG_OUT("corridor " << corridors[corridor_idx].name << ": ");
-        tuple<bool, bool, bool, int>& this_state = states[corridor_idx];
+        DeadEndState& this_state = states[corridor_idx];
 
         Corridor::Connections const& connections = corridors[corridor_idx].connections;
         for (Corridor::const_connection_iterator conn_it = connections.begin();
                 conn_it != connections.end(); ++conn_it)
         {
             DEBUG_OUT("   conn: " << conn_it->this_side << " " << corridors[conn_it->target_idx].name << " " << conn_it->target_side);
-            this_state.get<0>() |= !conn_it->this_side;
-            this_state.get<1>() |=  conn_it->this_side;
-            this_state.get<2>() |= (this_state.get<3>() != -1 && this_state.get<3>() != conn_it->target_idx);
-            this_state.get<3>() = conn_it->target_idx;
+            this_state.get<1>() |= !conn_it->this_side;
+            this_state.get<3>() |=  conn_it->this_side;
+            this_state.get<4>() |= (this_state.get<3>() != -1 && this_state.get<3>() != conn_it->target_idx);
+            this_state.get<5>() = conn_it->target_idx;
             DEBUG_OUT("   this_state: " << this_state.get<0>() << " " << this_state.get<1>() << " " << this_state.get<2>() << " " << corridors[this_state.get<3>()].name);
 
-            tuple<bool, bool, bool, int>& target_state = states[conn_it->target_idx];
+            DeadEndState& target_state = states[conn_it->target_idx];
             target_state.get<0>() |= !conn_it->target_side;
-            target_state.get<1>() |=  conn_it->target_side;
-            target_state.get<2>() |= (target_state.get<3>() != -1 && target_state.get<3>() != corridor_idx);
-            target_state.get<3>() = corridor_idx;
+            target_state.get<2>() |=  conn_it->target_side;
+            target_state.get<4>() |= (target_state.get<3>() != -1 && target_state.get<3>() != corridor_idx);
+            target_state.get<5>() = corridor_idx;
             DEBUG_OUT("   target_state: " << target_state.get<0>() << " " << target_state.get<1>() << " " << target_state.get<2>() << " " << corridors[target_state.get<3>()].name);
         }
     }
@@ -351,8 +351,10 @@ bool Plan::removeDeadEnds(set<int> keepalive)
         if (keepalive.count(idx))
             continue;
 
-        tuple<bool, bool, bool, int> state = states[idx];
-        if (!(state.get<0>() && state.get<1>() && state.get<2>()))
+        DeadEndState state = states[idx];
+        // bool is_traversed = (state.get<0>() && state.get<3>()) || (state.get<1>() && state.get<2>());
+        bool is_traversed = (state.get<0>() || state.get<1>()) || (state.get<2>() && state.get<3>());
+        if (!(is_traversed && state.get<4>()))
         {
             DEBUG_OUT("corridor " << corridors[idx].name << " is a dead end");
             removeCorridor(idx);
@@ -424,7 +426,6 @@ void Plan::removeNullCorridors(set<int> keepalive)
         removeNullCorridors();
     }
 }
-
 
 bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result, 
 	std::vector<int>& stack, int in_side, int idx, int end_idx,
