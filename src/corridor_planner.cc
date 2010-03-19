@@ -129,7 +129,7 @@ void CorridorPlanner::simplifyPlan()
 {
     if (isProcessingRequired(PLAN_SIMPLIFICATION))
     {
-        plan.simplify();
+        plan.simplify(m_expand);
         processed();
     }
 }

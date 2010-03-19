@@ -31,7 +31,7 @@ namespace nav
 		std::vector<int>& stack, int in_side, int idx, int end_idx,
 		float accumulated_cost_overhead, float cost_margin);
 	void markDirections_cost();
-        void removeBackToBackConnections();
+        void removeBackToBackConnections(double margin_factor);
 
 	void checkConsistency() const;
 
@@ -96,9 +96,10 @@ namespace nav
          * Useless corridors are the corridors that do not connect one endpoint
          * to another.
          *
-         * @arg endpoints the set of endpoints
+         * @arg margin_factor { paths that leads to the goal with a cost less than
+         *     margin_factor * optimal_cost are acceptable }
          */
-        void simplify();
+        void simplify(double margin_factor);
 
         /** Split the given corridor at the specified place, and returns the new
          * corridor.

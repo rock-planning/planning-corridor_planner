@@ -270,16 +270,16 @@ void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end)
     }
 }
 
-void Plan::simplify()
+void Plan::simplify(double margin_factor)
 {
     DEBUG_OUT("checking consistency before simplification");
     checkConsistency();
 
+    removeBackToBackConnections(margin_factor);
     // WARN: removeNullCorridors() works only on an UNDIRECTED graph
     removeNullCorridors();
     removeDeadEnds();
 
-    removeBackToBackConnections();
     removeDeadEnds();
 
     bool did_something = true;
@@ -593,7 +593,7 @@ void Plan::markDirections_cost()
     }
 }
 
-void Plan::removeBackToBackConnections()
+void Plan::removeBackToBackConnections(double margin_factor)
 {
     size_t start_idx = findStartCorridor();
     size_t end_idx   = findEndCorridor();
@@ -601,7 +601,7 @@ void Plan::removeBackToBackConnections()
     markDirections_cost();
 
     Corridor const& start_corridor = corridors[start_idx];
-    float cost_margin = m_nav_function.getValue(m_start.x, m_start.y) * 0.05;
+    float cost_margin = m_nav_function.getValue(m_start.x, m_start.y) * (margin_factor - 1.0);
 
     reach_flag.resize(2 * corridors.size());
     fill(reach_flag.begin(), reach_flag.end(), false);
