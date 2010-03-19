@@ -277,6 +277,7 @@ void Plan::simplify(double margin_factor)
 
     removeBackToBackConnections(margin_factor);
     removeDeadEnds();
+    mergeSimpleCrossroads_directed();
 
     bool did_something = true;
     while (did_something)
