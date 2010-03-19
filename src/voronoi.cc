@@ -548,10 +548,16 @@ bool Corridor::isConnectedTo(int other_corridor) const
 
 void Corridor::moveConnections(size_t prev_idx, size_t new_idx)
 {
-    for (Connections::iterator it = connections.begin(); it != connections.end(); ++it)
+    Connections::iterator it = connections.begin();
+    while (it != connections.end())
     {
         if (it->target_idx == (int)prev_idx)
-            it->target_idx = new_idx;
+        {
+            ConnectionDescriptor conn = *it;
+            connections.erase(it++);
+            addConnection(conn.this_side, new_idx, conn.target_side);
+        }
+        else ++it;
     }
 }
 
