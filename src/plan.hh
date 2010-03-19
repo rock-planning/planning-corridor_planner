@@ -139,7 +139,6 @@ namespace nav
         bool filterNullSingleton(int corridor_idx);
 
         bool removeUselessCorridorConnections();
-        bool removeUselessCorridorConnections(std::set<int> const& keepalive);
         bool removeUselessCorridorConnections(int corridor_idx);
     };
     std::ostream& operator << (std::ostream& io, Plan const& plan);

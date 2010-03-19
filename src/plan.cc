@@ -925,24 +925,12 @@ void Plan::reverseCorridor(int corridor_idx)
 
 bool Plan::removeUselessCorridorConnections()
 {
-    int start_corridor = findStartCorridor();
-    int end_corridor   = findEndCorridor();
-    set<int> end_corridors;
-    end_corridors.insert(start_corridor);
-    end_corridors.insert(end_corridor);
-    return removeUselessCorridorConnections(end_corridors);
-}
-
-bool Plan::removeUselessCorridorConnections(set<int> const& keepalive)
-{
     bool did_something = true, result = false;
     while (did_something)
     {
         did_something = false;
         for (size_t corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
         {
-            if (keepalive.count(corridor_idx))
-                continue;
             if (removeUselessCorridorConnections(corridor_idx))
                 did_something = result = true;
         }
