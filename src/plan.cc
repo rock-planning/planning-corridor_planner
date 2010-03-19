@@ -331,14 +331,18 @@ bool Plan::removeDeadEnds(set<int> keepalive)
             this_state.get<3>() |=  conn_it->this_side;
             this_state.get<4>() |= (this_state.get<3>() != -1 && this_state.get<3>() != conn_it->target_idx);
             this_state.get<5>() = conn_it->target_idx;
-            DEBUG_OUT("   this_state: " << this_state.get<0>() << " " << this_state.get<1>() << " " << this_state.get<2>() << " " << corridors[this_state.get<3>()].name);
+            DEBUG_OUT("   state[" << corridors[corridor_idx].name << "]: " << this_state.get<0>() << " " << this_state.get<1>() << " " 
+                    << this_state.get<2>() << " " << this_state.get<3>() << " "
+                    << this_state.get<4>() << " " << corridors[this_state.get<5>()].name);
 
             DeadEndState& target_state = states[conn_it->target_idx];
             target_state.get<0>() |= !conn_it->target_side;
             target_state.get<2>() |=  conn_it->target_side;
             target_state.get<4>() |= (target_state.get<3>() != -1 && target_state.get<3>() != corridor_idx);
             target_state.get<5>() = corridor_idx;
-            DEBUG_OUT("   target_state: " << target_state.get<0>() << " " << target_state.get<1>() << " " << target_state.get<2>() << " " << corridors[target_state.get<3>()].name);
+            DEBUG_OUT("   state[" << corridors[conn_it->target_idx].name << "]: " << target_state.get<0>() << " " << target_state.get<1>() << " " 
+                    << target_state.get<2>() << " " << target_state.get<3>() << " "
+                    << target_state.get<4>() << " " << corridors[target_state.get<5>()].name);
         }
     }
 
