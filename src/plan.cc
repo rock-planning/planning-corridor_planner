@@ -352,8 +352,8 @@ bool Plan::removeDeadEnds(set<int> keepalive)
             continue;
 
         DeadEndState state = states[idx];
-        // bool is_traversed = (state.get<0>() && state.get<3>()) || (state.get<1>() && state.get<2>());
-        bool is_traversed = (state.get<0>() || state.get<1>()) || (state.get<2>() && state.get<3>());
+        bool is_traversed = (state.get<0>() && state.get<3>()) || (state.get<1>() && state.get<2>());
+        // bool is_traversed = (state.get<0>() || state.get<1>()) || (state.get<2>() && state.get<3>());
         if (!(is_traversed && state.get<4>()))
         {
             DEBUG_OUT("corridor " << corridors[idx].name << " is a dead end");
