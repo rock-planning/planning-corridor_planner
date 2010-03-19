@@ -963,7 +963,11 @@ bool Plan::removeUselessCorridorConnections(int corridor_idx)
         bool already_there = !connectivity[conn_it->this_side].
             insert(conn_it->target_idx).second;
         if (already_there)
+        {
+            DEBUG_OUT("corridor " << corridor.name << ": useless connection from " << conn_it->this_side
+                    << " to " << corridors[conn_it->target_idx].name);
             useless.insert( make_pair(conn_it->this_side, conn_it->target_idx) );
+        }
     }
 
     if (useless.empty())
