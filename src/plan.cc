@@ -276,10 +276,6 @@ void Plan::simplify(double margin_factor)
     checkConsistency();
 
     removeBackToBackConnections(margin_factor);
-    // WARN: removeNullCorridors() works only on an UNDIRECTED graph
-    removeNullCorridors();
-    removeDeadEnds();
-
     removeDeadEnds();
 
     bool did_something = true;
