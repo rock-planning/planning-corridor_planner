@@ -200,19 +200,13 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
         bool backwards = false;
         Corridor::Connections const& connections = corridor.connections;
         Corridor::Connections::const_iterator conn_it;
-        bool this_singleton = corridor.isSingleton();
+
         for (conn_it = connections.begin(); conn_it != connections.end(); ++conn_it)
         {
             int target_idx = conn_it->target_idx;
-            bool target_singleton = plan.corridors[target_idx].isSingleton();
 
             int in_side  = conn_it->this_side;
-            if (this_singleton)
-                in_side = false;
             int out_side = conn_it->target_side;
-            if (target_singleton)
-                out_side = false;
-
             if (in_side == false)
                 backwards = true;
 
@@ -220,34 +214,23 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
                 << " -> c" << target_idx << "_" << out_side << " [weight=3];\n";
         }
 
-        if (corridor.isSingleton())
+        ostringstream node_setup;
+        node_setup << "[fixedsize=true, width=0.1, height=0.1, label=\"\", style=filled, shape=circle, "
+            << "color=\"" << colorToDot(color) << "\"];\n";
+
+        dot << "  c" << corridor_idx << "_0 " << node_setup.str();
+        dot << "  c" << corridor_idx << "_1 " << node_setup.str();
+
+        int in_side = backwards, out_side = !backwards;
+        dot << "  c" << corridor_idx << "_" << in_side << " -> c" << corridor_idx
+            << "_" << out_side << " [label=\"" << corridor_name << "\", color=\""
+            << colorToDot(color) << "\"]\n";
+
+        if (corridor.bidirectional)
         {
-            dot << "  c" << corridor_idx << "_0 "
-                << "[label=\"" << corridor_name << "\", color=\""
+            dot << "  c" << corridor_idx << "_1 -> c" << corridor_idx << "_0 [color=\""
                 << colorToDot(color) << "\"]\n";
         }
-        else
-        {
-            ostringstream node_setup;
-            node_setup << "[fixedsize=true, width=0.1, height=0.1, label=\"\", style=filled, shape=circle, "
-                << "color=\"" << colorToDot(color) << "\"];\n";
-
-            dot << "  c" << corridor_idx << "_0 " << node_setup.str();
-            dot << "  c" << corridor_idx << "_1 " << node_setup.str();
-
-            int in_side = backwards, out_side = !backwards;
-            dot << "  c" << corridor_idx << "_" << in_side << " -> c" << corridor_idx
-                << "_" << out_side << " [label=\"" << corridor_name << "\", color=\""
-                << colorToDot(color) << "\"]\n";
-
-            if (corridor.bidirectional)
-            {
-                dot << "  c" << corridor_idx << "_1 -> c" << corridor_idx << "_0 [color=\""
-                    << colorToDot(color) << "\"]\n";
-            }
-        }
-
-
     }
     dot << "}\n";
 }
