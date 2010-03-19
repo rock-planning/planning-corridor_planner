@@ -290,7 +290,6 @@ void Plan::simplify(double margin_factor)
         }
     }
     mergeSimpleCrossroads_directed();
-    removeDeadEnds();
 
     for (size_t i = 0; i < corridors.size(); ++i)
         corridors[i].update();
