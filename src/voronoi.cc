@@ -373,18 +373,7 @@ bool Corridor::checkConsistency() const
         result = false;
     }
 
-    // Verify that all connection points are in the voronoi line
-    // Corridor::Connections::const_iterator conn_it;
-    // for (conn_it = connections.begin(); conn_it != connections.end(); ++conn_it)
-    // {
-    //     PointID p = conn_it->get<0>();
-    //     if (find_if(voronoi.begin(), voronoi.end(),
-    //                 bind(&VoronoiPoint::center, _1) == p) == voronoi.end())
-    //     {
-    //         result = false;
-    //         DEBUG_OUT("connection point " << p << " is not in the voronoi");
-    //     }
-    // }
+    // Verify that we don't have duplicate connections
 
     return result;
 #else
