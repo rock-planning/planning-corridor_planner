@@ -977,7 +977,8 @@ bool Plan::removeUselessCorridorConnections(int corridor_idx)
         for (Corridor::const_connection_iterator conn_it = useless_corridor.connections.begin();
                 conn_it != useless_corridor.connections.end(); ++conn_it)
         {
-            corridor.addConnection(this_side, conn_it->target_idx, conn_it->target_side);
+            if (conn_it->target_idx != corridor_idx)
+                corridor.addConnection(this_side, conn_it->target_idx, conn_it->target_side);
         }
         corridor.removeConnectionsTo(useless_idx);
     }
