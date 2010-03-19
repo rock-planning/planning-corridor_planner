@@ -424,6 +424,51 @@ struct GeometricEndpoint
         : p(p), endp(idx, side) {}
 };
 
+void SkeletonExtraction::mergeCrossroads(CorridorExtractionState& state, int into_idx, int from_idx)
+{
+    DEBUG_OUT("crossroad " << into_idx << ": merged " << from_idx);
+    GeometricCrossroad& from = state.geometric_crossroads[from_idx];
+    for( set<PointID>::const_iterator it = from.points.begin();
+            it != from.points.end(); ++it)
+        state.graph.setValue(it->x, it->y, -into_idx);
+
+    GeometricCrossroad& into = state.geometric_crossroads[into_idx];
+    into.points.insert(from.points.begin(), from.points.end());
+    into.endpoints.insert(from.endpoints.begin(), from.endpoints.end());
+
+    from.clear();
+}
+
+int SkeletonExtraction::addCrossroadPoint(CorridorExtractionState& state, PointID p, int crossroad_idx)
+{
+    int current_idx = lround(state.graph.getValue(p.x, p.y));
+    if (current_idx <= 0)
+    {
+        // merge the two crossroads
+        if (crossroad_idx != -1)
+            mergeCrossroads(state, -current_idx, crossroad_idx);
+        return -current_idx;
+    }
+    else if (crossroad_idx == -1)
+    {
+        int idx = state.geometric_crossroads.size();
+        state.crossroad_points.insert(p);
+        state.geometric_crossroads.push_back( GeometricCrossroad() );
+        state.geometric_crossroads.back().points.insert(p);
+        DEBUG_OUT("crossroad " << idx << ": created with " << p);
+        state.graph.setValue(p.x, p.y, -idx);
+        return idx;
+    }
+    else
+    {
+        state.crossroad_points.insert(p);
+        state.graph.setValue(p.x, p.y, -crossroad_idx);
+        state.geometric_crossroads[crossroad_idx].points.insert(p);
+        DEBUG_OUT("crossroad " << crossroad_idx << ": added " << p);
+        return crossroad_idx;
+    }
+}
+
 void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
 {
     // First, a dead simple step: convert each branch into a corridor. When we
@@ -433,8 +478,6 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
     // We use the grid graph to check if there are places where a branch meets
     // the middle of another branch. We will post-process those later on
     list< GeometricEndpoint > endpoints;
-    set<PointID> crossroad_points;
-    vector< set< Endpoint > > crossroads;
 
     BranchMap::iterator branch_it = state.branches.begin();
     BranchMap::iterator const branch_end = state.branches.end();
@@ -449,35 +492,21 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
         displayLine(cerr, line);
 #endif
 
-        {
-            int crossroad_idx = crossroads.size();
-            crossroads.push_back( set<Endpoint>() );
-            PointID p = branch_it->first;
-            crossroad_points.insert(p);
-            state.graph.setValue(p.x, p.y, -crossroad_idx);
-        }
+        addCrossroadPoint(state, branch_it->first, -1);
 
         while (!line.empty())
         {
             // the index of the corridor
             size_t corridor_idx = state.plan.corridors.size();
 
-            if (line.front().borders.size() != 2)
+            int crossroad_idx = -1;
+            while (!line.empty() && line.front().borders.size() != 2)
             {
-                int crossroad_idx = crossroads.size();
-                crossroads.push_back( set<Endpoint>() );
-                DEBUG_OUT("created crossroad " << crossroad_idx);
-                while (!line.empty() && line.front().borders.size() != 2)
-                {
-                    PointID p = line.front().center;
-                    crossroad_points.insert(p);
-                    state.graph.setValue(p.x, p.y, -crossroad_idx);
-                    DEBUG_OUT("  added " << p);
-                    line.pop_front();
-                }
-                if (line.empty())
-                    break;
+                crossroad_idx = addCrossroadPoint(state, line.front().center, crossroad_idx);
+                line.pop_front();
             }
+            if (line.empty())
+                break;
 
             Corridor::voronoi_iterator end_it = line.begin();
             VoronoiPoint const* last_point = 0;
@@ -509,20 +538,37 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
     // owned.
     GridGraph ownerships(state.graph);
 
-    // Register the "obvious" connection points, i.e. the ones that are exactly
-    // at the same place
+    // Register the endpoints in the geometric corridors
     for (list<GeometricEndpoint>::const_iterator it = endpoints.begin();
             it != endpoints.end(); ++it)
     {
-        Endpoint endp = it->endp;
-        PointID p     = it->p;
-        crossroad_points.insert(p);
+        int idx = addCrossroadPoint(state, it->p, -1);
+        state.geometric_crossroads[idx].endpoints.insert(it->endp);
+    }
 
-        int connection_index = crossroads.size();
-        crossroads.push_back(set<Endpoint>());
-        crossroads.back().insert(endp);
-        DEBUG_OUT("created crossroad " << connection_index << " at " << p << " for " << state.plan.corridors[endp.corridor_idx].name);
-        state.graph.setValue(p.x, p.y, -connection_index);
+    // Grow the endpoints by one pixel. The issue it is trying to fix is related
+    // to the fact that we work on raster data instead of doing it on
+    // geometrical data.
+    //
+    // More specifically, what can happen is that some points get rejected in
+    // the vectorization step while they *are* part of the connections. We don't
+    // see them at this stage, and therefore create a disconnected graph.
+    //
+    // So, for now, grow the crossroads by one pixel *for these rejected
+    // pixels*.
+    for (set<PointID>::const_iterator crossroad_it = state.crossroad_points.begin();
+            crossroad_it != state.crossroad_points.end(); ++crossroad_it)
+    {
+        GridGraph::iterator n_it = state.graph.neighboursBegin(crossroad_it->x, crossroad_it->y);
+        int crossroad_idx = lround(-n_it.getSourceValue());
+        for (; !n_it.isEnd(); ++n_it)
+        {
+            if (lround(n_it.getTargetValue()) == VALUE_SKELETON_VISITED)
+            {
+                DEBUG_OUT("growing " << crossroad_idx << " to " << n_it.getTargetPoint());
+                addCrossroadPoint(state, n_it.getTargetPoint(), crossroad_idx);
+            }
+        }
     }
 
     // Now merge the adjacent connection points. We also search for endpoints
@@ -540,12 +586,13 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
     // specified point
     typedef map<int, map< int, PointID> > SplitMap;
     SplitMap potential_splits;
-    for (set<PointID>::const_iterator crossroad_it = crossroad_points.begin();
-            crossroad_it != crossroad_points.end(); ++crossroad_it)
+    for (set<PointID>::const_iterator crossroad_it = state.crossroad_points.begin();
+            crossroad_it != state.crossroad_points.end(); ++crossroad_it)
     {
         GridGraph::iterator n_it = state.graph.neighboursBegin(crossroad_it->x, crossroad_it->y);
         int owner_idx = lround(ownerships.getValue(crossroad_it->x, crossroad_it->y)) - VALUE_CORRIDORS_START;
         int crossroad_idx = lround(-n_it.getSourceValue());
+        DEBUG_OUT("looking at " << n_it.getSourcePoint() << ", in crossroad " << crossroad_idx);
 
         for (; !n_it.isEnd(); ++n_it)
         {
@@ -554,6 +601,7 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
                 continue;
 
             int pixel_owner = lround(n_it.getTargetValue());
+            DEBUG_OUT("   neighbour " << n_it.getTargetPoint() << ", owner=" << pixel_owner);
             if (pixel_owner < 0)
             { // this is another crossroad. Merge.
                 int neighbour_crossroad = -pixel_owner;
@@ -569,13 +617,7 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
                     potential_splits.erase(split_it);
                 }
 
-                n_it.setTargetValue(-crossroad_idx);
-                set<Endpoint>& points = crossroads[neighbour_crossroad];
-                crossroads[crossroad_idx].insert(points.begin(), points.end());
-                DEBUG_OUT("merged crossroad " << neighbour_crossroad << " into " << crossroad_idx << " at " << n_it.getTargetPoint());
-                // we clear to mark that this crossroad does exist anymore
-                // See the big warning at the beginning of this code section
-                points.clear();
+                mergeCrossroads(state, crossroad_idx, neighbour_crossroad);
             }
             else if (pixel_owner >= VALUE_CORRIDORS_START)
             { // the target point is part of another corridor. Register as a
@@ -596,9 +638,9 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
     while (split_it != split_end)
     {
         int crossroad_idx = split_it->first;
-        set<Endpoint> const& endpoints = crossroads[crossroad_idx];
+        GeometricCrossroad const& connection = state.geometric_crossroads[crossroad_idx];
         map<int, PointID>& splitted_corridors = split_it->second;
-        for (set<Endpoint>::const_iterator endp_it = endpoints.begin(); endp_it != endpoints.end(); ++endp_it)
+        for (set<Endpoint>::const_iterator endp_it = connection.endpoints.begin(); endp_it != connection.endpoints.end(); ++endp_it)
             splitted_corridors.erase(endp_it->corridor_idx);
 
         if (splitted_corridors.empty())
@@ -610,7 +652,7 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
                     it != splitted_corridors.end(); ++it)
                 corridors.push_back(it->first);
             vector<int> in_corridors;
-            transform(endpoints.begin(), endpoints.end(), back_inserter(in_corridors),
+            transform(connection.endpoints.begin(), connection.endpoints.end(), back_inserter(in_corridors),
                     bind(&Endpoint::corridor_idx, _1));
 
 #ifdef DEBUG
@@ -629,15 +671,15 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
     //
     // We filter out the connections that invalid and/or are connected to
     // nothing (i.e. endpoints that are actually not connected)
-    for (size_t connection_idx = 0; connection_idx != crossroads.size(); ++connection_idx)
+    for (size_t connection_idx = 0; connection_idx != state.geometric_crossroads.size(); ++connection_idx)
     {
-        set<Endpoint>& endpoints = crossroads[connection_idx];
-        if (endpoints.size() < 2)
+        GeometricCrossroad& connection = state.geometric_crossroads[connection_idx];
+        if (connection.endpoints.size() < 2)
             continue;
 
         Crossroads::iterator it =
             state.crossroads.insert(state.crossroads.end(), list<Endpoint>());
-        it->insert(it->end(), endpoints.begin(), endpoints.end());
+        it->insert(it->end(), connection.endpoints.begin(), connection.endpoints.end());
 
         SplitMap::iterator split_it =
             potential_splits.find(connection_idx);

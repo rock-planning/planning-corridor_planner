@@ -22,6 +22,17 @@ namespace nav
         { return std::make_pair(corridor_idx, side) < std::make_pair(p.corridor_idx, p.side); }
     };
 
+    struct GeometricCrossroad
+    {
+        std::set<PointID> points;
+        std::set<Endpoint> endpoints;
+        void clear()
+        {
+            points.clear();
+            endpoints.clear();
+        }
+    };
+
     typedef std::map<PointID, std::list<VoronoiPoint>::const_iterator> VoronoiMap;
     typedef std::multimap< PointID, std::list<VoronoiPoint> > BranchMap;
     typedef std::list< std::list<Endpoint> > Crossroads;
@@ -36,7 +47,12 @@ namespace nav
         VoronoiMap voronoiMap;
 
         Crossroads crossroads;
+        
         SplitPoints split_points;
+
+        // Internal data for computeConnections
+        std::vector<GeometricCrossroad> geometric_crossroads;
+        std::set<PointID> crossroad_points;
 
         // Keeps whether a given corridor has connection points at both sides
         // (true) or only at one side (false)
@@ -89,6 +105,9 @@ namespace nav
 
         void registerConnections(CorridorExtractionState& state);
         void applySplits(CorridorExtractionState& state);
+
+        void mergeCrossroads(CorridorExtractionState& state, int into_idx, int from_idx);
+        int addCrossroadPoint(CorridorExtractionState& state, PointID p, int crossroad_idx);
 
     public:
         SkeletonExtraction(size_t width, size_t height);
