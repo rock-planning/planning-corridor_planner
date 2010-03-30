@@ -261,7 +261,7 @@ void nav::displayMedianLine(ostream& io, list<VoronoiPoint> const& skel, int xmi
 }
 
 Corridor::Corridor()
-    : bidirectional(false)
+    : width_curve(0.5, 2), bidirectional(false)
 {
     boundary_curves[0].setGeometricResolution(0.5);
     boundary_curves[1].setGeometricResolution(0.5);
@@ -842,6 +842,41 @@ void Corridor::updateCurves(double discount_factor)
         boundary_curves[boundary_idx].simplify(simplification_tolerance);
     }
 
+    updateWidthCurve();
+}
+
+void Corridor::updateWidthCurve()
+{
+    width_curve.clear();
+
+    typedef base::geometry::Spline<1>::vector_t point_t;
+    std::vector<point_t> width_points;
+    std::vector<double> parameters;
+    float delta = (median_curve.getEndParam() - median_curve.getStartParam()) / voronoi.size();
+    for (float t = median_curve.getStartParam();
+            t < median_curve.getEndParam(); t += delta)
+    {
+        Eigen::Vector3d p = median_curve.getPoint(t);
+        nav::Corridor::voronoi_const_iterator median_it =
+            findNearestMedian(nav::PointID(p.x(), p.y()));
+
+        float this_width = median_it->width;
+        parameters.push_back(t);
+
+        point_t width_p;
+        width_p(0, 0) = this_width;
+        width_points.push_back(width_p);
+    }
+
+    {
+        point_t width_p;
+        width_p(0, 0) = voronoi.back().width ;
+        width_points.push_back(width_p);
+        parameters.push_back( median_curve.getEndParam() );
+    }
+
+    width_curve.interpolate(width_points, parameters);
+    width_curve.simplify(0.5);
 }
 
 void lineOrderingDFS(list<PointID>& result, PointID cur_point, int last_direction, GridGraph& graph)

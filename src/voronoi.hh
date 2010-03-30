@@ -114,6 +114,12 @@ namespace nav
      */
     class Corridor
     {
+        /** Updates the width curve. This is called by updateCurves internally,
+         * to generate a 1-D curve at which, for each parameter value from the
+         * median line, provides the width at this parameter.
+         */
+        void updateWidthCurve();
+
         /** Clears up the ordering of points in a line, by applying a graph
          * search method. The method searches the longest branches in a DFS
          * which are not adjacent to other branches, and modifies +line+ to
@@ -128,7 +134,9 @@ namespace nav
         base::geometry::Spline<3> median_curve;
         base::geometry::Spline<3> boundary_curves[2];
 
+        base::geometry::Spline<1> width_curve;
         float min_width, max_width;
+
         static const int ENDPOINT_UNKNOWN = 0;
         static const int ENDPOINT_FRONT   = 1;
         static const int ENDPOINT_BACK    = 2;
