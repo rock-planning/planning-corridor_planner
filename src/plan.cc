@@ -282,14 +282,12 @@ void Plan::simplify(double margin_factor)
     bool did_something = true;
     while (did_something)
     {
-        did_something = false;
-        if (removeUselessCorridorConnections())
-        {
-            removeDeadEnds();
-            did_something = true;
-        }
+        int last_count = corridors.size();
+        removeUselessCorridorConnections();
+        removeDeadEnds();
+        mergeSimpleCrossroads_directed();
+        did_something = (last_count != corridors.size());
     }
-    mergeSimpleCrossroads_directed();
 
     for (size_t i = 0; i < corridors.size(); ++i)
         corridors[i].update();
