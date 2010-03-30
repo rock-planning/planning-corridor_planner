@@ -26,7 +26,8 @@ namespace nav
         DStar*              dstar;
         Plan                plan;
 
-        int min_width;
+        /** The minimum allowed width of the corridors, in meters */
+        float min_width;
 
         std::list<VoronoiPoint>  voronoi_points;
 

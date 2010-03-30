@@ -12,7 +12,7 @@ using namespace nav;
 
 CorridorPlanner::CorridorPlanner()
     : map(0), skeleton(0), dstar(0)
-    , min_width(3)
+    , min_width(0)
     , m_state(DSTAR), m_expand(1.1)
 {
 }
@@ -130,7 +130,7 @@ void CorridorPlanner::simplifyPlan()
 {
     if (isProcessingRequired(PLAN_SIMPLIFICATION))
     {
-        plan.simplify(m_expand, min_width);
+        plan.simplify(m_expand, lround(min_width / map->getScale()));
         processed();
     }
 }
