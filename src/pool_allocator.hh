@@ -3,6 +3,7 @@
 
 #include <list>
 #include <vector>
+#include <boost/cstdint.hpp>
 
 namespace nav
 {
@@ -19,7 +20,7 @@ namespace nav
         typedef _Tp        value_type;
 
         size_type __size;
-        std::list< std::vector<uint8_t> > __pools;
+        std::list< std::vector<boost::uint8_t> > __pools;
         void* __freelist;
         _Alloc __alloc;
         static const int POOL_SIZE = 1000;
