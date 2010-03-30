@@ -304,7 +304,7 @@ Corridor::voronoi_iterator Corridor::findMedianPoint(PointID const& p)
 Corridor::voronoi_const_iterator Corridor::findMedianPoint(PointID const& p) const
 { return ::findMedianPoint(voronoi.begin(), voronoi.end(), p); }
 
-int Corridor::findSideOf(PointID const& p) const
+bool Corridor::findSideOf(PointID const& p) const
 {
     PointID front = voronoi.front().center;
     PointID back  = voronoi.back().center;
@@ -977,30 +977,6 @@ void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
     }
 
     line.swap(result);
-}
-
-bool Corridor::isDeadEnd() const
-{
-    if (connections.empty())
-        return true;
-
-    int last_target = connections.front().target_idx;
-
-    bool has_front = false, has_back = false, has_multiple_targets = false;
-    for (Connections::const_iterator it = connections.begin();
-            it != connections.end(); ++it)
-    {
-        if (!it->this_side)
-            has_front = true;
-        else
-            has_back = true;
-
-        if (last_target != it->target_idx)
-            has_multiple_targets = true;
-
-        if (has_front && has_back && has_multiple_targets) return false;
-    }
-    return true;
 }
 
 void Corridor::moveOutgoingConnections(Corridor& other_corridor)

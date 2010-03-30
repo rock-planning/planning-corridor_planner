@@ -6,9 +6,6 @@
 
 using namespace std;
 using namespace nav;
-// using namespace boost::lambda;
-// using boost::tie;
-// using boost::uint8_t;
 
 ostream& operator << (ostream& io, PointID const& p)
 { 

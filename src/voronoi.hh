@@ -114,6 +114,13 @@ namespace nav
      */
     class Corridor
     {
+        /** Clears up the ordering of points in a line, by applying a graph
+         * search method. The method searches the longest branches in a DFS
+         * which are not adjacent to other branches, and modifies +line+ to
+         * return this "line"
+         */
+        void fixLineOrdering(GridGraph& graph, std::list<PointID>& line);
+
     public:
         std::list<VoronoiPoint> voronoi;
         std::list<PointID> boundaries[2];
@@ -140,8 +147,11 @@ namespace nav
 
         std::string name;
 
+        /** Returns true if this corridor contains only one point
+         */
         bool isSingleton() const
         { return voronoi.size() == 1; }
+
         struct ConnectionDescriptor
         {
             bool this_side; // true for back() and false for front()
@@ -157,8 +167,6 @@ namespace nav
         typedef Connections::const_iterator const_connection_iterator;
         Connections connections;
 
-        bool isDeadEnd() const;
-
 	Corridor();
 
         void swap(Corridor& other);
@@ -166,19 +174,23 @@ namespace nav
 
         /** Returns true if \c p is contained in this corridor */
         bool contains(PointID const& p) const;
+
         /** Returns true if \c p is either contained in, or touches the border of,
          * the corridor
          */
         bool isNeighbour(PointID const& p) const;
 
+        /** Returns true iff +p+ is neighbouring the median line
+         */
         bool isMedianNeighbour(PointID const& p) const;
-
-        std::list<PointSet> endRegions() const;
 
         void clear();
         bool operator == (Corridor const& other) const;
 
-	int findSideOf(PointID const& p) const;
+        /** Returns the side of the corridot that is closest to the given point.
+         * Returns true for front and false for back.
+         */
+	bool findSideOf(PointID const& p) const;
 
         /** Inverts the geometrical direction of this corridor
          *
@@ -270,19 +282,20 @@ namespace nav
          */
         bool checkConsistency() const;
 
-        void fixLineOrdering(GridGraph& graph, std::list<PointID>& line);
-
+        /** Create a singleton corridor which includes the provided point
+         */
         static Corridor singleton(PointID const& p, std::string const& name = "");
 
-        /** Creates the NURBSCurve3D for the boundary and the voronoi median
-         * line. To make the B-splines usable, the pixel lines are smoothed by a
-         * IIR filter with the provided discount factor
+        /** Creates the spline that represents the boundary and the voronoi
+         * median line. To make the B-splines usable, the pixel lines are
+         * smoothed by a IIR filter with the provided discount factor
          */
         void updateCurves(double discount_factor = 0.5);
 
-        void buildBoundaries();
-
-        float getCostDelta(bool in_side) const;
+        /** Returns the cost of traversing this corridor, based on which way is
+         * taken.
+         */
+        float getCostDelta(bool traverse_backwards) const;
     };
 
     std::ostream& operator << (std::ostream& io, Corridor const& corridor);
