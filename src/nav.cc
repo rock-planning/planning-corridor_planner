@@ -156,19 +156,45 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
         if (true)
         {
             cerr << "displaying " << c.name << " using curves" << endl;
-            vector<PointID> points;
-            base::geometry::NURBSCurve3D* curves[3] = { &c.boundary_curves[0], &c.boundary_curves[1], &c.median_curve };
-            for (int i = 0; i < 3; ++i)
+            vector<PointID> points[2];
+            base::geometry::NURBSCurve3D* curves[2] = { &c.boundary_curves[0], &c.boundary_curves[1] };
+            for (int i = 0; i < 2; ++i)
             {
                 double delta = curves[i]->getUnitParameter() / 10;
                 double end   = curves[i]->getEndParam();
                 for (double t = 0; t < end; t += delta)
                 {
                     Eigen::Vector3d p = curves[i]->getPoint(t);
-                    points.push_back(PointID(p.x(), p.y()));
+                    points[i].push_back(PointID(lround(p.x()), lround(p.y())));
                 }
             }
-            markPoints(points, xSize, color_image, colors[corridor_idx]);
+            markPoints(points[0], xSize, color_image, colors[corridor_idx]);
+            markPoints(points[1], xSize, color_image, colors[corridor_idx]);
+
+            std::vector<RGBColor> distance_colors;
+            for (int i = 0; i <= 10; ++i)
+                distance_colors.push_back( RGBColor(200 - 20 * i, 20 * i, 100));
+
+            {
+                double delta = c.median_curve.getUnitParameter() / 10;
+                double end   = c.median_curve.getEndParam();
+                for (double t = 0; t < end; t += delta)
+                {
+                    Eigen::Vector3d p = c.median_curve.getPoint(t);
+
+                    int x = lround(p.x()), y  = lround(p.y());
+                    int idx = x + y * xSize;
+
+                    float width = c.width_curve.getPoint(t)(0, 0);
+                    if (width <= 10)
+                        color_image[idx] = distance_colors[(int) width];
+                    else if (width > 1000)
+                        throw std::runtime_error("width curve unstable");
+                    else
+                        color_image[idx] = RGBColor(0, 200, 100);
+
+                }
+            }
         }
         else
         {
