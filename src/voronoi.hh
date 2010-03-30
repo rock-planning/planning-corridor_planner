@@ -128,6 +128,7 @@ namespace nav
         base::geometry::Spline<3> median_curve;
         base::geometry::Spline<3> boundary_curves[2];
 
+        float min_width, max_width;
         static const int ENDPOINT_UNKNOWN = 0;
         static const int ENDPOINT_FRONT   = 1;
         static const int ENDPOINT_BACK    = 2;

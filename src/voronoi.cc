@@ -430,6 +430,8 @@ void Corridor::swap(Corridor& other)
     boundaries[1].swap(other.boundaries[1]);
     std::swap(bbox, other.bbox);
     std::swap(median_bbox, other.median_bbox);
+    std::swap(min_width, other.min_width);
+    std::swap(max_width, other.max_width);
     connections.swap(other.connections);
 }
 
@@ -452,10 +454,17 @@ void Corridor::update()
     Corridor::voronoi_const_iterator right = ++voronoi.begin();
     Point<float> last_slice_direction;
     int boundary0 = 0, boundary1 = 1;
+    min_width = voronoi.front().width, max_width = min_width;
     for (Corridor::voronoi_iterator it = voronoi.begin(); it != voronoi.end(); ++it, ++left, ++right)
     {
         if (it->borders.size() != 2)
             continue;
+
+        float this_width = it->width;
+        if (this_width < min_width)
+            min_width = this_width;
+        if (this_width > max_width)
+            max_width = this_width;
 
 	if (it != voronoi.begin())
 	{
