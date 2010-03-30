@@ -791,7 +791,7 @@ ostream& nav::operator << (ostream& io, Corridor const& corridor)
     return io;
 }
 
-bool Corridor::updateCurves(double discount_factor)
+void Corridor::updateCurves(double discount_factor)
 {
     boundary_curves[0].clear();
     boundary_curves[1].clear();
@@ -833,7 +833,6 @@ bool Corridor::updateCurves(double discount_factor)
         boundary_curves[boundary_idx].simplify(simplification_tolerance);
     }
 
-    return true;
 }
 
 void lineOrderingDFS(list<PointID>& result, PointID cur_point, int last_direction, GridGraph& graph)

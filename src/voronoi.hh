@@ -278,7 +278,7 @@ namespace nav
          * line. To make the B-splines usable, the pixel lines are smoothed by a
          * IIR filter with the provided discount factor
          */
-        bool updateCurves(double discount_factor = 0.5);
+        void updateCurves(double discount_factor = 0.5);
 
         void buildBoundaries();
 

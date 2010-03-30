@@ -152,7 +152,8 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
     for (size_t corridor_idx = 0; corridor_idx < plan.corridors.size(); ++corridor_idx)
     {
         Corridor& c = plan.corridors[corridor_idx];
-        if (c.updateCurves())
+        c.updateCurves();
+        if (true)
         {
             cerr << "displaying " << c.name << " using curves" << endl;
             vector<PointID> points;
