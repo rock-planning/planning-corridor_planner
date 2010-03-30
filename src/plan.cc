@@ -79,6 +79,12 @@ void Plan::removeCorridor(int idx)
     }
 }
 
+void Plan::removeCorridors(set<int> const& to_remove)
+{
+    for_each(to_remove.rbegin(), to_remove.rend(),
+            bind(&Plan::removeCorridor, this, _1));
+}
+
 void Plan::concat(Plan const& other)
 {
     int merge_start = corridors.size();
@@ -270,7 +276,7 @@ void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end)
     }
 }
 
-void Plan::simplify(double margin_factor)
+void Plan::simplify(double margin_factor, int min_width)
 {
     DEBUG_OUT("checking consistency before simplification");
     checkConsistency();
@@ -279,20 +285,34 @@ void Plan::simplify(double margin_factor)
     removeDeadEnds();
     mergeSimpleCrossroads_directed();
 
-    bool did_something = true;
-    while (did_something)
+    for (int pass = 0; pass < 2; ++pass)
     {
-        int last_count = corridors.size();
-        removeUselessCorridorConnections();
-        removeDeadEnds();
-        mergeSimpleCrossroads_directed();
-        did_something = (last_count != corridors.size());
+        bool did_something = true;
+        while (did_something)
+        {
+            unsigned long last_count = corridors.size();
+            removeUselessCorridorConnections();
+            removeDeadEnds();
+            mergeSimpleCrossroads_directed();
+            did_something = (last_count != corridors.size());
+        }
+
+        if (min_width == 0)
+            break;
+
+        std::set<int> to_delete;
+        for (unsigned long i = 0; i < corridors.size(); ++i)
+        {
+            Corridor& c = corridors[i];
+            if (!c.isSingleton() && c.min_width < min_width)
+                to_delete.insert(i);
+        }
+        removeCorridors(to_delete);
     }
 
     for (size_t i = 0; i < corridors.size(); ++i)
         corridors[i].update();
 
-    DEBUG_OUT("merged simple crossroads");
     checkConsistency();
 }
 
@@ -419,8 +439,7 @@ void Plan::removeNullCorridors(set<int> keepalive)
         cerr << endl;
 #endif
 
-        for_each(to_remove.rbegin(), to_remove.rend(),
-                bind(&Plan::removeCorridor, this, _1));
+        removeCorridors(to_remove);
         removeNullCorridors();
     }
 }

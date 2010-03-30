@@ -80,6 +80,13 @@ namespace nav
          */
         void removeCorridor(int idx);
 
+        /** Remove the provided set of corridors, including the connections in
+         * which these corridors are involved.
+         *
+         * Note that this changes the corridor indexes (but not their name).
+         */
+        void removeCorridors(std::set<int> const& corridors);
+
         /** Move all connections that are defined on \c from_idx into the
          * corridor \c into_idx, updating the other end of the connection as
          * well.
@@ -98,8 +105,10 @@ namespace nav
          *
          * @arg margin_factor { paths that leads to the goal with a cost less than
          *     margin_factor * optimal_cost are acceptable }
+         * @arg min_width { the minimum acceptable width for a corridor. All
+         *     corridors narrower than that will be removed. }
          */
-        void simplify(double margin_factor);
+        void simplify(double margin_factor, int min_width = 0);
 
         /** Split the given corridor at the specified place, and returns the new
          * corridor.
