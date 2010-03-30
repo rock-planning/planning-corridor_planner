@@ -706,6 +706,7 @@ static int solveMergeMappings(map<int, int> const& merge_mappings, int idx)
 
 void Plan::mergeSimpleCrossroads_directed()
 {
+    DEBUG_OUT("removing simple crossroads");
     int start_corridor = findStartCorridor();
     int end_corridor   = findEndCorridor();
 
@@ -807,8 +808,10 @@ void Plan::mergeSimpleCrossroads_directed()
         if (c1_endp.side == c0_endp.side)
             reverseCorridor(c1_idx);
 
+
         if (c0_endp.side == false)
         {
+            DEBUG_OUT("concatenating " << c0.name << " at the end of " << c1.name);
             // grafting c1.back onto
             moveConnections(c0_idx, c1_idx);
             c1.concat(c0);
@@ -817,6 +820,7 @@ void Plan::mergeSimpleCrossroads_directed()
         }
         else
         {
+            DEBUG_OUT("concatenating " << c1.name << " at the end of " << c0.name);
             moveConnections(c1_idx, c0_idx);
             c0.concat(c1);
             merge_mappings[c1_idx] = c0_idx;
