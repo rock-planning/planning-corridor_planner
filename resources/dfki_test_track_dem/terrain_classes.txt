@@ -1,12 +1,12 @@
 # greyscale class max_speed name
-0 1 1.0 flat
-1 2 0.5 hilly
-2 3 0.2 rough
-3 4 0.01 hard
-4 5 0 obstacle
-5 5 0 obstacle
-6 5 0 obstacle
-255 5 0 obstacle
+0 1 0.5 flat
+1 2 0.1 hilly
+2 3 0.01 hard
+3 4 0 obstacle
+4 4 0 obstacle
+5 4 0 obstacle
+6 4 0 unknown
+255 4 0 obstacle
 
 # make boundaries directional by saying "can be traversed in a normal but not
 # in a parallel direction" => hard boundary even though no obstacle per se.
