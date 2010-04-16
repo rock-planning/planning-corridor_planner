@@ -53,7 +53,7 @@ void markCurve(base::geometry::NURBSCurve3D& curve, int xSize, vector<RGBColor> 
     for (; t <= end_t; t += unit_t / 4)
     {
         Eigen::Vector3d p = curve.getPoint(t);
-        int x = lround(p.x()), y = lround(p.y());
+        int x = lrint(p.x()), y = lrint(p.y());
         int idx = x + xSize * y;
         pixels[idx] = color;
     }
@@ -165,7 +165,7 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
                 for (double t = 0; t < end; t += delta)
                 {
                     Eigen::Vector3d p = curves[i]->getPoint(t);
-                    points[i].push_back(PointID(lround(p.x()), lround(p.y())));
+                    points[i].push_back(PointID(lrint(p.x()), lrint(p.y())));
                 }
             }
             markPoints(points[0], xSize, color_image, colors[corridor_idx]);
@@ -182,7 +182,7 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
                 {
                     Eigen::Vector3d p = c.median_curve.getPoint(t);
 
-                    int x = lround(p.x()), y  = lround(p.y());
+                    int x = lrint(p.x()), y  = lrint(p.y());
                     int idx = x + y * xSize;
 
                     float width = c.width_curve.getPoint(t)(0, 0);

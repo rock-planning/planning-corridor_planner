@@ -352,7 +352,7 @@ bool lineOrderingDFS(PointID const& cur_point, int neighbour_mask,
     list<VoronoiPoint> result, cur_line;
     for (; !n_it.isEnd(); ++n_it)
     {
-        int target_value = lround(n_it.getTargetValue());
+        int target_value = lrint(n_it.getTargetValue());
         if (target_value != VALUE_SKELETON_NOT_VISITED) // either not actual point, or already visited
         {
             if (target_value == VALUE_SKELETON_VISITED)
@@ -441,7 +441,7 @@ void SkeletonExtraction::mergeCrossroads(CorridorExtractionState& state, int int
 
 int SkeletonExtraction::addCrossroadPoint(CorridorExtractionState& state, PointID p, int crossroad_idx)
 {
-    int current_idx = lround(state.graph.getValue(p.x, p.y));
+    int current_idx = lrint(state.graph.getValue(p.x, p.y));
     if (current_idx <= 0)
     {
         // merge the two crossroads
@@ -560,10 +560,10 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
             crossroad_it != state.crossroad_points.end(); ++crossroad_it)
     {
         GridGraph::iterator n_it = state.graph.neighboursBegin(crossroad_it->x, crossroad_it->y);
-        int crossroad_idx = lround(-n_it.getSourceValue());
+        int crossroad_idx = lrint(-n_it.getSourceValue());
         for (; !n_it.isEnd(); ++n_it)
         {
-            if (lround(n_it.getTargetValue()) == VALUE_SKELETON_VISITED)
+            if (lrint(n_it.getTargetValue()) == VALUE_SKELETON_VISITED)
             {
                 DEBUG_OUT("growing " << crossroad_idx << " to " << n_it.getTargetPoint());
                 addCrossroadPoint(state, n_it.getTargetPoint(), crossroad_idx);
@@ -590,17 +590,17 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
             crossroad_it != state.crossroad_points.end(); ++crossroad_it)
     {
         GridGraph::iterator n_it = state.graph.neighboursBegin(crossroad_it->x, crossroad_it->y);
-        int owner_idx = lround(ownerships.getValue(crossroad_it->x, crossroad_it->y)) - VALUE_CORRIDORS_START;
-        int crossroad_idx = lround(-n_it.getSourceValue());
+        int owner_idx = lrint(ownerships.getValue(crossroad_it->x, crossroad_it->y)) - VALUE_CORRIDORS_START;
+        int crossroad_idx = lrint(-n_it.getSourceValue());
         DEBUG_OUT("looking at " << n_it.getSourcePoint() << ", in crossroad " << crossroad_idx);
 
         for (; !n_it.isEnd(); ++n_it)
         {
-            int neighbour_owner_idx = lround(ownerships.getValue(n_it.x(), n_it.y())) - VALUE_CORRIDORS_START;
+            int neighbour_owner_idx = lrint(ownerships.getValue(n_it.x(), n_it.y())) - VALUE_CORRIDORS_START;
             if (owner_idx >= 0 && neighbour_owner_idx == owner_idx)
                 continue;
 
-            int pixel_owner = lround(n_it.getTargetValue());
+            int pixel_owner = lrint(n_it.getTargetValue());
             DEBUG_OUT("   neighbour " << n_it.getTargetPoint() << ", owner=" << pixel_owner);
             if (pixel_owner < 0)
             { // this is another crossroad. Merge.
