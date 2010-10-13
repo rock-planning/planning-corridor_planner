@@ -32,7 +32,7 @@ void CorridorPlanner::processed()
 { m_state++; }
 
 /** Load the terrain classes and traversability map */
-void CorridorPlanner::init(std::string const& terrain_classes, std::string const& map_file)
+void CorridorPlanner::init(std::string const& terrain_classes, std::string const& map_file, float min_width)
 {
     classes = TerrainClass::load(terrain_classes);
     delete map;
@@ -44,6 +44,8 @@ void CorridorPlanner::init(std::string const& terrain_classes, std::string const
     dstar   = new DStar(*map, classes);
     delete skeleton;
     skeleton = new SkeletonExtraction(map->xSize(), map->ySize());
+
+    this->min_width = min_width;
 
 }
 

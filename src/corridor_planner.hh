@@ -52,7 +52,7 @@ namespace nav
         ~CorridorPlanner();
 
         /** Load the terrain classes and traversability map */
-        void init(std::string const& terrain_classes, std::string const& map);
+        void init(std::string const& terrain_classes, std::string const& map, float min_width = 0);
 
         /** Call to set the start and goal positions */
         void setWorldPositions(Eigen::Vector2d const& current, Eigen::Vector2d const& goal);
