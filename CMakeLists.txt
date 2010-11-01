@@ -30,3 +30,8 @@ IF (Boost_UNIT_TEST_FRAMEWORK_FOUND)
     ADD_SUBDIRECTORY(test)
 ENDIF(Boost_UNIT_TEST_FRAMEWORK_FOUND)
 
+pkg_check_modules(enview enview)
+if (enview_FOUND)
+    add_subdirectory(vis)
+endif()
+
