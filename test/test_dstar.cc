@@ -11,7 +11,7 @@
 #include <boost/tuple/tuple.hpp>
 using boost::tie;
 
-using namespace nav;
+using namespace corridor_planner;
 using namespace std;
 
 static int useful_rand(int max)

@@ -10,7 +10,7 @@
 #include <string.h>
 
 using namespace std;
-using namespace nav;
+using namespace corridor_planner;
 
 BOOST_AUTO_TEST_CASE( test_GridGraph_neighbour_iteration )
 {

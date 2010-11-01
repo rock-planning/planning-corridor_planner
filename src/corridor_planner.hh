@@ -9,7 +9,7 @@
 
 #include <boost/noncopyable.hpp>
 
-namespace nav
+namespace corridor_planner
 {
     class SkeletonExtraction;
     class TraversabilityMap;

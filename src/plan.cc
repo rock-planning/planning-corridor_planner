@@ -19,13 +19,13 @@
 #define DEBUG_OUT(x)
 #endif
 
-static const int ENDPOINT_UNKNOWN = nav::Corridor::ENDPOINT_UNKNOWN;
-static const int ENDPOINT_BACK   = nav::Corridor::ENDPOINT_BACK;
-static const int ENDPOINT_FRONT    = nav::Corridor::ENDPOINT_FRONT;
-static const int ENDPOINT_BIDIR   = nav::Corridor::ENDPOINT_BIDIR;
+static const int ENDPOINT_UNKNOWN = corridor_planner::Corridor::ENDPOINT_UNKNOWN;
+static const int ENDPOINT_BACK   = corridor_planner::Corridor::ENDPOINT_BACK;
+static const int ENDPOINT_FRONT    = corridor_planner::Corridor::ENDPOINT_FRONT;
+static const int ENDPOINT_BIDIR   = corridor_planner::Corridor::ENDPOINT_BIDIR;
 
 using namespace std;
-using namespace nav;
+using namespace corridor_planner;
 using namespace boost;
 
 Plan::Plan() {}
@@ -883,7 +883,7 @@ void Plan::checkConsistency() const
     }
 }
 
-ostream& nav::operator << (ostream& io, Plan const& plan)
+ostream& corridor_planner::operator << (ostream& io, Plan const& plan)
 {
     int const NO_OWNER = plan.corridors.size();
     int const width    = plan.width;

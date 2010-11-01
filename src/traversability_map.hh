@@ -10,7 +10,7 @@
 #include <vector>
 #include <boost/cstdint.hpp>
 
-namespace nav
+namespace corridor_planner
 {
     /** Objects of this class represent traversability maps. Traversability is
      * an integer value which can be represented on 4 bits (i.e. 16

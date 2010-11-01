@@ -3,7 +3,7 @@
 
 #include "plan.hh"
 
-namespace nav
+namespace corridor_planner
 {
     class PlanMerge : public Plan
     {

@@ -9,7 +9,7 @@
 #include <Eigen/SVD>
 
 using namespace std;
-using namespace nav;
+using namespace corridor_planner;
 
 PointID TraversabilityMap::toLocal(Eigen::Vector3d const& v) const
 {

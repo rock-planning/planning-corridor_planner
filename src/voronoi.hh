@@ -10,7 +10,7 @@
 #include <base/geometry/spline.h>
 #include "geometry.hh"
 
-namespace nav
+namespace corridor_planner
 {
     class GridGraph;
     /** This method updates the set of point sets \c sets by adding \c p so

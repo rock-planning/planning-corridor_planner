@@ -7,7 +7,7 @@
 #include "dstar.hh"
 #include <vector>
 
-namespace nav
+namespace corridor_planner
 {
     struct Endpoint
     {

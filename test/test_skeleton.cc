@@ -9,7 +9,7 @@
 #include <string.h>
 
 using namespace std;
-using namespace Nav;
+using namespace corridor_planner;
 
 void checkSimpleCorridorResult(MedianLine const& result, size_t xmin, size_t xmax, size_t w)
 {

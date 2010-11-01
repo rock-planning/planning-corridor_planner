@@ -1,7 +1,7 @@
 #ifndef NAV_GRID_MAP_HH
 #define NAV_GRID_MAP_HH
 
-namespace nav
+namespace corridor_planner
 {
     /** Basic tools for maps which are regular grids */
     class GridMap

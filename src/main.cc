@@ -18,7 +18,7 @@
 using namespace std;
 using base::Time;
 using namespace boost;
-using namespace nav;
+using namespace corridor_planner;
 
 struct RGBColor
 {

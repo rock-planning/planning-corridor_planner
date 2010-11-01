@@ -5,7 +5,7 @@
 #include <iostream>
 
 using namespace std;
-using namespace nav;
+using namespace corridor_planner;
 
 ostream& operator << (ostream& io, PointID const& p)
 { 
@@ -19,7 +19,7 @@ ostream& operator << (ostream& io, DStar::Cost const& v)
 }
 
 
-namespace nav {
+namespace corridor_planner {
     static const float COST_GROWTH_1 = 0.3;
     static const float COST_GROWTH_0 = 0.01;
     static const float DIAG_FACTOR = sqrt(2);
@@ -93,7 +93,7 @@ float DStar::costOf(NeighbourConstIterator it) const
 
     float c = m_cost_of_class[m_map.getValue(next.x(), next.y())];
     float d = m_cost_of_class[m_map.getValue(prev.x(), prev.y())];
-    return (a + b + c + d) / 2 * nav::DIAG_FACTOR;
+    return (a + b + c + d) / 2 * corridor_planner::DIAG_FACTOR;
 }
 
 float DStar::updated(int x, int y)

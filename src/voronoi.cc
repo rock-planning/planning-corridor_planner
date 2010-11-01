@@ -18,7 +18,7 @@
 
 using namespace std;
 using namespace boost;
-using namespace nav;
+using namespace corridor_planner;
 
 template<typename Container0, typename Container1>
 static int findConcatenationOrder(Container0 const& line0, Container1 const& line1)
@@ -36,7 +36,7 @@ static int findConcatenationOrder(Container0 const& line0, Container1 const& lin
     return min_element(distances, distances + 4) - distances;
 }
 
-list<PointSet>::iterator nav::updateConnectedSets(std::list<PointSet>& sets, PointID p)
+list<PointSet>::iterator corridor_planner::updateConnectedSets(std::list<PointSet>& sets, PointID p)
 {
     list<PointSet>::iterator it;
     for (it = sets.begin(); it != sets.end(); ++it)
@@ -195,7 +195,7 @@ bool VoronoiPoint::operator == (VoronoiPoint const& other) const
     return width == other.width && borders == other.borders;
 }
 
-ostream& nav::operator << (ostream& io, VoronoiPoint const& p)
+ostream& corridor_planner::operator << (ostream& io, VoronoiPoint const& p)
 {
     typedef std::list< PointVector > BorderList;
     for (BorderList::const_iterator it = p.borders.begin(); it != p.borders.end(); ++it)
@@ -228,7 +228,7 @@ static void displayPoint(ostream& io, list<VoronoiPoint> const& median_set, Poin
         io << "-";
 }
 
-void nav::displayMedianLine(ostream& io, list<VoronoiPoint> const& skel, int xmin, int xmax, int ymin, int ymax)
+void corridor_planner::displayMedianLine(ostream& io, list<VoronoiPoint> const& skel, int xmin, int xmax, int ymin, int ymax)
 {
     // Build the set of points that are in the border
     PointSet border_all;
@@ -787,7 +787,7 @@ PointID Corridor::adjacentEndpoint(PointID const& p) const
     return PointID();
 }
 
-ostream& nav::operator << (ostream& io, Corridor const& corridor)
+ostream& corridor_planner::operator << (ostream& io, Corridor const& corridor)
 {
 //    displayMedianLine(io, corridor.voronoi, corridor.bbox.min.x - 1, corridor.bbox.max.x + 1, corridor.bbox.min.y - 1, corridor.bbox.max.y + 1);
 //
@@ -857,8 +857,8 @@ void Corridor::updateWidthCurve()
             t < median_curve.getEndParam(); t += delta)
     {
         Eigen::Vector3d p = median_curve.getPoint(t);
-        nav::Corridor::voronoi_const_iterator median_it =
-            findNearestMedian(nav::PointID(p.x(), p.y()));
+        corridor_planner::Corridor::voronoi_const_iterator median_it =
+            findNearestMedian(corridor_planner::PointID(p.x(), p.y()));
 
         float this_width = median_it->width;
         parameters.push_back(t);

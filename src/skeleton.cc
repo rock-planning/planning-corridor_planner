@@ -20,7 +20,7 @@
 
 using namespace boost;
 using namespace std;
-using namespace nav;
+using namespace corridor_planner;
 
 static const int VALUE_IGNORE               = 0;
 static const int VALUE_SKELETON_VISITED     = 1;

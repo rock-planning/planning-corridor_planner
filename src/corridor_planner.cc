@@ -8,7 +8,7 @@
 #include <stdexcept>
 
 
-using namespace nav;
+using namespace corridor_planner;
 
 CorridorPlanner::CorridorPlanner()
     : map(0), skeleton(0), dstar(0)

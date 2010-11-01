@@ -3,7 +3,7 @@
 
 #include "point.hh"
 
-namespace nav
+namespace corridor_planner
 {
     template<typename _It>
     _It findNearest(_It begin, _It end, PointID const& p)

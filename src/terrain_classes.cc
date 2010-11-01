@@ -3,7 +3,7 @@
 #include <sstream>
 
 using namespace std;
-using namespace nav;
+using namespace corridor_planner;
 
 std::list<TerrainClass> TerrainClass::load(std::string const& path)
 {

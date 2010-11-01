@@ -4,7 +4,7 @@
 #include <list>
 #include <string>
 
-namespace nav
+namespace corridor_planner
 {
     /** This structure is a terrain class as described in a on-disk map */
     struct TerrainClass

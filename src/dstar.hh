@@ -9,7 +9,7 @@
 #include <map>
 #include <stdexcept>
 
-namespace nav {
+namespace corridor_planner {
     /** An implementation of the plain D* algorithm. DStar::costOfClass is the
      * method which transforms traversability value into a floating-point cost
      * value

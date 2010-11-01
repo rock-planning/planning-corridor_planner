@@ -1,4 +1,4 @@
-PROJECT(Nav)
+PROJECT(corridor_planner)
 cmake_minimum_required(VERSION 2.6)
 SET(PROJECT_VERSION 0.1)
 
@@ -19,8 +19,9 @@ include_directories(${BASE_LIB_INCLUDE_DIRS})
 link_directories(${BASE_LIB_LIBRARY_DIRS})
 
 add_subdirectory(src)
-configure_file(${CMAKE_SOURCE_DIR}/nav.pc.in ${CMAKE_BINARY_DIR}/nav.pc @ONLY)
-install(FILES ${CMAKE_BINARY_DIR}/nav.pc
+configure_file(${CMAKE_SOURCE_DIR}/corridor_planner.pc.in
+    ${CMAKE_BINARY_DIR}/corridor_planner.pc @ONLY)
+install(FILES ${CMAKE_BINARY_DIR}/corridor_planner.pc
     DESTINATION lib/pkgconfig)
 
 find_package(Boost REQUIRED COMPONENTS unit_test_framework)

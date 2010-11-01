@@ -7,7 +7,7 @@
 #include <boost/bind.hpp>
 #include <boost/lexical_cast.hpp>
 
-using namespace nav;
+using namespace corridor_planner;
 using namespace std;
 using namespace boost;
 

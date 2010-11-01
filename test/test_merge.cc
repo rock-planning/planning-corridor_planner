@@ -5,7 +5,7 @@
 #include <boost/tuple/tuple.hpp>
 #include "nav/merge.hh"
 
-using namespace Nav;
+using namespace corridor_planner;
 using namespace std;
 
 BOOST_AUTO_TEST_CASE( test_merge_non_covering )

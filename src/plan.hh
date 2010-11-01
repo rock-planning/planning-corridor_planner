@@ -4,7 +4,7 @@
 #include "voronoi.hh"
 #include "dstar.hh"
 
-namespace nav
+namespace corridor_planner
 {
     class MergeResult;
     class Plan

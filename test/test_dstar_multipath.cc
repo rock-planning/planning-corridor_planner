@@ -10,7 +10,7 @@
 #include <string.h>
 #include <fstream>
 
-using namespace nav;
+using namespace corridor_planner;
 using namespace std;
 
 static pair<PointSet, PointSet> outputGrownBorder(ostream& out, DStar const& algo, int x0, int y0, float expand)
