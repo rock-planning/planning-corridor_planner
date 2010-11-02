@@ -3,10 +3,10 @@ exec_prefix=@CMAKE_INSTALL_PREFIX@
 libdir=${prefix}/lib
 includedir=${prefix}/include
 
-Name: nav
-Description: Base algorithms for autonomous navigation
+Name: corridor_planner
+Description: Corridor-centric path planner
 Depends: base-lib
 Version: @PROJECT_VERSION@
-Libs: -L${libdir} -lNav
-Cflags: -I${includedir}/nav
+Libs: -L${libdir} -lcorridor_planner
+Cflags: -I${includedir}/corridor_planner
 
