@@ -7,12 +7,16 @@
 #include <envire/maps/Grids.hpp>
 #include <base/geometry/spline.h>
 
-namespace corridor_planner
+namespace corridors
 {
     class Plan;
     class Corridor;
+}
+
+namespace corridor_planner
+{
     class PlanVisualisation
-        : public enview::DataNode<corridor_planner::Plan>
+        : public enview::DataNode<corridors::Plan>
         , boost::noncopyable
     {
     public:
@@ -26,11 +30,11 @@ namespace corridor_planner
         
     protected:
         virtual void operatorIntern(osg::Node* node, osg::NodeVisitor* nv);
-        virtual void updateDataIntern(corridor_planner::Plan const& plan);
+        virtual void updateDataIntern(corridors::Plan const& plan);
         
     private:
         void sampleSpline(base::geometry::Spline<3>& spline, osg::Vec3Array& points);
-        osg::Geometry* createCorridorNode(Corridor& c, osg::Vec4 const& color);
+        osg::Geometry* createCorridorNode(corridors::Corridor& c, osg::Vec4 const& color);
 
         struct Data;
         Data* p;

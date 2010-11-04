@@ -1,15 +1,16 @@
 #include "CorridorPlanVisualisation.h"
+#include "corridors.hh"
+
 #include <osg/Geometry>
 #include <osg/Geode>
 
-#include "plan.hh"
 #include <envire/maps/Grids.hpp>
 
 using namespace corridor_planner;
 
 struct PlanVisualisation::Data
 {
-    corridor_planner::Plan plan;
+    corridors::Plan plan;
     envire::ElevationGrid& grid;
     Data(envire::ElevationGrid& grid)
         : grid(grid) {}
@@ -24,8 +25,14 @@ PlanVisualisation::PlanVisualisation(envire::ElevationGrid& heights)
 PlanVisualisation::~PlanVisualisation()
 { delete p; }
 
+void PlanVisualisation::setElevationGrid(envire::ElevationGrid const* heights)
+{ boost::mutex::scoped_lock lockit(this->updateMutex);
+    p->grid = heights;
+    setDirty();
+}
+
 osg::Geode* PlanVisualisation::getMainNode() const
-{ return dynamic_cast<osg::Geode*>(enview::DataNode<corridor_planner::Plan>::getMainNode()); }
+{ return dynamic_cast<osg::Geode*>(enview::DataNode<corridors::Plan>::getMainNode()); }
 
 void PlanVisualisation::sampleSpline(base::geometry::Spline<3>& spline, osg::Vec3Array& points)
 {
@@ -43,7 +50,7 @@ void PlanVisualisation::sampleSpline(base::geometry::Spline<3>& spline, osg::Vec
     }
 }
 
-osg::Geometry* PlanVisualisation::createCorridorNode(Corridor& c, osg::Vec4 const& color)
+osg::Geometry* PlanVisualisation::createCorridorNode(corridors::Corridor& c, osg::Vec4 const& color)
 {
     osg::Vec4Array* colors = new osg::Vec4Array();
     colors->push_back(color);
@@ -85,15 +92,14 @@ void PlanVisualisation::operatorIntern ( osg::Node* node, osg::NodeVisitor* nv )
 
     for (int i = 0; i < corridor_count; ++i)
     {
-        Corridor& c = p->plan.corridors[i];
+        corridors::Corridor& c = p->plan.corridors[i];
         osg::Geometry* geom = createCorridorNode(c, getColor(i));
         geode->addDrawable(geom);
     }
 
 }
 
-
-void PlanVisualisation::updateDataIntern(corridor_planner::Plan const& plan)
+void PlanVisualisation::updateDataIntern(corridors::Plan const& plan)
 {
     p->plan = plan;
 }

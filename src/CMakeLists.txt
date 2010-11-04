@@ -21,6 +21,6 @@ install(TARGETS corridor_planner
 install(FILES terrain_classes.hh grid_map.hh traversability_map.hh grid_graph.hh
         point.hh geometry.hh
         dstar.hh merge.hh plan.hh skeleton.hh voronoi.hh
-        corridor_planner.hh pool_allocator.hh
+        corridor_planner.hh pool_allocator.hh corridors.hh
         DESTINATION include/corridor_planner)
 

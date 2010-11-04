@@ -133,17 +133,91 @@ void CorridorPlanner::simplifyPlan()
     if (isProcessingRequired(PLAN_SIMPLIFICATION))
     {
         plan.simplify(m_expand, lround(min_width / map->getScale()));
+        exportPlan();
         processed();
     }
 }
 
+template<typename SrcContainer, typename DstContainer>
+static void wrapContainer(DstContainer& dest, SrcContainer& src,
+        double scale, Eigen::Transform3d const& raster_to_world)
+{
+    dest.resize(src.size());
+
+    size_t point_idx;
+    typename SrcContainer::iterator src_it = src.begin();
+    typename SrcContainer::iterator const src_end = src.end();
+    for (point_idx = 0, src_it = src.begin(); src_it != src.end(); ++point_idx, ++src_it)
+    {
+        toWrapper(dest[point_idx], *src_it, scale, raster_to_world);
+    }
+}
+
+template<int DIM, typename Transform>
+static void toWrapper(base::geometry::Spline<DIM>& dest, base::geometry::Spline<DIM> const& src,
+        Transform const& raster_to_world)
+{
+    dest = src;
+    dest.transform(raster_to_world);
+}
+
+static void toWrapper(corridors::Corridor& dest, Corridor& src,
+        double scale, Eigen::Transform3d const& raster_to_world)
+{
+    src.updateCurves();
+    toWrapper(dest.median_curve, src.median_curve, raster_to_world);
+    toWrapper(dest.boundary_curves[0], src.boundary_curves[0], raster_to_world);
+    toWrapper(dest.boundary_curves[1], src.boundary_curves[1], raster_to_world);
+
+    dest.min_width = src.min_width;
+    dest.max_width = src.max_width;
+    toWrapper(dest.width_curve, src.width_curve, scale);
+}
+
+static void toWrapper(corridors::Plan& dest, Plan& src,
+        double scale, Eigen::Transform3d const& raster_to_world)
+{
+    wrapContainer(dest.corridors, src.corridors, scale, raster_to_world);
+
+    for (unsigned int corridor_idx = 0; corridor_idx < src.corridors.size(); ++corridor_idx)
+    {
+        Corridor const& corridor = src.corridors[corridor_idx];
+        Corridor::const_connection_iterator
+            conn_it = corridor.connections.begin(),
+            conn_end = corridor.connections.end();
+
+        for (; conn_it != conn_end; ++conn_it)
+        {
+            corridors::CorridorConnection conn = 
+                { corridor_idx, conn_it->this_side ? corridors::BACK_SIDE : corridors::FRONT_SIDE,
+                  conn_it->target_idx, conn_it->target_side ? corridors::BACK_SIDE : corridors::FRONT_SIDE };
+
+            dest.connections.push_back(conn);
+        }
+    }
+
+    dest.start_corridor = src.findStartCorridor();
+    dest.end_corridor   = src.findEndCorridor();
+}
+
+
+void CorridorPlanner::exportPlan()
+{
+    Eigen::Transform3d raster_to_world(map->getLocalToWorld());
+    toWrapper(final, plan, map->getScale(), raster_to_world);
+}
+
 /** Do all the passes in the right order */
-Plan const& CorridorPlanner::compute()
+corridors::Plan const& CorridorPlanner::result() const
+{ return final; }
+
+/** Do all the passes in the right order */
+corridors::Plan const& CorridorPlanner::compute()
 {
     computeDStar();
     extractSkeleton();
     computePlan();
     simplifyPlan();
-    return plan;
+    return final;
 }
 
