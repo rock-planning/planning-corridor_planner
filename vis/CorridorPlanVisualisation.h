@@ -21,12 +21,14 @@ namespace corridor_planner
     {
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-        PlanVisualisation(envire::ElevationGrid& heights);
+        PlanVisualisation();
         ~PlanVisualisation();
         osg::Geode* getMainNode() const;
 
         void computeColors(int size);
         osg::Vec4 getColor(int i) const;
+
+        void setElevationGrid(envire::ElevationGrid const* heights);
         
     protected:
         virtual void operatorIntern(osg::Node* node, osg::NodeVisitor* nv);

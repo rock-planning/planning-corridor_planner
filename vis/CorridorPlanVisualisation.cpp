@@ -11,13 +11,13 @@ using namespace corridor_planner;
 struct PlanVisualisation::Data
 {
     corridors::Plan plan;
-    envire::ElevationGrid& grid;
-    Data(envire::ElevationGrid& grid)
-        : grid(grid) {}
+    envire::ElevationGrid const* grid;
+    Data()
+        : grid(0) {}
 };
 
-PlanVisualisation::PlanVisualisation(envire::ElevationGrid& heights)
-    : p(new Data(heights))
+PlanVisualisation::PlanVisualisation()
+    : p(new Data())
 {
     setMainNode(new osg::Geode);
 }
@@ -40,7 +40,7 @@ void PlanVisualisation::sampleSpline(base::geometry::Spline<3>& spline, osg::Vec
     for (double t = spline.getStartParam(); t < spline.getEndParam(); t += step)
     {
         Eigen::Vector3d point = spline.getPoint(t);
-        double z = p->grid.get(point.x(), point.y());
+        double z = p->grid->get(point.x(), point.y());
         points.push_back(osg::Vec3(point.x(), point.y(), z));
 
         // For all points except the starting point, add the points twice as
