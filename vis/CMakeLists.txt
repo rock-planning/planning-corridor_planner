@@ -12,3 +12,6 @@ install(TARGETS corridor_planner_vis
 install(FILES CorridorPlanVisualisation.h
     DESTINATION include/enview)
 
+configure_file(corridor_planner_vis.pc.in corridor_planner_vis.pc @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/corridor_planner_vis.pc
+    DESTINATION lib/pkgconfig)
