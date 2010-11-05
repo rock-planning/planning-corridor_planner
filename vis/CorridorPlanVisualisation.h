@@ -36,7 +36,7 @@ namespace corridor_planner
         virtual void updateDataIntern(corridors::Plan const& plan);
         
     private:
-        void sampleSpline(base::geometry::Spline<3>& spline, osg::Vec3Array& points);
+        double getElevation(Eigen::Vector3d const& point) const;
         void createCorridorNode(osg::Geode* geode, corridors::Corridor& c, osg::Vec4 const& color);
 
         struct Data;

@@ -16,7 +16,7 @@ struct PlanVisualisation::Data
     std::vector<osg::Vec4> colors;
     double alpha;
     Data()
-        : grid(0), offset(0.0), alpha(1.0) {}
+        : grid(0), offset(0.0), alpha(0.5) {}
 };
 
 PlanVisualisation::PlanVisualisation()
@@ -38,47 +38,73 @@ void PlanVisualisation::setElevationGrid(envire::ElevationGrid const* heights, d
 osg::Geode* PlanVisualisation::getMainNode() const
 { return dynamic_cast<osg::Geode*>(enview::DataNode<corridors::Plan>::getMainNode()); }
 
-void PlanVisualisation::sampleSpline(base::geometry::Spline<3>& spline, osg::Vec3Array& points)
+double PlanVisualisation::getElevation(Eigen::Vector3d const& point) const
 {
-    double start = spline.getStartParam();
-    double end = spline.getEndParam();
-    double length = fabs(spline.getCurveLength());
-    double step = (end - start) / length / 100;
-    for (double t = start; t < end; t += step)
-    {
-        Eigen::Vector3d point = spline.getPoint(t);
-        double z = 0;
-        if (p->grid)
-            z = p->grid->get(point.x(), point.y()) + p->offset;
-        points.push_back(osg::Vec3(point.x(), point.y(), z));
-
-        // For all points except the starting point, add the points twice as
-        // DrawArrays expects (start_point, end_point) pairs
-        if (points.size() > 1)
-            points.push_back(osg::Vec3(point.x(), point.y(), z));
-    }
+    if (p->grid)
+        return p->grid->get(point.x(), point.y()) + p->offset;
+    else
+        return 0;
 }
 
 void PlanVisualisation::createCorridorNode(osg::Geode* geode, corridors::Corridor& c, osg::Vec4 const& color)
 {
-    osg::Vec4Array* colors = new osg::Vec4Array();
-    colors->push_back(color);
+    osg::ref_ptr<osg::Vec3Array> points = new osg::Vec3Array;
 
+    double max_length = 0;
     for (int i = 0; i < 2; ++i)
     {
-        osg::Vec3Array* points = new osg::Vec3Array;
-        sampleSpline(c.boundary_curves[i], *points);
-
-        osg::DrawArrays* painter =
-            new osg::DrawArrays(osg::PrimitiveSet::LINES, 0, points->size());
-
-        osg::Geometry*  geom   = new osg::Geometry;
-        geom->setColorArray(colors);
-        geom->setColorBinding(osg::Geometry::BIND_OVERALL);
-        geom->addPrimitiveSet(painter);
-        geom->setVertexArray(points);
-        geode->addDrawable(geom);
+        base::geometry::Spline<3>& spline = c.boundary_curves[i];
+        if (spline.isEmpty())
+        {
+            std::cerr << "  empty boundary" << std::endl;
+            return;
+        }
+        double length = fabs(spline.getCurveLength());
+        if (max_length < length)
+           max_length = length;
     }
+
+    double curve_starts[2];
+    double curve_steps[2];
+    for (int i = 0; i < 2; ++i)
+    {
+        base::geometry::Spline<3>& spline = c.boundary_curves[i];
+        double start  = spline.getStartParam();
+        double end    = spline.getEndParam();
+        curve_starts[i] = start;
+        curve_steps[i] = (end - start) / max_length / 100;
+    }
+
+    double old_z[2];
+    for (int i = 0; i < max_length * 100 - 1; ++i)
+    {
+        for (int curve = 0; curve < 2; ++curve)
+        {
+            double t = curve_starts[curve] + curve_steps[curve] * i;
+            std::cerr << i << " " << curve_steps[curve] << " " << t << " " << c.boundary_curves[curve].getEndParam() << std::endl;
+            Eigen::Vector3d p = c.boundary_curves[curve].getPoint(t);
+            double z = getElevation(p);
+            if (i == 0)
+                old_z[curve] = z;
+            else
+                z = 0.5 * old_z[curve] + 0.5 * z;
+            old_z[curve] = z;
+            points->push_back(osg::Vec3(p.x(), p.y(), z));
+        }
+    }
+
+    osg::DrawArrays* painter =
+        new osg::DrawArrays(osg::PrimitiveSet::QUAD_STRIP, 0, points->size());
+
+    osg::Geometry* geom = new osg::Geometry;
+
+    osg::Vec4Array* colors = new osg::Vec4Array();
+    colors->push_back(color);
+    geom->setColorArray(colors);
+    geom->setColorBinding(osg::Geometry::BIND_OVERALL);
+    geom->addPrimitiveSet(painter);
+    geom->setVertexArray(points);
+    geode->addDrawable(geom);
 }
 
 void PlanVisualisation::computeColors(int size)
@@ -107,8 +133,8 @@ osg::Vec4 PlanVisualisation::getColor(int i) const
 
 void PlanVisualisation::operatorIntern ( osg::Node* node, osg::NodeVisitor* nv )
 {
-    std::cerr << "updating corridor display" << std::endl;
     int corridor_count = p->plan.corridors.size();
+    std::cerr << "displaying " << corridor_count << " corridors" << std::endl;
 
     // Clear the geode
     osg::Geode* geode = dynamic_cast<osg::Geode*>(getMainNode());
@@ -122,6 +148,7 @@ void PlanVisualisation::operatorIntern ( osg::Node* node, osg::NodeVisitor* nv )
     for (int i = 0; i < corridor_count; ++i)
     {
         corridors::Corridor& c = p->plan.corridors[i];
+        std::cerr << "handling corridor " << i << std::endl;
         createCorridorNode(geode, c, getColor(i));
     }
     std::cerr << "DONE" << std::endl;
@@ -135,6 +162,7 @@ void PlanVisualisation::setAlpha(double value)
 
 void PlanVisualisation::updateDataIntern(corridors::Plan const& plan)
 {
+    std::cerr << "new plan with " << plan.corridors.size() << " corridors" << std::endl;
     p->plan = plan;
 }
 
