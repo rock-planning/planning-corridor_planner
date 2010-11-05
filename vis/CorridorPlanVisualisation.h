@@ -28,7 +28,7 @@ namespace corridor_planner
         void computeColors(int size);
         osg::Vec4 getColor(int i) const;
 
-        void setElevationGrid(envire::ElevationGrid const* heights);
+        void setElevationGrid(envire::ElevationGrid const* heights, double offset);
         
     protected:
         virtual void operatorIntern(osg::Node* node, osg::NodeVisitor* nv);

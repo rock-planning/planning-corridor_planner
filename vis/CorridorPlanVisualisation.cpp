@@ -12,6 +12,7 @@ struct PlanVisualisation::Data
 {
     corridors::Plan plan;
     envire::ElevationGrid const* grid;
+    double offset;
     Data()
         : grid(0) {}
 };
@@ -25,9 +26,10 @@ PlanVisualisation::PlanVisualisation()
 PlanVisualisation::~PlanVisualisation()
 { delete p; }
 
-void PlanVisualisation::setElevationGrid(envire::ElevationGrid const* heights)
+void PlanVisualisation::setElevationGrid(envire::ElevationGrid const* heights, double offset)
 { boost::mutex::scoped_lock lockit(this->updateMutex);
-    p->grid = heights;
+    p->grid   = heights;
+    p->offset = offset;
     setDirty();
 }
 
@@ -40,7 +42,7 @@ void PlanVisualisation::sampleSpline(base::geometry::Spline<3>& spline, osg::Vec
     for (double t = spline.getStartParam(); t < spline.getEndParam(); t += step)
     {
         Eigen::Vector3d point = spline.getPoint(t);
-        double z = p->grid->get(point.x(), point.y());
+            z = p->grid->get(point.x(), point.y()) + p->offset;
         points.push_back(osg::Vec3(point.x(), point.y(), z));
 
         // For all points except the starting point, add the points twice as
