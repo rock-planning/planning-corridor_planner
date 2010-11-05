@@ -47,6 +47,8 @@ void PlanVisualisation::sampleSpline(base::geometry::Spline<3>& spline, osg::Vec
     for (double t = start; t < end; t += step)
     {
         Eigen::Vector3d point = spline.getPoint(t);
+        double z = 0;
+        if (p->grid)
             z = p->grid->get(point.x(), point.y()) + p->offset;
         points.push_back(osg::Vec3(point.x(), point.y(), z));
 
