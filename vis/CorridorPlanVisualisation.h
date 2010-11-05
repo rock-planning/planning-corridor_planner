@@ -28,6 +28,7 @@ namespace corridor_planner
         void computeColors(int size);
         osg::Vec4 getColor(int i) const;
 
+        void setAlpha(double value);
         void setElevationGrid(envire::ElevationGrid const* heights, double offset);
         
     protected:
@@ -36,7 +37,7 @@ namespace corridor_planner
         
     private:
         void sampleSpline(base::geometry::Spline<3>& spline, osg::Vec3Array& points);
-        osg::Geometry* createCorridorNode(corridors::Corridor& c, osg::Vec4 const& color);
+        void createCorridorNode(osg::Geode* geode, corridors::Corridor& c, osg::Vec4 const& color);
 
         struct Data;
         Data* p;
