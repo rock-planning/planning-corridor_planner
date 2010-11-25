@@ -8,7 +8,8 @@
     </copyright>
     <license>LGPL v2 or later</license>
 
-    <depend package="base/types" />
     <rosdep name="gdal" />
+    <depend package="base/types" />
     <depend package="external/sisl" />
+    <depend package="gui/enview" optional="1"/>
 </package>
