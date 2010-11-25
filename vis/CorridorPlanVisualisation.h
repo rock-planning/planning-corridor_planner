@@ -7,30 +7,37 @@
 #include <envire/maps/Grids.hpp>
 #include <base/geometry/spline.h>
 
-namespace corridor_planner
+namespace corridors
 {
     class Plan;
     class Corridor;
+}
+
+namespace corridor_planner
+{
     class PlanVisualisation
-        : public enview::DataNode<corridor_planner::Plan>
+        : public enview::DataNode<corridors::Plan>
         , boost::noncopyable
     {
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-        PlanVisualisation(envire::ElevationGrid& heights);
+        PlanVisualisation();
         ~PlanVisualisation();
         osg::Geode* getMainNode() const;
 
         void computeColors(int size);
         osg::Vec4 getColor(int i) const;
+
+        void setAlpha(double value);
+        void setElevationGrid(envire::ElevationGrid const* heights, double offset);
         
     protected:
         virtual void operatorIntern(osg::Node* node, osg::NodeVisitor* nv);
-        virtual void updateDataIntern(corridor_planner::Plan const& plan);
+        virtual void updateDataIntern(corridors::Plan const& plan);
         
     private:
-        void sampleSpline(base::geometry::Spline<3>& spline, osg::Vec3Array& points);
-        osg::Geometry* createCorridorNode(Corridor& c, osg::Vec4 const& color);
+        double getElevation(Eigen::Vector3d const& point) const;
+        void createCorridorNode(osg::Geode* geode, corridors::Corridor& c, osg::Vec4 const& color);
 
         struct Data;
         Data* p;

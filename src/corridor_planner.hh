@@ -6,6 +6,7 @@
 #include "dstar.hh"
 #include "voronoi.hh"
 #include "plan.hh"
+#include "corridors.hh"
 
 #include <boost/noncopyable.hpp>
 
@@ -25,6 +26,7 @@ namespace corridor_planner
         SkeletonExtraction* skeleton;
         DStar*              dstar;
         Plan                plan;
+        corridors::Plan     final;
 
         /** The minimum allowed width of the corridors, in meters */
         float min_width;
@@ -44,6 +46,9 @@ namespace corridor_planner
         void requireProcessing(STATES state);
         bool isProcessingRequired(STATES state) const;
         void processed();
+
+        /** Updates the \c result attribute from the data in \c plan */
+        void exportPlan();
 
         double m_expand;
 
@@ -79,9 +84,16 @@ namespace corridor_planner
          * getPlan()
          */
         void simplifyPlan();
-        
+
+        /** Returns the planner's result. Only valid if all stages have been
+         * called already
+         *
+         * See also compute()
+         */
+        corridors::Plan const& result() const;
+
         /** Do all the passes in the right order */
-        Plan const& compute();
+        corridors::Plan const& compute();
     };
 }
 

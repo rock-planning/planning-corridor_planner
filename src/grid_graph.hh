@@ -208,8 +208,7 @@ namespace corridor_planner
         std::vector<boost::uint8_t> m_parents;
 
 
-        /** Array which encodes the parents of each node. The array is stored
-         * row-first (i.e. the value for (x, y) is at (y * m_xsize + x).
+        /** Array which stores the cost value for each node.
          */
         std::vector<float> m_values;
 
