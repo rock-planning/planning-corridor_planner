@@ -44,7 +44,7 @@ void saveColorImage(string const& path, int xSize, int ySize, vector<RGBColor>& 
             &pixels[0].b, xSize, ySize, GDT_Byte, sizeof(RGBColor), sizeof(RGBColor) * xSize);
 }
 
-void markCurve(base::geometry::NURBSCurve3D& curve, int xSize, vector<RGBColor> & pixels, RGBColor color)
+void markCurve(base::geometry::Spline<3>& curve, int xSize, vector<RGBColor> & pixels, RGBColor color)
 {
     double t       = curve.getStartParam();
     double unit_t  = curve.getUnitParameter();
@@ -157,7 +157,7 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
         {
             cerr << "displaying " << c.name << " using curves" << endl;
             vector<PointID> points[2];
-            base::geometry::NURBSCurve3D* curves[2] = { &c.boundary_curves[0], &c.boundary_curves[1] };
+            base::geometry::Spline<3>* curves[2] = { &c.boundary_curves[0], &c.boundary_curves[1] };
             for (int i = 0; i < 2; ++i)
             {
                 double delta = curves[i]->getUnitParameter() / 10;
