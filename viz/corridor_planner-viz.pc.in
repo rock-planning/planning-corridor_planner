@@ -4,9 +4,9 @@ libdir=${prefix}/lib
 includedir=${prefix}/include
 
 Name: corridor_planner_vis
-Description: Enview plugin for the corridor plans
-Depends: enview
+Description: vizKit plugin for the corridor plans
+Depends: vizkit
 Version: @PROJECT_VERSION@
-Libs: -L${libdir} -lcorridor_planner_vis
+Libs: -L${libdir} -lcorridor_planner-viz
 Cflags: -I${includedir}/corridor_planner
 

@@ -2,8 +2,9 @@
 #define PLAN_VISUALISATION_H
 
 #include <boost/noncopyable.hpp>
-#include <enview/DataNode.h>
+#include <vizkit/VizPlugin.hpp>
 #include <osg/Geometry>
+
 #include <envire/maps/Grids.hpp>
 #include <base/geometry/spline.h>
 
@@ -15,15 +16,14 @@ namespace corridors
 
 namespace corridor_planner
 {
-    class PlanVisualisation
-        : public enview::DataNode<corridors::Plan>
+    class PlanVisualization
+        : public vizkit::VizPlugin<corridors::Plan>
         , boost::noncopyable
     {
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-        PlanVisualisation();
-        ~PlanVisualisation();
-        osg::Geode* getMainNode() const;
+        PlanVisualization();
+        ~PlanVisualization();
 
         void computeColors(int size);
         osg::Vec4 getColor(int i) const;
@@ -32,7 +32,8 @@ namespace corridor_planner
         void setElevationGrid(envire::ElevationGrid const* heights, double offset);
         
     protected:
-        virtual void operatorIntern(osg::Node* node, osg::NodeVisitor* nv);
+        virtual osg::ref_ptr<osg::Node> createMainNode();
+        virtual void updateMainNode(osg::Node* node);
         virtual void updateDataIntern(corridors::Plan const& plan);
         
     private:

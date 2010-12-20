@@ -11,5 +11,5 @@
     <rosdep name="gdal" />
     <depend package="base/types" />
     <depend package="external/sisl" />
-    <depend package="gui/enview" optional="1"/>
+    <depend package="gui/vizkit" optional="1"/>
 </package>
