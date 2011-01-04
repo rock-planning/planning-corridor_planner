@@ -131,8 +131,6 @@ end
 
 Typelib.specialize '/corridors/Corridor_m' do
     def reverse
-        curve = self.get_field('median_curve')
-        pp curve
         curve = self.median_curve
         curve.reverse
         self.median_curve = curve
