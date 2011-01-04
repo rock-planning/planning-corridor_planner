@@ -416,6 +416,7 @@ void Corridor::reverse()
     reverseList(voronoi);
     reverseList(boundaries[0]);
     reverseList(boundaries[1]);
+    boundaries[0].swap(boundaries[1]);
     std::swap(end_types[0], end_types[1]);
     dcost = -dcost;
 }
@@ -841,6 +842,16 @@ void Corridor::updateCurves(double discount_factor)
         boundary_curves[boundary_idx].interpolate(boundary_points);
         boundary_curves[boundary_idx].simplify(simplification_tolerance);
     }
+
+    // Check if we must swap boundaries[0] and boundaries[1]
+    // Get the tangent at 0
+    Eigen::Vector3d median_start, median_tangent;
+    tie(median_start, median_tangent) =
+        median_curve.getPointAndTangent(median_curve.getStartParam());
+    Eigen::Vector3d boundary0 =
+        boundary_curves[0].getPoint(boundary_curves[0].getStartParam()) - median_start;
+    if (boundary0.cross(median_tangent).z() < 0)
+        std::swap(boundary_curves[0], boundary_curves[1]);
 
     updateWidthCurve();
 }

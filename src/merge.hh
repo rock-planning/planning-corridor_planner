@@ -1,7 +1,7 @@
 #ifndef NAV_MERGE_HH
 #define NAV_MERGE_HH
 
-#include "plan.hh"
+#include <corridor_planner/plan.hh>
 
 namespace corridor_planner
 {

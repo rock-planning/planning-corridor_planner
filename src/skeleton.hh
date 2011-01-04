@@ -1,10 +1,10 @@
 #ifndef __SKELETON_HH__
 #define __SKELETON_HH__
 
-#include "point.hh"
-#include "voronoi.hh"
-#include "plan.hh"
-#include "dstar.hh"
+#include <corridor_planner/point.hh>
+#include <corridor_planner/voronoi.hh>
+#include <corridor_planner/plan.hh>
+#include <corridor_planner/dstar.hh>
 #include <vector>
 
 namespace corridor_planner

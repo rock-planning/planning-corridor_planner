@@ -3,10 +3,10 @@ exec_prefix=@CMAKE_INSTALL_PREFIX@
 libdir=${prefix}/lib
 includedir=${prefix}/include
 
-Name: corridor_planner
+Name: @PROJECT_NAME@
 Description: Corridor-centric path planner
-Depends: base-lib
+Depends: @corridor_planner_DEPS_PKGCONFIG@
 Version: @PROJECT_VERSION@
-Libs: -L${libdir} -lcorridor_planner
-Cflags: -I${includedir}/corridor_planner
+Libs: -L${libdir} -l@PROJECT_NAME@
+Cflags: -I${includedir}
 

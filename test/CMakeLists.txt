@@ -1,12 +1,11 @@
-CONFIGURE_FILE(testsuite.hh.in ${CMAKE_BINARY_DIR}/test/testsuite.hh @ONLY)
+configure_file(testsuite.hh.in ${CMAKE_CURRENT_BINARY_DIR}/testsuite.hh @ONLY)
+include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR})
 
-include_directories(${PROJECT_SOURCE_DIR}/src)
+rock_testsuite(dstar_testsuite
+    testsuite.cc test_dstar.cc test_dstar_multipath.cc
+    DEPS corridor_planner)
 
-ADD_EXECUTABLE(dstar_testsuite testsuite.cc test_dstar.cc test_dstar_multipath.cc)
-TARGET_LINK_LIBRARIES(dstar_testsuite corridor_planner ${Boost_UNIT_TEST_FRAMEWORK_LIBRARIES})
-ADD_TEST(CxxSuite ${EXECUTABLE_OUTPUT_PATH}/dstar_testsuite)
-
-ADD_EXECUTABLE(skeleton_testsuite testsuite.cc test_corridors.cc)
-TARGET_LINK_LIBRARIES(skeleton_testsuite corridor_planner ${Boost_UNIT_TEST_FRAMEWORK_LIBRARIES})
-ADD_TEST(CxxSuite ${EXECUTABLE_OUTPUT_PATH}/skeleton_testsuite)
+rock_testsuite(skeleton_testsuite
+    testsuite.cc test_corridors.cc
+    DEPS corridor_planner)
 

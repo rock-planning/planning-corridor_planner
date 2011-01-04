@@ -1,10 +1,10 @@
 #ifndef NAV_DSTAR_HPP
 #define NAV_DSTAR_HPP
 
-#include "point.hh"
-#include "pool_allocator.hh"
-#include "traversability_map.hh"
-#include "grid_graph.hh"
+#include <corridor_planner/point.hh>
+#include <corridor_planner/pool_allocator.hh>
+#include <corridor_planner/traversability_map.hh>
+#include <corridor_planner/grid_graph.hh>
 
 #include <map>
 #include <stdexcept>

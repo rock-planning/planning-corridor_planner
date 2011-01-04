@@ -1,9 +1,9 @@
 #include <boost/test/auto_unit_test.hpp>
 #include <boost/test/floating_point_comparison.hpp>
 
-#include "test/testsuite.hh"
-#include "dstar.hh"
-#include "voronoi.hh"
+#include "testsuite.hh"
+#include "corridor_planner/dstar.hh"
+#include "corridor_planner/voronoi.hh"
 #include <algorithm>
 #include <iostream>
 #include <iomanip>

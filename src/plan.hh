@@ -1,8 +1,8 @@
 #ifndef NAV_PLAN_HH
 #define NAV_PLAN_HH
 
-#include "voronoi.hh"
-#include "dstar.hh"
+#include <corridor_planner/voronoi.hh>
+#include <corridor_planner/dstar.hh>
 
 namespace corridor_planner
 {

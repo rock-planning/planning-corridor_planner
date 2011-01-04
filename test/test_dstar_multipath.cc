@@ -1,9 +1,9 @@
 #include <boost/test/auto_unit_test.hpp>
 #include <boost/test/floating_point_comparison.hpp>
 
-#include "test/testsuite.hh"
-#include "src/dstar.hh"
-#include "src/skeleton.hh"
+#include "testsuite.hh"
+#include <corridor_planner/dstar.hh>
+#include <corridor_planner/skeleton.hh>
 #include <iostream>
 #include <vector>
 #include <cmath>

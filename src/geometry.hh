@@ -1,7 +1,7 @@
 #ifndef NAV_GEOMETRY_TOOLS_HH
 #define NAV_GEOMETRY_TOOLS_HH
 
-#include "point.hh"
+#include <corridor_planner/point.hh>
 
 namespace corridor_planner
 {

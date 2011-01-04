@@ -5,10 +5,10 @@
 #include <vector>
 #include <iosfwd>
 #include <boost/tuple/tuple.hpp>
-#include "point.hh"
 
 #include <base/geometry/spline.h>
-#include "geometry.hh"
+#include <corridor_planner/point.hh>
+#include <corridor_planner/geometry.hh>
 
 namespace corridor_planner
 {

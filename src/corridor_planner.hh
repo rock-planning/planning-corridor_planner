@@ -3,10 +3,10 @@
 
 #include <string>
 #include <Eigen/Core>
-#include "dstar.hh"
-#include "voronoi.hh"
-#include "plan.hh"
-#include "corridors.hh"
+#include <corridor_planner/dstar.hh>
+#include <corridor_planner/voronoi.hh>
+#include <corridor_planner/plan.hh>
+#include <corridor_planner/corridors.hh>
 
 #include <boost/noncopyable.hpp>
 
@@ -21,6 +21,8 @@ namespace corridor_planner
     class CorridorPlanner : boost::noncopyable
     {
     public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
         TerrainClasses      classes;
         TraversabilityMap*  map;
         SkeletonExtraction* skeleton;

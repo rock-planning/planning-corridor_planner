@@ -1,9 +1,9 @@
 #ifndef NAV_TRAVERSABILITY_MAP_HH
 #define NAV_TRAVERSABILITY_MAP_HH
 
-#include "grid_map.hh"
-#include "terrain_classes.hh"
-#include "point.hh"
+#include <corridor_planner/grid_map.hh>
+#include <corridor_planner/terrain_classes.hh>
+#include <corridor_planner/point.hh>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -30,6 +30,8 @@ namespace corridor_planner
         std::vector<boost::uint8_t> m_values;
 
     public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
         /** How much classes can be stored in this map */
         static const int CLASSES_COUNT = 16;
 
