@@ -135,11 +135,14 @@ Typelib.specialize '/corridors/Corridor_m' do
         curve.reverse
         self.median_curve = curve
 
+        boundaries = []
         2.times do |i|
             curve = self.boundary_curves[i]
             curve.reverse
-            self.boundary_curves[i] = curve
+            boundaries << curve
         end
+        boundary_curves[0] = boundaries[1]
+        boundary_curves[1] = boundaries[0]
     end
 end
 
