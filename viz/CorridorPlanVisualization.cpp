@@ -6,9 +6,9 @@
 
 #include <envire/maps/Grids.hpp>
 
-using namespace corridor_planner;
+using namespace vizkit;
 
-struct PlanVisualization::Data
+struct CorridorPlanVisualization::Data
 {
     corridors::Plan plan;
     envire::ElevationGrid const* grid;
@@ -19,22 +19,22 @@ struct PlanVisualization::Data
         : grid(0), offset(0.0), alpha(0.5) {}
 };
 
-PlanVisualization::PlanVisualization()
+CorridorPlanVisualization::CorridorPlanVisualization()
     : p(new Data())
 {
 }
 
-PlanVisualization::~PlanVisualization()
+CorridorPlanVisualization::~CorridorPlanVisualization()
 { delete p; }
 
-void PlanVisualization::setElevationGrid(envire::ElevationGrid const* heights, double offset)
+void CorridorPlanVisualization::setElevationGrid(envire::ElevationGrid const* heights, double offset)
 { boost::mutex::scoped_lock lockit(this->updateMutex);
     p->grid   = heights;
     p->offset = offset;
     setDirty();
 }
 
-double PlanVisualization::getElevation(Eigen::Vector3d const& point) const
+double CorridorPlanVisualization::getElevation(Eigen::Vector3d const& point) const
 {
     if (p->grid)
         return p->grid->get(point.x(), point.y()) + p->offset;
@@ -42,7 +42,7 @@ double PlanVisualization::getElevation(Eigen::Vector3d const& point) const
         return 0;
 }
 
-void PlanVisualization::createCorridorNode(osg::Geode* geode, corridors::Corridor& c, osg::Vec4 const& color)
+void CorridorPlanVisualization::createCorridorNode(osg::Geode* geode, corridors::Corridor& c, osg::Vec4 const& color, double z_offset)
 {
     osg::ref_ptr<osg::Vec3Array> points = new osg::Vec3Array;
 
@@ -103,7 +103,7 @@ void PlanVisualization::createCorridorNode(osg::Geode* geode, corridors::Corrido
     geode->addDrawable(geom);
 }
 
-void PlanVisualization::computeColors(int size)
+void CorridorPlanVisualization::computeColors(int size)
 {
     p->colors.clear();
 
@@ -122,17 +122,17 @@ void PlanVisualization::computeColors(int size)
     }
 }
 
-osg::Vec4 PlanVisualization::getColor(int i) const
+osg::Vec4 CorridorPlanVisualization::getColor(int i) const
 {
     return p->colors[i];
 }
 
-osg::ref_ptr<osg::Node> PlanVisualization::createMainNode()
+osg::ref_ptr<osg::Node> CorridorPlanVisualization::createMainNode()
 {
     return new osg::Geode();
 }
 
-void PlanVisualization::updateMainNode ( osg::Node* node )
+void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
 {
     osg::Geode* geode = dynamic_cast<osg::Geode*>(node);
 
@@ -156,13 +156,13 @@ void PlanVisualization::updateMainNode ( osg::Node* node )
     std::cerr << "DONE" << std::endl;
 }
 
-void PlanVisualization::setAlpha(double value)
+void CorridorPlanVisualization::setAlpha(double value)
 {
     p->alpha = value;
     setDirty();
 }
 
-void PlanVisualization::updateDataIntern(corridors::Plan const& plan)
+void CorridorPlanVisualization::updateDataIntern(corridors::Plan const& plan)
 {
     std::cerr << "new plan with " << plan.corridors.size() << " corridors" << std::endl;
     p->plan = plan;

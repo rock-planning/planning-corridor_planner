@@ -14,16 +14,16 @@ namespace corridors
     class Corridor;
 }
 
-namespace corridor_planner
+namespace vizkit
 {
-    class PlanVisualization
+    class CorridorPlanVisualization
         : public vizkit::VizPlugin<corridors::Plan>
         , boost::noncopyable
     {
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-        PlanVisualization();
-        ~PlanVisualization();
+        CorridorPlanVisualization();
+        ~CorridorPlanVisualization();
 
         void computeColors(int size);
         osg::Vec4 getColor(int i) const;
