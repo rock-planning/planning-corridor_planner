@@ -46,6 +46,59 @@ double CorridorPlanVisualization::getElevation(Eigen::Vector3d const& point) con
         return 0;
 }
 
+void CorridorPlanVisualization::createCurveNode(osg::Geode* geode, base::geometry::Spline<3>& curve, osg::Vec4 const& color, double z_offset)
+{
+    if (curve.isEmpty())
+        return;
+
+    osg::ref_ptr<osg::Vec3Array> points = new osg::Vec3Array;
+
+    double start = curve.getStartParam();
+    double step  = (curve.getEndParam() - curve.getStartParam()) / curve.getCurveLength() / 10;
+    double last_z;
+
+    Eigen::Vector3d last_p;
+    for (double t = start; t < curve.getEndParam(); t += step)
+    {
+        Eigen::Vector3d p = curve.getPoint(t);
+        double z = getElevation(p) + z_offset;
+        if (t == start)
+        {
+            last_p = p;
+            last_z = z;
+        }
+        else
+        {
+            z = 0.5 * last_z + 0.5 * z;
+            last_z = z;
+        }
+
+        // Compute the normal to the curve at that point
+        p.z() = z;
+        Eigen::Vector3d v = (p - last_p).cross(Eigen::Vector3d::UnitZ());
+        if (v.norm() > 0.0001)
+            v.normalize();
+
+        Eigen::Vector3d p1 = p + v * 0.1;
+        Eigen::Vector3d p2 = p - v * 0.1;
+        points->push_back(osg::Vec3(p1.x(), p1.y(), p1.z()));
+        points->push_back(osg::Vec3(p2.x(), p2.y(), p2.z()));
+    }
+
+    osg::DrawArrays* painter =
+        new osg::DrawArrays(osg::PrimitiveSet::QUAD_STRIP, 0, points->size());
+
+    osg::Geometry* geom = new osg::Geometry;
+
+    osg::Vec4Array* colors = new osg::Vec4Array();
+    colors->push_back(color);
+    geom->setColorArray(colors);
+    geom->setColorBinding(osg::Geometry::BIND_OVERALL);
+    geom->addPrimitiveSet(painter);
+    geom->setVertexArray(points);
+    geode->addDrawable(geom);
+}
+
 void CorridorPlanVisualization::createCorridorNode(osg::Geode* geode, corridors::Corridor& c, osg::Vec4 const& color, double z_offset)
 {
     osg::ref_ptr<osg::Vec3Array> points = new osg::Vec3Array;
@@ -56,7 +109,6 @@ void CorridorPlanVisualization::createCorridorNode(osg::Geode* geode, corridors:
         base::geometry::Spline<3>& spline = c.boundary_curves[i];
         if (spline.isEmpty())
         {
-            std::cerr << "  empty boundary" << std::endl;
             return;
         }
         double length = fabs(spline.getCurveLength());
@@ -151,6 +203,7 @@ void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
     // Update the color set
     computeColors(corridor_count);
 
+    // Create objects for each of the plan's corridors
     for (int i = 0; i < corridor_count; ++i)
     {
         corridors::Corridor& c = p->plan.corridors[i];
@@ -160,7 +213,10 @@ void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
 
     // If we have a selected corridor, also display it
     if (p->has_corridor)
-        createCorridorNode(geode, p->selected_corridor, osg::Vec4(1.0, 1.0, 1.0, 0.5), 0.5);
+    {
+        createCurveNode(geode, p->selected_corridor.boundary_curves[0], osg::Vec4(1.0, 1.0, 1.0, 0.5), 0.5);
+        createCurveNode(geode, p->selected_corridor.boundary_curves[1], osg::Vec4(1.0, 1.0, 1.0, 0.5), 0.5);
+    }
     std::cerr << "DONE" << std::endl;
 }
 

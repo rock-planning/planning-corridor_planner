@@ -40,6 +40,7 @@ namespace vizkit
         
     private:
         double getElevation(Eigen::Vector3d const& point) const;
+        void createCurveNode(osg::Geode* geode, base::geometry::Spline<3>& curve, osg::Vec4 const& color, double z_offset);
         void createCorridorNode(osg::Geode* geode, corridors::Corridor& c, osg::Vec4 const& color, double z_offset);
 
         struct Data;
