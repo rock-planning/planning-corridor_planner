@@ -1,5 +1,5 @@
 #include "CorridorPlanVisualization.hpp"
-#include "corridors.hh"
+#include "corridor_planner/corridors.hh"
 
 #include <osg/Geometry>
 #include <osg/Geode>
