@@ -133,7 +133,6 @@ void CorridorPlanVisualization::createCorridorNode(osg::Geode* geode, corridors:
         for (int curve = 0; curve < 2; ++curve)
         {
             double t = curve_starts[curve] + curve_steps[curve] * i;
-            std::cerr << i << " " << curve_steps[curve] << " " << t << " " << c.boundary_curves[curve].getEndParam() << std::endl;
             Eigen::Vector3d p = c.boundary_curves[curve].getPoint(t);
             double z = getElevation(p) + z_offset;
             if (i == 0)
@@ -141,6 +140,7 @@ void CorridorPlanVisualization::createCorridorNode(osg::Geode* geode, corridors:
             else
                 z = 0.5 * old_z[curve] + 0.5 * z;
             old_z[curve] = z;
+
             points->push_back(osg::Vec3(p.x(), p.y(), z));
         }
     }
@@ -193,7 +193,6 @@ void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
     osg::Geode* geode = dynamic_cast<osg::Geode*>(node);
 
     int corridor_count = p->plan.corridors.size();
-    std::cerr << "displaying " << corridor_count << " corridors" << std::endl;
 
     // Clear the geode
     geode->removeDrawables(0, geode->getDrawableList().size());
@@ -207,7 +206,6 @@ void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
     for (int i = 0; i < corridor_count; ++i)
     {
         corridors::Corridor& c = p->plan.corridors[i];
-        std::cerr << "handling corridor " << i << std::endl;
         createCorridorNode(geode, c, getColor(i), 0);
     }
 
@@ -217,7 +215,6 @@ void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
         createCurveNode(geode, p->selected_corridor.boundary_curves[0], osg::Vec4(1.0, 1.0, 1.0, 0.5), 0.5);
         createCurveNode(geode, p->selected_corridor.boundary_curves[1], osg::Vec4(1.0, 1.0, 1.0, 0.5), 0.5);
     }
-    std::cerr << "DONE" << std::endl;
 }
 
 void CorridorPlanVisualization::setAlpha(double value)
@@ -228,7 +225,6 @@ void CorridorPlanVisualization::setAlpha(double value)
 
 void CorridorPlanVisualization::updateDataIntern(corridors::Plan const& plan)
 {
-    std::cerr << "new plan with " << plan.corridors.size() << " corridors" << std::endl;
     p->plan = plan;
 }
 
