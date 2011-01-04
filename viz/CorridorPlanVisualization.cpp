@@ -11,12 +11,16 @@ using namespace vizkit;
 struct CorridorPlanVisualization::Data
 {
     corridors::Plan plan;
+    corridors::Corridor selected_corridor;
+    bool has_corridor;
+
     envire::ElevationGrid const* grid;
     double offset;
     std::vector<osg::Vec4> colors;
     double alpha;
+
     Data()
-        : grid(0), offset(0.0), alpha(0.5) {}
+        : has_corridor(true), grid(0), offset(0.0), alpha(0.5) {}
 };
 
 CorridorPlanVisualization::CorridorPlanVisualization()
@@ -79,7 +83,7 @@ void CorridorPlanVisualization::createCorridorNode(osg::Geode* geode, corridors:
             double t = curve_starts[curve] + curve_steps[curve] * i;
             std::cerr << i << " " << curve_steps[curve] << " " << t << " " << c.boundary_curves[curve].getEndParam() << std::endl;
             Eigen::Vector3d p = c.boundary_curves[curve].getPoint(t);
-            double z = getElevation(p);
+            double z = getElevation(p) + z_offset;
             if (i == 0)
                 old_z[curve] = z;
             else
@@ -151,8 +155,12 @@ void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
     {
         corridors::Corridor& c = p->plan.corridors[i];
         std::cerr << "handling corridor " << i << std::endl;
-        createCorridorNode(geode, c, getColor(i));
+        createCorridorNode(geode, c, getColor(i), 0);
     }
+
+    // If we have a selected corridor, also display it
+    if (p->has_corridor)
+        createCorridorNode(geode, p->selected_corridor, osg::Vec4(1.0, 1.0, 1.0, 0.5), 0.5);
     std::cerr << "DONE" << std::endl;
 }
 
@@ -166,5 +174,11 @@ void CorridorPlanVisualization::updateDataIntern(corridors::Plan const& plan)
 {
     std::cerr << "new plan with " << plan.corridors.size() << " corridors" << std::endl;
     p->plan = plan;
+}
+
+void CorridorPlanVisualization::updateDataIntern(corridors::Corridor const& selected_corridor)
+{
+    p->has_corridor = true;
+    p->selected_corridor = selected_corridor;
 }
 

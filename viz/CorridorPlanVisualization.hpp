@@ -18,6 +18,7 @@ namespace vizkit
 {
     class CorridorPlanVisualization
         : public vizkit::VizPlugin<corridors::Plan>
+	, public vizkit::VizPluginAddType<corridors::Corridor>
         , boost::noncopyable
     {
     public:
@@ -35,10 +36,11 @@ namespace vizkit
         virtual osg::ref_ptr<osg::Node> createMainNode();
         virtual void updateMainNode(osg::Node* node);
         virtual void updateDataIntern(corridors::Plan const& plan);
+        virtual void updateDataIntern(corridors::Corridor const& selected_corridor);
         
     private:
         double getElevation(Eigen::Vector3d const& point) const;
-        void createCorridorNode(osg::Geode* geode, corridors::Corridor& c, osg::Vec4 const& color);
+        void createCorridorNode(osg::Geode* geode, corridors::Corridor& c, osg::Vec4 const& color, double z_offset);
 
         struct Data;
         Data* p;
