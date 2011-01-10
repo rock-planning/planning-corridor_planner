@@ -814,7 +814,7 @@ void Corridor::updateCurves(double discount_factor)
     Corridor::voronoi_const_iterator const median_end = voronoi.end();
     PointID first_point = voronoi.front().center;
     Eigen::Vector3d last_point = Eigen::Vector3d(first_point.x, first_point.y, 0);
-    vector<Eigen::Vector3d> median_points;
+    vector<base::Vector3d> median_points;
     for (; median_it != median_end; ++median_it)
     {
         PointID p  = median_it->center;
@@ -831,7 +831,7 @@ void Corridor::updateCurves(double discount_factor)
             continue;
 
         Eigen::Vector3d last_point = Eigen::Vector3d(boundaries[boundary_idx].front().x, boundaries[boundary_idx].front().y, 0);
-        vector<Eigen::Vector3d> boundary_points;
+        vector<base::Vector3d> boundary_points;
         for (list<PointID>::const_iterator it = boundaries[boundary_idx].begin(); it != boundaries[boundary_idx].end(); ++it)
         {
             Eigen::Vector3d point = new_point_factor * Eigen::Vector3d(it->x, it->y, 0) + discount_factor * last_point;
