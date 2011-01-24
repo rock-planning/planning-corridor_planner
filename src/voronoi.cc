@@ -813,12 +813,12 @@ void Corridor::updateCurves(double discount_factor)
     Corridor::voronoi_const_iterator median_it = voronoi.begin();
     Corridor::voronoi_const_iterator const median_end = voronoi.end();
     PointID first_point = voronoi.front().center;
-    Eigen::Vector3d last_point = Eigen::Vector3d(first_point.x, first_point.y, 0);
-    vector<Eigen::Vector3d> median_points;
+    base::Vector3d last_point = base::Vector3d(first_point.x, first_point.y, 0);
+    vector<base::Vector3d> median_points;
     for (; median_it != median_end; ++median_it)
     {
         PointID p  = median_it->center;
-        Eigen::Vector3d point = new_point_factor * Eigen::Vector3d(p.x, p.y, 0) + discount_factor * last_point;
+        base::Vector3d point = new_point_factor * base::Vector3d(p.x, p.y, 0) + discount_factor * last_point;
         median_points.push_back(point);
         last_point = point;
     }
@@ -830,11 +830,11 @@ void Corridor::updateCurves(double discount_factor)
         if (boundaries[boundary_idx].empty())
             continue;
 
-        Eigen::Vector3d last_point = Eigen::Vector3d(boundaries[boundary_idx].front().x, boundaries[boundary_idx].front().y, 0);
-        vector<Eigen::Vector3d> boundary_points;
+        base::Vector3d last_point = base::Vector3d(boundaries[boundary_idx].front().x, boundaries[boundary_idx].front().y, 0);
+        vector<base::Vector3d> boundary_points;
         for (list<PointID>::const_iterator it = boundaries[boundary_idx].begin(); it != boundaries[boundary_idx].end(); ++it)
         {
-            Eigen::Vector3d point = new_point_factor * Eigen::Vector3d(it->x, it->y, 0) + discount_factor * last_point;
+            base::Vector3d point = new_point_factor * base::Vector3d(it->x, it->y, 0) + discount_factor * last_point;
             boundary_points.push_back(point);
             last_point = point;
         }
@@ -845,10 +845,10 @@ void Corridor::updateCurves(double discount_factor)
 
     // Check if we must swap boundaries[0] and boundaries[1]
     // Get the tangent at 0
-    Eigen::Vector3d median_start, median_tangent;
+    base::Vector3d median_start, median_tangent;
     tie(median_start, median_tangent) =
         median_curve.getPointAndTangent(median_curve.getStartParam());
-    Eigen::Vector3d boundary0 =
+    base::Vector3d boundary0 =
         boundary_curves[0].getPoint(boundary_curves[0].getStartParam()) - median_start;
     if (boundary0.cross(median_tangent).z() < 0)
         std::swap(boundary_curves[0], boundary_curves[1]);
@@ -867,7 +867,7 @@ void Corridor::updateWidthCurve()
     for (float t = median_curve.getStartParam();
             t < median_curve.getEndParam(); t += delta)
     {
-        Eigen::Vector3d p = median_curve.getPoint(t);
+        base::Vector3d p = median_curve.getPoint(t);
         corridor_planner::Corridor::voronoi_const_iterator median_it =
             findNearestMedian(corridor_planner::PointID(p.x(), p.y()));
 
