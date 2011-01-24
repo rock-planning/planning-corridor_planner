@@ -203,8 +203,9 @@ void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
     // If we have a selected corridor, also display it
     if (p->has_corridor)
     {
-        createCurveNode(geode, p->selected_corridor.boundary_curves[0], osg::Vec4(1.0, 1.0, 1.0, 0.5), 0.5);
-        createCurveNode(geode, p->selected_corridor.boundary_curves[1], osg::Vec4(1.0, 1.0, 1.0, 0.5), 0.5);
+        createCurveNode(geode, p->selected_corridor.median_curve, osg::Vec4(1.0, 1.0, 1.0, 1.0), 0.5);
+        createCurveNode(geode, p->selected_corridor.boundary_curves[0], osg::Vec4(0.5, 0.5, 0.5, 1.0), 0.5);
+        createCurveNode(geode, p->selected_corridor.boundary_curves[1], osg::Vec4(0.5, 0.5, 0.5, 1.0), 0.5);
     }
 }
 
