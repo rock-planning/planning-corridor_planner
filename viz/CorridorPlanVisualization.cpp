@@ -73,20 +73,11 @@ void CorridorPlanVisualization::createCurveNode(osg::Geode* geode, base::geometr
             last_z = z;
         }
 
-        // Compute the normal to the curve at that point
-        p.z() = z;
-        Eigen::Vector3d v = (p - last_p).cross(Eigen::Vector3d::UnitZ());
-        if (v.norm() > 0.0001)
-            v.normalize();
-
-        Eigen::Vector3d p1 = p + v * 0.1;
-        Eigen::Vector3d p2 = p - v * 0.1;
-        points->push_back(osg::Vec3(p1.x(), p1.y(), p1.z()));
-        points->push_back(osg::Vec3(p2.x(), p2.y(), p2.z()));
+        points->push_back(osg::Vec3(p.x(), p.y(), p.z()));
     }
 
     osg::DrawArrays* painter =
-        new osg::DrawArrays(osg::PrimitiveSet::QUAD_STRIP, 0, points->size());
+        new osg::DrawArrays(osg::PrimitiveSet::LINE_STRIP, 0, points->size());
 
     osg::Geometry* geom = new osg::Geometry;
 
