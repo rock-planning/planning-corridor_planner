@@ -204,8 +204,8 @@ void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
     if (p->has_corridor)
     {
         createCurveNode(geode, p->selected_corridor.median_curve, osg::Vec4(1.0, 1.0, 1.0, 1.0), 0.5);
-        createCurveNode(geode, p->selected_corridor.boundary_curves[0], osg::Vec4(0.5, 0.5, 0.5, 1.0), 0.5);
-        createCurveNode(geode, p->selected_corridor.boundary_curves[1], osg::Vec4(0.5, 0.5, 0.5, 1.0), 0.5);
+        createCurveNode(geode, p->selected_corridor.boundary_curves[0], osg::Vec4(0.75, 0.5, 0.25, 1.0), 0.5);
+        createCurveNode(geode, p->selected_corridor.boundary_curves[1], osg::Vec4(0.25, 0.5, 0.75, 1.0), 0.5);
     }
 }
 
