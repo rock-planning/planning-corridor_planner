@@ -8,6 +8,12 @@ Typelib.specialize '/corridors/Corridor_m' do
         end
         self.boundary_curves = self.boundary_curves.reverse
     end
+
+    def join(corridor, geometric_resolution = 0.1)
+        median_curve.join(corridor.median_curve, geometric_resolution)
+        boundary_curves[0].join(corridor.boundary_curves[0], geometric_resolution)
+        boundary_curves[1].join(corridor.boundary_curves[1], geometric_resolution)
+    end
 end
 
 Typelib.specialize '/corridors/Plan_m' do
@@ -66,38 +72,23 @@ Typelib.specialize '/corridors/Plan_m' do
 
     # Create a new Corridor object that represents the corridor path +path+
     def path_to_corridor(path)
-        median, *boundaries = (1..3).map { Types::Base::Geometry::Spline3.new(3) }
-
-        # puts median.kind
-        # puts boundaries.map(&:kind).joi(", ")
+        result = self.class.corridors.deference.new
+        result.zero!
+        result.median_curve = Types::Base::Geometry::Spline3.new
+        result.boundary_curves[0] = Types::Base::Geometry::Spline3.new
+        result.boundary_curves[1] = Types::Base::Geometry::Spline3.new
 
         path.each do |idx, side|
             corridor = corridors[idx]
-
             if side == :BACK_SIDE
                 corridor = corridor.dup
                 corridor.reverse
             end
 
-            median.join(corridor.median_curve, 0.1)
-            2.times do |i|
-                boundaries[i].join(corridor.boundary_curves[i])
-            end
-            # puts "added corridor #{idx}"
-            # puts "  " + corridor.median_curve.start_point.inspect
-            # puts "  " + corridor.median_curve.end_point.inspect
-            # puts "-- boundary[0]"
-            # puts "  " + corridor.boundary_curves[0].start_point.inspect
-            # puts "  " + corridor.boundary_curves[0].end_point.inspect
-            # puts "-- boundary[1]"
-            # puts "  " + corridor.boundary_curves[1].start_point.inspect
-            # puts "  " + corridor.boundary_curves[1].end_point.inspect
+            result.join(corridor, 0.1)
         end
 
-        corridor = self.class.corridors.deference.new
-        corridor.median_curve = median
-        corridor.boundary_curves = boundaries
-        corridor
+        result
     end
 
     CORRIDOR_RECORD_NAMES = { :FRONT_SIDE => 0, :BACK_SIDE => 1 }
