@@ -844,13 +844,27 @@ void Corridor::updateCurves(double discount_factor)
     }
 
     // Check if we must swap boundaries[0] and boundaries[1]
-    // Get the tangent at 0
-    base::Vector3d median_start, median_tangent;
-    tie(median_start, median_tangent) =
-        median_curve.getPointAndTangent(median_curve.getStartParam());
-    base::Vector3d boundary0 =
-        boundary_curves[0].getPoint(boundary_curves[0].getStartParam()) - median_start;
-    if (boundary0.cross(median_tangent).z() < 0)
+    //
+    // First get a general corridor direction
+    base::Vector3d median_p, median_t;
+    base::Vector3d boundaries_p[2], boundaries_t[2];
+    tie(median_p, median_t) = median_curve.getPointAndTangent(median_curve.getStartParam());
+    for (int i = 0; i < 2; ++i)
+        tie(boundaries_p[i], boundaries_t[i]) = boundary_curves[i].getPointAndTangent(boundary_curves[i].getStartParam());
+
+    // NOTE: singletons return a zero tangent, so we can do that (we are only
+    // interested in the cross product sign later on). I.e. we don't need to
+    // take the mean
+    base::Vector3d corridor_dir = median_t;
+    if (median_curve.isSingleton())
+    {
+        if (boundary_curves[0].isSingleton())
+            corridor_dir = boundaries_t[1];
+        else
+            corridor_dir = boundaries_t[0];
+    }
+
+    if ((boundaries_p[0] - median_p).cross(corridor_dir).z() < 0)
         std::swap(boundary_curves[0], boundary_curves[1]);
 
     updateWidthCurve();
