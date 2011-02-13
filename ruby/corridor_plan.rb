@@ -10,9 +10,29 @@ Typelib.specialize '/corridors/Corridor_m' do
     end
 
     def join(corridor, geometric_resolution = 0.1)
-        median_curve.join(corridor.median_curve, geometric_resolution)
-        boundary_curves[0].join(corridor.boundary_curves[0], geometric_resolution)
-        boundary_curves[1].join(corridor.boundary_curves[1], geometric_resolution)
+        # The width curve is a bit special. The constraint is that its
+        # parametrization must match the parametrization of the median curve.
+        #
+        # We must join it ourselves, to maintain the constraint ...
+        current_end = median_curve.end_param
+        new_curve_length = (corridor.median_curve.end_param - corridor.median_curve.start_param)
+        median_curve.join(corridor.median_curve, geometric_resolution, false)
+
+        interpolator_length = median_curve.end_param - (current_end + new_curve_length)
+        if interpolator_length == 0  # just did append()
+            width_curve.append(corridor.width_curve)
+        else
+            # Must create an interpolation segment (a segment is a good
+            # approximation as we join all curves with segments)
+            interpolator = Types::Base::Geometry::Spline.interpolate(
+                 [width_curve.get(width_curve.end_param), corridor.width_curve.get(corridor.width_curve.start_param)],
+                 [0, interpolator_length])
+            width_curve.append(interpolator)
+            width_curve.append(corridor.width_curve)
+        end
+
+        boundary_curves[0].join(corridor.boundary_curves[0], geometric_resolution, false)
+        boundary_curves[1].join(corridor.boundary_curves[1], geometric_resolution, false)
     end
 end
 
