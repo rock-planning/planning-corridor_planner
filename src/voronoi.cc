@@ -877,8 +877,8 @@ void Corridor::updateWidthCurve()
     typedef base::geometry::Spline<1>::vector_t point_t;
     std::vector<point_t> width_points;
     std::vector<double> parameters;
-    float delta = (median_curve.getEndParam() - median_curve.getStartParam()) / voronoi.size();
-    for (float t = median_curve.getStartParam();
+    double delta = (median_curve.getEndParam() - median_curve.getStartParam()) / voronoi.size();
+    for (double t = median_curve.getStartParam();
             t < median_curve.getEndParam(); t += delta)
     {
         base::Vector3d p = median_curve.getPoint(t);
