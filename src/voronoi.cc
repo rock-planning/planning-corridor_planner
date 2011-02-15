@@ -867,6 +867,84 @@ void Corridor::updateCurves(double discount_factor)
     if ((boundaries_p[0] - median_p).cross(corridor_dir).z() < 0)
         std::swap(boundary_curves[0], boundary_curves[1]);
 
+    // Finally, "cut" the median curve at corridor boundaries. Otherwise,
+    // joining corridors to make a path is going to be tricky, as all median
+    // curves would go to the center of the crossroads.
+    if (!median_curve.isSingleton())
+    {
+        double cut_start_t = median_curve.getStartParam(), cut_end_t = median_curve.getEndParam();
+        bool has_cut_start = false, has_cut_end = false;
+
+        base::Vector3d boundary_startp[2], boundary_endp[2];
+        for (int i = 0; i < 2; ++i)
+        {
+            boundary_startp[i] = boundary_curves[i].getPoint(boundary_curves[i].getStartParam());
+            boundary_endp[i]   = boundary_curves[i].getPoint(boundary_curves[i].getEndParam());
+        }
+
+        std::vector<double> points;
+        std::vector< std::pair<double, double> > curves;
+        {
+            base::Vector3d normal = base::Vector3d::UnitZ().cross(boundary_startp[1] - boundary_startp[0]);
+            median_curve.findLineIntersections(boundary_startp[0], normal, points, curves, 0.01);
+            double min_t = median_curve.getEndParam();
+            has_cut_start = false;
+            if (points.empty() && curves.empty())
+                min_t = median_curve.getStartParam();
+            else
+            {
+                if (!points.empty())
+                    min_t = std::min(min_t, *min_element(points.begin(), points.end()));
+                if (!curves.empty())
+                    min_t = std::min(min_t, min_element(curves.begin(), curves.end())->first);
+
+                base::Vector3d p = median_curve.getPoint(min_t);
+                if ((boundary_startp[0] - p).dot(boundary_startp[1] - p) < 0)
+                {
+                    has_cut_start = true;
+                    cut_start_t = min_t;
+                }
+            }
+        }
+
+        points.clear(); curves.clear();
+        {
+            base::Vector3d normal = base::Vector3d::UnitZ().cross(boundary_endp[1] - boundary_endp[0]);
+            median_curve.findLineIntersections(boundary_endp[0], normal, points, curves, 0.01);
+            double max_t = median_curve.getStartParam();
+
+            has_cut_end = false;
+            if (points.empty() && curves.empty())
+                max_t = median_curve.getEndParam();
+            else
+            {
+                if (!points.empty())
+                    max_t = std::max(max_t, *max_element(points.begin(), points.end()));
+                if (!curves.empty())
+                    max_t = std::max(max_t, max_element(curves.begin(), curves.end())->second);
+
+                base::Vector3d p = median_curve.getPoint(max_t);
+                if ((boundary_endp[0] - p).dot(boundary_endp[1] - p) < 0)
+                {
+                    has_cut_end = true;
+                    cut_end_t = max_t;
+                }
+            }
+        }
+
+        if (!has_cut_start && !has_cut_end)
+        {
+            // The median curve is OUTSIDE the corridor (it is possible for very
+            // small corridors in complicated areas). Reduce it to a line
+            // between the centers of the in and out segments
+            vector<base::Vector3d> line;
+            line.push_back((boundary_startp[0] + boundary_startp[1]) / 2);
+            line.push_back((boundary_endp[0] + boundary_endp[1]) / 2);
+            median_curve.interpolate(line);
+        }
+        else
+            median_curve.crop(cut_start_t, cut_end_t);
+    }
     updateWidthCurve();
 }
 
