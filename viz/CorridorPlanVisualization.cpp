@@ -26,6 +26,9 @@ struct CorridorPlanVisualization::Data
 CorridorPlanVisualization::CorridorPlanVisualization()
     : p(new Data())
 {
+    VizPluginRubyAdapter(CorridorPlanVisualization, corridors::Plan, Plan);
+    VizPluginRubyAdapter(CorridorPlanVisualization, corridors::Corridor, Corridor);
+    VizPluginRubyConfig(CorridorPlanVisualization, double, setAlpha);
 }
 
 CorridorPlanVisualization::~CorridorPlanVisualization()

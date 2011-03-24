@@ -46,5 +46,7 @@ namespace vizkit
         struct Data;
         Data* p;
     };
+
+    VizkitQtPlugin(CorridorPlanVisualization);
 }
 #endif
