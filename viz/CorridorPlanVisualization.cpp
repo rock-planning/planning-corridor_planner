@@ -229,3 +229,5 @@ void CorridorPlanVisualization::updateDataIntern(corridors::Corridor const& sele
     p->selected_corridor = selected_corridor;
 }
 
+VizkitQtPlugin(CorridorPlanVisualization);
+
