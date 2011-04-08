@@ -10,6 +10,7 @@
 
     <rosdep name="gdal" />
     <depend package="base/types" />
+    <depend package="slam/envire" />
     <depend package="external/sisl" />
     <depend package="gui/vizkit" optional="1"/>
 </package>

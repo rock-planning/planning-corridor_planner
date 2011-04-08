@@ -1,0 +1,227 @@
+#include "traversability_classifier.hh"
+
+using namespace corridor_planner;
+using envire::Grid;
+
+ENVIRONMENT_ITEM_DEF( TraversabilityClassifier );
+
+TraversabilityClassifier::TraversabilityClassifier(
+        double weight_force,
+        double force_threshold,
+        double max_speed,
+        int class_count,
+        double ground_clearance)
+    : weight_force(weight_force)
+    , force_threshold(force_threshold)
+    , max_speed(max_speed)
+    , class_count(class_count)
+    , ground_clearance(ground_clearance)
+{
+    for (int i = 0; i < INPUT_COUNT; ++i)
+        input_layers_id[i] = -1;
+}
+
+TraversabilityClassifier::TraversabilityClassifier(envire::Serialization& so)
+    : envire::Operator(so)
+{
+    unserialize(so);
+}
+
+void TraversabilityClassifier::serialize(envire::Serialization& so)
+{
+    Operator::serialize(so);
+
+    for (int i = 0; i < INPUT_COUNT; ++i)
+    {
+        if (input_layers_id[i] != -1 && !input_bands[i].empty())
+        {
+            so.write("input" + boost::lexical_cast<std::string>(i), input_layers_id[i]);
+            so.write("input" + boost::lexical_cast<std::string>(i) + "_band", input_bands[i]);
+        }
+    }
+
+    so.write("weight_force", weight_force);
+    so.write("force_threshold", force_threshold);
+    so.write("max_speed", max_speed);
+    so.write("class_count", class_count);
+    so.write("ground_clearance", ground_clearance);
+    so.write("output_band", output_band);
+}
+
+void TraversabilityClassifier::unserialize(envire::Serialization& so)
+{
+    for (int i = 0; i < INPUT_COUNT; ++i)
+    {
+        std::string input_key = "input" + boost::lexical_cast<std::string>(i);
+        if (so.hasKey(input_key))
+        {
+            input_layers_id[i] = so.read<int>(input_key);
+            input_bands[i] = so.read<std::string>(input_key + "_band");
+        }
+    }
+
+    so.read<double>("weight_force", weight_force);
+    so.read<double>("force_threshold", force_threshold);
+    so.read<double>("max_speed", max_speed);
+    so.read<int>("class_count", class_count);
+    so.read<double>("ground_clearance", ground_clearance);
+    so.read<std::string>("output_band", output_band);
+}
+
+envire::Grid<double>* TraversabilityClassifier::getInputLayer(INPUT_DATA index) const
+{
+    if (input_layers_id[index] == -1)
+        return 0;
+    return getEnvironment()->getItem< Grid<double> >(input_layers_id[index]).get();
+}
+std::string TraversabilityClassifier::getInputBand(INPUT_DATA index) const
+{ return input_bands[index]; }
+
+envire::Grid<double>* TraversabilityClassifier::getSlopeLayer() const { return getInputLayer(SLOPE); }
+std::string TraversabilityClassifier::getSlopeBand() const { return getInputBand(SLOPE); }
+void TraversabilityClassifier::setSlope(Grid<double>* grid, std::string const& band_name)
+{
+    addInput(grid);
+    input_layers_id[SLOPE] = grid->getUniqueId();
+    input_bands[SLOPE] = band_name;
+
+}
+
+envire::Grid<double>* TraversabilityClassifier::getMaxStepLayer() const { return getInputLayer(MAX_STEP); }
+std::string TraversabilityClassifier::getMaxStepBand() const { return getInputBand(MAX_STEP); }
+void TraversabilityClassifier::setMaxStep(Grid<double>* grid, std::string const& band_name)
+{
+    addInput(grid);
+    input_layers_id[MAX_STEP] = grid->getUniqueId();
+    input_bands[MAX_STEP] = band_name;
+}
+
+envire::Grid<double>* TraversabilityClassifier::getMaxForceLayer() const { return getInputLayer(MAX_FORCE); }
+std::string TraversabilityClassifier::getMaxForceBand() const { return getInputBand(MAX_FORCE); }
+void TraversabilityClassifier::setMaxForce(Grid<double>* grid, std::string const& band_name)
+{
+    addInput(grid);
+    input_layers_id[MAX_FORCE] = grid->getUniqueId();
+    input_bands[MAX_FORCE] = band_name;
+}
+
+void TraversabilityClassifier::setOutput(OutputLayer* grid, std::string const& band_name)
+{
+    removeOutputs();
+    addOutput(grid);
+    output_band = band_name;
+}
+
+bool TraversabilityClassifier::updateAll()
+{
+    std::cout << "update: max_speed=" << max_speed << std::endl;
+    OutputLayer* output_layer = getOutput< OutputLayer* >();
+    if (!output_layer)
+        throw std::runtime_error("TraversabilityClassifier: no output band set");
+
+    OutputLayer::ArrayType& result = output_band.empty() ?
+        output_layer->getGridData() :
+        output_layer->getGridData(output_band);
+
+    if (output_band.empty())
+        output_layer->setNoData(CLASS_UNKNOWN);
+    else
+        output_layer->setNoData(output_band, CLASS_UNKNOWN);
+
+    static double const DEFAULT_UNKNOWN_INPUT = -std::numeric_limits<double>::infinity();
+    Grid<double> const* input_layers[3] = { 0, 0, 0 };
+    double input_unknown[3];
+
+    boost::multi_array<double, 2> const* inputs[3] = { 0, 0, 0 };
+    bool has_data = false;
+    for (int i = 0; i < INPUT_COUNT; ++i)
+    {
+        if (input_layers_id[i] != -1 && !input_bands[i].empty())
+        {
+            input_layers[i] = getEnvironment()->getItem< Grid<double> >(input_layers_id[i]).get();
+            has_data = true;
+            inputs[i] = &(input_layers[i]->getGridData(input_bands[i]));
+
+            std::pair<double, bool> no_data = input_layers[i]->getNoData(input_bands[i]);
+            if (no_data.second)
+            {
+                std::cout << "band " << i << " no_data=" << no_data.first << std::endl;
+                input_unknown[i] = no_data.first;
+            }
+            else
+                input_unknown[i] = DEFAULT_UNKNOWN_INPUT;
+        }
+    }
+    if (!has_data)
+        throw std::runtime_error("TraversabilityClassifier: no input layer configured");
+
+    bool const has_slope = inputs[SLOPE],
+         has_max_step = inputs[MAX_STEP],
+         has_max_force = inputs[MAX_FORCE];
+    if (has_max_step && ground_clearance == 0)
+        throw std::runtime_error("a max_step band is available, but the ground clearance is set to zero");
+
+    double const class_width = 1.0 / class_count;
+    int const output_klass_scale = (255 - CUSTOM_CLASSES) / class_count;
+                
+    int width = output_layer->getWidth(), height = output_layer->getHeight();
+    for (int y = 0; y < height; ++y)
+    {
+        for (int x = 0; x < width; ++x)
+        {
+            // Read the values for this cell. Set to CLASS_UNKNOWN and ignore the cell
+            // if one of the available input bands has no information
+            double values[INPUT_COUNT];
+            int band_idx = 0;
+            for (; band_idx < INPUT_COUNT; ++band_idx)
+            {
+                if (!inputs[band_idx]) continue;
+
+                double value = (*inputs[band_idx])[y][x];
+                if (value == input_unknown[band_idx])
+                {
+                    result[y][x] = CLASS_UNKNOWN;
+                    break;
+                }
+                values[band_idx] = value;
+            }
+            if (band_idx != INPUT_COUNT) // found an unknown value
+                continue;
+
+            // First, max_step is an ON/OFF threshold on the ground clearance
+            // parameter
+            if (has_max_step && values[MAX_STEP] > ground_clearance)
+            {
+                result[y][x] = CLASS_OBSTACLE;
+                continue;
+            }
+
+            // Compute an estimate of the force that the system can use to
+            // propulse itself, using the max_force / slope values (and using
+            // the maximum values if none are available)
+            //
+            // The result is then a linear mapping of F=[O, force_threshold] to
+            // [0, 1]
+            double max_force = force_threshold;
+            double speed = 1;
+            if (has_max_force)
+                max_force = values[MAX_FORCE];
+            if (has_slope)
+                max_force = max_force - weight_force * fabs(sin(values[SLOPE]));
+
+            if (max_force <= 0)
+                result[y][x] = CLASS_OBSTACLE;
+            else
+            {
+                if (max_force < force_threshold)
+                    speed *= max_force / force_threshold;
+
+                int klass = rint(speed / class_width);
+                result[y][x] = CUSTOM_CLASSES + klass;
+            }
+        }
+    }
+    std::cout << "end update: max_speed=" << max_speed << std::endl;
+    return true;
+}
+
