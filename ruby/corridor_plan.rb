@@ -92,7 +92,7 @@ Typelib.specialize '/corridors/Plan_m' do
 
     # Create a new Corridor object that represents the corridor path +path+
     def path_to_corridor(path)
-        result = self.class.corridors.deference.new
+        result = self.class['corridors'].deference.new
         result.zero!
         result.width_curve  = Types::Base::Geometry::Spline.new(1)
         result.median_curve = Types::Base::Geometry::Spline3.new
