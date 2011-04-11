@@ -130,4 +130,13 @@ Typelib.specialize '/corridors/Plan_m' do
         result << "};"
         result.join("\n")
     end
+
+    def pretty_print(pp)
+        pp.text "start: #{start_corridor}"
+        pp.breakable
+        pp.text "target: #{end_corridor}"
+        pp.breakable
+        connections.pretty_print(pp)
+    end
 end
+
