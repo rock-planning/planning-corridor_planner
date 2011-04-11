@@ -4,9 +4,10 @@
 #include <osg/Geometry>
 #include <osg/Geode>
 
-#include <envire/maps/Grids.hpp>
+#include <envire/maps/MLSGrid.hpp>
 
 using namespace vizkit;
+using envire::MLSGrid;
 
 struct CorridorPlanVisualization::Data
 {
@@ -14,13 +15,14 @@ struct CorridorPlanVisualization::Data
     corridors::Corridor selected_corridor;
     bool has_corridor;
 
-    envire::ElevationGrid const* grid;
+    envire::Environment* environment;
+    envire::MLSGrid::Ptr mls;
     double offset;
     std::vector<osg::Vec4> colors;
     double alpha;
 
     Data()
-        : has_corridor(true), grid(0), offset(0.0), alpha(0.5) {}
+        : has_corridor(true), environment(0), offset(0.1), alpha(0.5) {}
 };
 
 CorridorPlanVisualization::CorridorPlanVisualization()
@@ -29,22 +31,41 @@ CorridorPlanVisualization::CorridorPlanVisualization()
     VizPluginRubyAdapter(CorridorPlanVisualization, corridors::Plan, Plan);
     VizPluginRubyAdapter(CorridorPlanVisualization, corridors::Corridor, Corridor);
     VizPluginRubyConfig(CorridorPlanVisualization, double, setAlpha);
+    VizPluginRubyConfig(CorridorPlanVisualization, double, setZOffset);
+    VizPluginRubyConfig(CorridorPlanVisualization, std::string, setMLS);
 }
 
 CorridorPlanVisualization::~CorridorPlanVisualization()
 { delete p; }
 
-void CorridorPlanVisualization::setElevationGrid(envire::ElevationGrid const* heights, double offset)
+void CorridorPlanVisualization::setMLS(std::string const& path)
 { boost::mutex::scoped_lock lockit(this->updateMutex);
-    p->grid   = heights;
+    if (p->environment)
+        delete p->environment;
+    p->environment = envire::Environment::unserialize(path);
+    p->mls   = p->environment->getItem<envire::MLSGrid>();
+    std::cout << "loaded MLS from " << path << std::endl;
+    setDirty();
+}
+
+void CorridorPlanVisualization::setZOffset(double offset)
+{ boost::mutex::scoped_lock lockit(this->updateMutex);
     p->offset = offset;
     setDirty();
 }
 
 double CorridorPlanVisualization::getElevation(Eigen::Vector3d const& point) const
 {
-    if (p->grid)
-        return p->grid->get(point.x(), point.y()) + p->offset;
+    if (p->mls)
+    {
+        size_t m, n;
+        p->mls->toGrid(point, m, n, p->environment->getRootNode());
+        MLSGrid::const_iterator it = std::max_element(p->mls->beginCell(m, n), p->mls->endCell());
+        if (it != p->mls->endCell())
+            return it->mean;
+        else
+            return 0;
+    }
     else
         return 0;
 }
@@ -76,7 +97,8 @@ void CorridorPlanVisualization::createCurveNode(osg::Geode* geode, base::geometr
             last_z = z;
         }
 
-        points->push_back(osg::Vec3(p.x(), p.y(), p.z()));
+        std::cout << p.x() << " " << p.y() << std::endl;
+        points->push_back(osg::Vec3(p.x(), p.y(), z));
     }
 
     osg::DrawArrays* painter =
@@ -200,15 +222,15 @@ void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
     for (int i = 0; i < corridor_count; ++i)
     {
         corridors::Corridor& c = p->plan.corridors[i];
-        createCorridorNode(geode, c, getColor(i), 0);
+        createCorridorNode(geode, c, getColor(i), p->offset);
     }
 
     // If we have a selected corridor, also display it
     if (p->has_corridor)
     {
-        createCurveNode(geode, p->selected_corridor.median_curve, osg::Vec4(1.0, 1.0, 1.0, 1.0), 0.5);
-        createCurveNode(geode, p->selected_corridor.boundary_curves[0], osg::Vec4(0.75, 0.5, 0.25, 1.0), 0.5);
-        createCurveNode(geode, p->selected_corridor.boundary_curves[1], osg::Vec4(0.25, 0.5, 0.75, 1.0), 0.5);
+        createCurveNode(geode, p->selected_corridor.median_curve, osg::Vec4(1.0, 1.0, 1.0, 1.0), p->offset + 0.5);
+        createCurveNode(geode, p->selected_corridor.boundary_curves[0], osg::Vec4(0.75, 0.5, 0.25, 1.0), p->offset + 0.5);
+        createCurveNode(geode, p->selected_corridor.boundary_curves[1], osg::Vec4(0.25, 0.5, 0.75, 1.0), p->offset + 0.5);
     }
 }
 

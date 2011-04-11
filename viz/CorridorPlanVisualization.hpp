@@ -30,7 +30,8 @@ namespace vizkit
         osg::Vec4 getColor(int i) const;
 
         void setAlpha(double value);
-        void setElevationGrid(envire::ElevationGrid const* heights, double offset);
+        void setMLS(std::string const& path);
+        void setZOffset(double value);
         
     protected:
         virtual osg::ref_ptr<osg::Node> createMainNode();
