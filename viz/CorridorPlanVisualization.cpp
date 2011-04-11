@@ -97,7 +97,6 @@ void CorridorPlanVisualization::createCurveNode(osg::Geode* geode, base::geometr
             last_z = z;
         }
 
-        std::cout << p.x() << " " << p.y() << std::endl;
         points->push_back(osg::Vec3(p.x(), p.y(), z));
     }
 
