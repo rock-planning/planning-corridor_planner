@@ -12,8 +12,8 @@ using envire::MLSGrid;
 struct CorridorPlanVisualization::Data
 {
     corridors::Plan plan;
-    corridors::Corridor selected_corridor;
-    bool has_corridor;
+    typedef std::list<corridors::Corridor> Corridors;
+    Corridors corridors;
 
     envire::Environment* environment;
     envire::MLSGrid::Ptr mls;
@@ -22,17 +22,18 @@ struct CorridorPlanVisualization::Data
     double alpha;
 
     Data()
-        : has_corridor(true), environment(0), offset(0.1), alpha(0.5) {}
+        : environment(0), offset(0.1), alpha(0.5) {}
 };
 
 CorridorPlanVisualization::CorridorPlanVisualization()
     : p(new Data())
 {
     VizPluginRubyAdapter(CorridorPlanVisualization, corridors::Plan, Plan);
-    VizPluginRubyAdapter(CorridorPlanVisualization, corridors::Corridor, Corridor);
     VizPluginRubyConfig(CorridorPlanVisualization, double, setAlpha);
     VizPluginRubyConfig(CorridorPlanVisualization, double, setZOffset);
     VizPluginRubyConfig(CorridorPlanVisualization, std::string, setMLS);
+    VizPluginRubyConfig(CorridorPlanVisualization, corridors::Corridor, displayCorridor);
+    VizPluginRubyConfig(CorridorPlanVisualization, double, clearCorridors);
 }
 
 CorridorPlanVisualization::~CorridorPlanVisualization()
@@ -225,11 +226,11 @@ void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
     }
 
     // If we have a selected corridor, also display it
-    if (p->has_corridor)
+    for (CorridorPlanVisualization::Data::Corridors::iterator it = p->corridors.begin(); it != p->corridors.end(); ++it)
     {
-        createCurveNode(geode, p->selected_corridor.median_curve, osg::Vec4(1.0, 1.0, 1.0, 1.0), p->offset + 0.5);
-        createCurveNode(geode, p->selected_corridor.boundary_curves[0], osg::Vec4(0.75, 0.5, 0.25, 1.0), p->offset + 0.5);
-        createCurveNode(geode, p->selected_corridor.boundary_curves[1], osg::Vec4(0.25, 0.5, 0.75, 1.0), p->offset + 0.5);
+        createCurveNode(geode, it->median_curve, osg::Vec4(1.0, 1.0, 1.0, 1.0), p->offset + 0.5);
+        createCurveNode(geode, it->boundary_curves[0], osg::Vec4(0.75, 0.5, 0.25, 1.0), p->offset + 0.5);
+        createCurveNode(geode, it->boundary_curves[1], osg::Vec4(0.25, 0.5, 0.75, 1.0), p->offset + 0.5);
     }
 }
 
@@ -244,10 +245,16 @@ void CorridorPlanVisualization::updateDataIntern(corridors::Plan const& plan)
     p->plan = plan;
 }
 
-void CorridorPlanVisualization::updateDataIntern(corridors::Corridor const& selected_corridor)
-{
-    p->has_corridor = true;
-    p->selected_corridor = selected_corridor;
+void CorridorPlanVisualization::clearCorridors(double)
+{ boost::mutex::scoped_lock lockit(this->updateMutex);
+    p->corridors.clear();
+    setDirty();
+}
+
+void CorridorPlanVisualization::displayCorridor(corridors::Corridor const& selected_corridor)
+{ boost::mutex::scoped_lock lockit(this->updateMutex);
+    p->corridors.push_back(selected_corridor);
+    setDirty();
 }
 
 VizkitQtPlugin(CorridorPlanVisualization);

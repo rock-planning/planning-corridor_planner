@@ -18,7 +18,6 @@ namespace vizkit
 {
     class CorridorPlanVisualization
         : public vizkit::VizPlugin<corridors::Plan>
-	, public vizkit::VizPluginAddType<corridors::Corridor>
         , boost::noncopyable
     {
     public:
@@ -32,12 +31,13 @@ namespace vizkit
         void setAlpha(double value);
         void setMLS(std::string const& path);
         void setZOffset(double value);
+        void displayCorridor(corridors::Corridor const& selected_corridor);
+        void clearCorridors(double);
         
     protected:
         virtual osg::ref_ptr<osg::Node> createMainNode();
         virtual void updateMainNode(osg::Node* node);
         virtual void updateDataIntern(corridors::Plan const& plan);
-        virtual void updateDataIntern(corridors::Corridor const& selected_corridor);
         
     private:
         double getElevation(Eigen::Vector3d const& point) const;
