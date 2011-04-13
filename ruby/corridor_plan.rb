@@ -136,6 +136,11 @@ Typelib.specialize '/corridors/Plan_m' do
         pp.breakable
         pp.text "target: #{end_corridor}"
         pp.breakable
+        corridors.each_with_index do |c, i|
+            pp.text "#{i}: width=[#{c.min_width}, #{c.max_width}]"
+            pp.breakable
+        end
+
         connections.pretty_print(pp)
     end
 end
