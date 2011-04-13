@@ -166,7 +166,6 @@ bool TraversabilityClassifier::updateAll()
         throw std::runtime_error("a max_step band is available, but the ground clearance is set to zero");
 
     double const class_width = 1.0 / class_count;
-    int const output_klass_scale = (255 - CUSTOM_CLASSES) / class_count;
                 
     int width = output_layer->getWidth(), height = output_layer->getHeight();
     for (int y = 0; y < height; ++y)
