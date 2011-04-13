@@ -26,4 +26,8 @@ rock_executable(make_traversability make_traversability.cc
     DEPS corridor_planner
     DEPS_PKGCONFIG base-types)
 
+rock_executable(make_band_from_classes make_band_from_classes.cc
+    DEPS corridor_planner
+    DEPS_PKGCONFIG base-types)
+
 
