@@ -942,7 +942,10 @@ void Corridor::updateCurves(double discount_factor)
             vector<base::Vector3d> line;
             line.push_back((boundary_startp[0] + boundary_startp[1]) / 2);
             line.push_back((boundary_endp[0] + boundary_endp[1]) / 2);
-            median_curve.interpolate(line);
+            if (line.front() == line.back())
+                median_curve.setSingleton(line.front());
+            else
+                median_curve.interpolate(line);
         }
         else
             median_curve.crop(cut_start_t, cut_end_t);
