@@ -6,8 +6,11 @@
 #include <stdexcept>
 #include <boost/lexical_cast.hpp>
 #include <boost/tuple/tuple_comparison.hpp>
+#include <boost/bind.hpp>
+#include <boost/function.hpp>
 #include <iterator>
 #include "skeleton.hh"
+#include <queue>
 
 // #include <CGAL/Cartesian.h>
 // #include <CGAL/convex_hull_2.h>
@@ -55,10 +58,45 @@ Corridor& Plan::newCorridor()
 
 void Plan::removeCorridor(int idx)
 {
-    for (size_t i = idx + 1; i < corridors.size(); ++i)
-        corridors[i].swap(corridors[i - 1]);
+    std::vector<bool> single_removal(corridors.size(), false);
+    single_removal[idx] = true;
+    removeCorridors(single_removal);
+}
 
-    corridors.resize(corridors.size() - 1);
+void Plan::removeCorridors(set<int> const& to_remove)
+{
+    std::vector<bool> removal(corridors.size(), false);
+    for (std::set<int>::const_iterator it = to_remove.begin(); it != to_remove.end(); ++it)
+        removal[*it] = true;
+
+    removeCorridors(removal);
+}
+
+void Plan::removeCorridors(vector<bool> const& to_remove)
+{
+    std::vector<int> offsets(to_remove.size(), 0);
+    size_t dst = 0;
+
+    // First, remove the corridor from the vector
+    //
+    // To avoid too much memory allocation and copying, we use swap() to "move"
+    // the removed corridors at the end and resize the corridors vector
+    for (size_t src = 0; src < to_remove.size(); ++src)
+    {
+        if (!to_remove[src])
+        {
+            offsets[src] = (dst - src);
+            if (dst != src)
+                corridors[dst].swap(corridors[src]);
+            ++dst;
+        }
+    }
+    corridors.resize(dst);
+
+    // Update the corridors
+    //
+    // This uses a vector of offsets that store how each non-removed corridor
+    // moved during the first pass
     for (corridor_iterator corridor = corridors.begin(); corridor != corridors.end(); ++corridor)
     {
         Corridor::Connections& connections = corridor->connections;
@@ -66,23 +104,15 @@ void Plan::removeCorridor(int idx)
         while (it != connections.end())
         {
             int const target_idx = it->target_idx;
-            if (target_idx == idx)
+            if (to_remove[target_idx])
                 connections.erase(it++);
             else
             {
-                if (target_idx > idx)
-                    it->target_idx--;
-
+                it->target_idx += offsets[it->target_idx];
                 ++it;
             }
         }
     }
-}
-
-void Plan::removeCorridors(set<int> const& to_remove)
-{
-    for_each(to_remove.rbegin(), to_remove.rend(),
-            bind(&Plan::removeCorridor, this, _1));
 }
 
 void Plan::concat(Plan const& other)
@@ -281,34 +311,47 @@ void Plan::simplify(double margin_factor, int min_width)
     DEBUG_OUT("checking consistency before simplification");
     checkConsistency();
 
+    removeNullCorridors();
     removeBackToBackConnections(margin_factor);
-    removeDeadEnds();
+    removeUselessCorridorConnections();
+
+    std::vector<bool> to_remove(corridors.size(), false);
+    std::vector<Path> all_paths;
+    computeAllPaths(all_paths);
+    filterDeadEndPaths(all_paths);
+    removeNarrowCorridors(all_paths, min_width, to_remove);
+    markDeadCorridors(all_paths, to_remove);
+    removeCorridors(to_remove);
+
     mergeSimpleCrossroads_directed();
 
-    for (int pass = 0; pass < 2; ++pass)
-    {
-        bool did_something = true;
-        while (did_something)
-        {
-            unsigned long last_count = corridors.size();
-            removeUselessCorridorConnections();
-            removeDeadEnds();
-            mergeSimpleCrossroads_directed();
-            did_something = (last_count != corridors.size());
-        }
+    // for (int pass = 0; pass < 2; ++pass)
+    // {
+    //     bool did_something = true;
+    //     while (did_something)
+    //     {
+    //         unsigned long last_count = corridors.size();
+    //         removeUselessCorridorConnections();
+    //         removeDeadEnds();
+    //         mergeSimpleCrossroads_directed();
+    //         did_something = (last_count != corridors.size());
+    //     }
 
-        if (min_width == 0)
-            break;
+    //     if (min_width == 0)
+    //         break;
 
-        std::set<int> to_delete;
-        for (unsigned long i = 0; i < corridors.size(); ++i)
-        {
-            Corridor& c = corridors[i];
-            if (!c.isSingleton() && c.min_width < min_width)
-                to_delete.insert(i);
-        }
-        removeCorridors(to_delete);
-    }
+    //     std::set<int> to_delete;
+    //     for (unsigned long i = 0; i < corridors.size(); ++i)
+    //     {
+    //         Corridor& c = corridors[i];
+    //         if (!c.isSingleton() && c.min_width < min_width)
+    //         {
+    //             std::cout << "removing corridor " << i << ": min_width=" << c.min_width << std::endl;
+    //             to_delete.insert(i);
+    //         }
+    //     }
+    //     removeCorridors(to_delete);
+    // }
 
     for (size_t i = 0; i < corridors.size(); ++i)
         corridors[i].update();
@@ -316,74 +359,144 @@ void Plan::simplify(double margin_factor, int min_width)
     checkConsistency();
 }
 
-bool Plan::removeDeadEnds()
+void Plan::computeAllPaths(std::vector<Path>& all_paths) const
 {
-    DEBUG_OUT("removing dead ends");
+    Path current_path;
     int start_corridor = findStartCorridor();
-    int end_corridor   = findEndCorridor();
-    set<int> end_corridors;
-    end_corridors.insert(start_corridor);
-    end_corridors.insert(end_corridor);
-    return removeDeadEnds(end_corridors);
+    bool start_side = false;
+    std::vector<int> stack;
+    stack.resize(corridors.size(), 0);
+    computeAllPaths(all_paths, current_path, start_corridor, start_side, stack);
 }
 
-bool Plan::removeDeadEnds(set<int> keepalive)
+void Plan::computeAllPaths(std::vector<Path>& all_paths, Path& current_path, int next_path, int in_side, std::vector<int>& stack) const
 {
-    // Each tuple is
-    //  has_front_in_connection[0], has_front_out_connection[1], has_back_in_connection[2], has_back_out_connection[3], has_multiple_neighbours[4], last_neighbour[5]
-    typedef tuple<bool, bool, bool, bool, bool, int> DeadEndState;
-    vector<DeadEndState> states;
-    states.resize(corridors.size(), DeadEndState(false, false, false, false, false, -1));
+    current_path.push_back( std::make_pair(next_path, in_side) );
+    typedef Corridor::Connections Connections;
+    Connections const& connections = corridors[next_path].connections;
 
-    for (int corridor_idx = 0; corridor_idx < (int)corridors.size(); ++corridor_idx)
+    bool added = false;
+    for (Connections::const_iterator it = connections.begin(); it != connections.end(); ++it)
     {
-        DEBUG_OUT("corridor " << corridors[corridor_idx].name << ": ");
-        DeadEndState& this_state = states[corridor_idx];
-
-        Corridor::Connections const& connections = corridors[corridor_idx].connections;
-        for (Corridor::const_connection_iterator conn_it = connections.begin();
-                conn_it != connections.end(); ++conn_it)
-        {
-            DEBUG_OUT("   conn: " << conn_it->this_side << " " << corridors[conn_it->target_idx].name << " " << conn_it->target_side);
-            this_state.get<1>() |= !conn_it->this_side;
-            this_state.get<3>() |=  conn_it->this_side;
-            this_state.get<4>() |= (this_state.get<5>() != -1 && this_state.get<5>() != conn_it->target_idx);
-            this_state.get<5>() = conn_it->target_idx;
-            DEBUG_OUT("   state[" << corridors[corridor_idx].name << "]: " << this_state.get<0>() << " " << this_state.get<1>() << " " 
-                    << this_state.get<2>() << " " << this_state.get<3>() << " "
-                    << this_state.get<4>() << " " << corridors[this_state.get<5>()].name);
-
-            DeadEndState& target_state = states[conn_it->target_idx];
-            target_state.get<0>() |= !conn_it->target_side;
-            target_state.get<2>() |=  conn_it->target_side;
-            target_state.get<4>() |= (target_state.get<5>() != -1 && target_state.get<5>() != corridor_idx);
-            target_state.get<5>() = corridor_idx;
-            DEBUG_OUT("   state[" << corridors[conn_it->target_idx].name << "]: " << target_state.get<0>() << " " << target_state.get<1>() << " " 
-                    << target_state.get<2>() << " " << target_state.get<3>() << " "
-                    << target_state.get<4>() << " " << corridors[target_state.get<5>()].name);
-        }
-    }
-
-    for (int idx = states.size() - 1; idx >= 0; --idx)
-    {
-        if (keepalive.count(idx))
+        if (it->this_side == in_side)
             continue;
 
-        DeadEndState state = states[idx];
-        bool is_traversed = (state.get<0>() && state.get<3>()) || (state.get<1>() && state.get<2>());
-        // bool is_traversed = (state.get<0>() || state.get<1>()) || (state.get<2>() && state.get<3>());
-        if (!(is_traversed && state.get<4>()))
+        int target_idx = it->target_idx;
+        int target_side = it->target_side ? 1 : 0;
+        if (stack[target_idx] & (target_side + 1))
+            continue;
+
+        added = true;
+        stack[target_idx] |= (target_side + 1);
+        computeAllPaths(all_paths, current_path, target_idx, target_side, stack);
+    }
+
+    if (!added)
+        all_paths.push_back(current_path);
+
+    current_path.pop_back();
+}
+
+void Plan::filterDeadEndPaths(std::vector<Path>& all_paths) const
+{
+    int target_idx = findEndCorridor();
+    unsigned int dst = 0;
+    for (unsigned int src = 0; src < all_paths.size(); ++src)
+    {
+        if (all_paths[src].back().first == target_idx)
         {
-            DEBUG_OUT("corridor " << corridors[idx].name << " is a dead end");
-            removeCorridor(idx);
+            if (src != dst)
+                all_paths[dst] = all_paths[src];
+            ++dst;
         }
     }
-    if (corridors.size() != states.size()) // we have removed some corridors
+    all_paths.resize(dst);
+}
+
+void Plan::filterDeletedPaths(std::vector<Path>& all_paths, std::vector<bool> to_delete) const
+{
+    unsigned int dst = 0;
+    for (unsigned int src = 0; src < all_paths.size(); ++src)
     {
-        removeDeadEnds();
-        return true;
+        Path& path = all_paths[src];
+        unsigned int i = 0;
+        for (i = 0; i < path.size(); ++i)
+        {
+            if (to_delete[path[i].first])
+                break;
+        }
+        if (i == path.size())
+        {
+            if (src != dst)
+                all_paths[dst] = all_paths[src];
+            ++dst;
+        }
     }
-    return false;
+    all_paths.resize(dst);
+}
+
+static bool widerCorridorComparison(Plan const& plan, int a_idx, int b_idx)
+{
+    Corridor const& a = plan.corridors[a_idx];
+    Corridor const& b = plan.corridors[b_idx];
+    return a.min_width > b.min_width;
+}
+
+void Plan::removeNarrowCorridors(std::vector<Path>& all_paths, double min_width, std::vector<bool>& to_delete)
+{
+    std::priority_queue<int, std::vector<int>, boost::function<bool (int, int)> >
+        candidates(boost::bind(widerCorridorComparison, boost::ref(*this), _1, _2));
+    for (unsigned int corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
+    {
+        if (!to_delete[corridor_idx] && corridors[corridor_idx].min_width < min_width)
+            candidates.push(corridor_idx);
+    }
+
+    std::vector<unsigned int> corridor_use_count;
+    corridor_use_count.resize(corridors.size());
+    std::vector<bool> critical_paths;
+    critical_paths.resize(corridors.size());
+
+    while (!candidates.empty())
+    {
+        // Compute the use count for all corridors. In the process, remove paths
+        // that have deleted corridors
+        std::fill(corridor_use_count.begin(), corridor_use_count.end(), 0);
+        for (unsigned int path_idx = 0; path_idx < all_paths.size(); ++path_idx)
+        {
+            Path& path = all_paths[path_idx];
+            for (unsigned int i = 0; i < path.size(); ++i)
+                corridor_use_count[path[i].first]++;
+        }
+
+        for (unsigned int i = 0; i < corridors.size(); ++i)
+            critical_paths[i] = (corridor_use_count[i] == all_paths.size());
+
+        int corridor_idx = candidates.top();
+        candidates.pop();
+
+        if (to_delete[corridor_idx] || critical_paths[corridor_idx])
+            continue;
+
+        to_delete[corridor_idx] = true;
+        filterDeletedPaths(all_paths, to_delete);
+    }
+}
+
+void Plan::markDeadCorridors(std::vector<Path> const& all_paths, std::vector<bool>& to_delete) const
+{
+    // Mark all corridors that do lead to the target and update to_delete to
+    // remove the rest
+    std::vector<bool> useful_corridors;
+    useful_corridors.resize(corridors.size(), false);
+    for (unsigned int path_idx = 0; path_idx < all_paths.size(); ++path_idx)
+    {
+        Path const& path = all_paths[path_idx];
+        for (unsigned int i = 0; i < path.size(); ++i)
+            useful_corridors[path[i].first] = true;
+    }
+    for (unsigned int i = 0; i < corridors.size(); ++i)
+        to_delete[i] = to_delete[i] || !useful_corridors[i];
 }
 
 void Plan::removeNullCorridors()
@@ -478,8 +591,8 @@ bool Plan::markDirections_DFS(std::set< tuple<int, bool, int, bool> >& result,
             throw logic_error(corridor.name + " is supposed to be taken backwards, but dCost=" + lexical_cast<string>(dcost));
 
 	backwards = true;
-	accumulated_cost_overhead += dcost;
-	if (accumulated_cost_overhead > cost_margin)
+	// accumulated_cost_overhead += dcost;
+	if (true)
 	{
 	    DEBUG_OUT(indent << "reached cost margin, cannot traverse this corridor");
 	    indent.resize(indent.size() - 2);

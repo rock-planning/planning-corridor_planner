@@ -41,6 +41,8 @@ namespace corridor_planner
         void mergeSimpleCrossroads_directed();
 
     public:
+        typedef std::vector< std::pair<int, bool> > Path;
+
         Plan();
         Plan(PointID start, PointID end, GridGraph const& nav_function = GridGraph());
 
@@ -51,6 +53,8 @@ namespace corridor_planner
         void setStartPoint(PointID const& p);
         void setEndPoint(PointID const& p);
         void setNavigationFunction(GridGraph const& nav_function);
+
+        void computeAllPaths(std::vector<Path>& all_paths, Path& current_path, int next_path, int in_side, std::vector<int>& stack) const;
 
         typedef std::vector<Corridor>::iterator corridor_iterator;
 
@@ -80,12 +84,16 @@ namespace corridor_planner
          */
         void removeCorridor(int idx);
 
+        /** @deprecated
+         */
+        void removeCorridors(std::set<int> const& corridors);
+
         /** Remove the provided set of corridors, including the connections in
          * which these corridors are involved.
          *
          * Note that this changes the corridor indexes (but not their name).
          */
-        void removeCorridors(std::set<int> const& corridors);
+        void removeCorridors(std::vector<bool> const& corridors);
 
         /** Move all connections that are defined on \c from_idx into the
          * corridor \c into_idx, updating the other end of the connection as
@@ -140,15 +148,38 @@ namespace corridor_planner
          */
         void reverseCorridor(int corridor_idx);
 
-        bool removeDeadEnds();
-        bool removeDeadEnds(std::set<int> keepalive);
-
         void removeNullCorridors();
         void removeNullCorridors(std::set<int> keepalive);
         bool filterNullSingleton(int corridor_idx);
 
         bool removeUselessCorridorConnections();
         bool removeUselessCorridorConnections(int corridor_idx);
+
+        /** Computes all possible paths from the corridor plan, including those
+         * that do not lead to the end corridor
+         */
+        void computeAllPaths(std::vector<Path>& all_paths) const;
+        /** Removes from +all_paths+ the paths that do not lead to the end
+         * corridor
+         */
+        void filterDeadEndPaths(std::vector<Path>& all_paths) const;
+        /** Removes the paths in +all_paths+ that contain corridors that are
+         * marked as being deleted in +to_delete+
+         */
+        void filterDeletedPaths(std::vector<Path>& all_paths, std::vector<bool> to_delete) const;
+        /** Marks in +to_delete+ the corridors that are not present in any of
+         * the paths in +all_paths+
+         */
+        void markDeadCorridors(std::vector<Path> const& all_paths, std::vector<bool>& to_delete) const;
+        /** Marks in +to_delete+ the corridors that are narrower than
+         * +min_width+ and are not part of the critical path (i.e. removing them
+         * won't lead to cutting all paths
+         * 
+         * The corresponding paths are removed from +all_paths+ as well
+         */
+        void removeNarrowCorridors(std::vector<Path>& all_paths, double min_width, std::vector<bool>& to_delete);
+
+
     };
     std::ostream& operator << (std::ostream& io, Plan const& plan);
 }
