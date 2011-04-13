@@ -111,10 +111,25 @@ float DStar::updated(int x, int y)
 
 DStar::Cost DStar::insert(int x, int y, Cost new_cost)
 {
-    //if (m_map.getValue(x, y) == 0)
-    //    return m_graph.getValue(x, y);
-
-    Cost old_cost = m_graph.getValue(x, y);
+    // The management of the open list is a bit more complicated than when
+    // written in pseudo-code ...
+    // 
+    // The open list is made to sort the states by K-min, which is the minimum
+    // value between H (the last value stored in the map) and *every* updates
+    // ever processed since (x, y) has been added to the OPEN list
+    //
+    // What is means is that:
+    //
+    //  * if the node is not yet in the OPEN list, we just add it, and use the
+    //    minimum between +new_cost+ and the cost stored in the map (a.k.a.
+    //    H-cost)
+    //  * if the node is already stored in the OPEN list, we have to update it
+    //    if +new_cost+ is smaller than the already stored value
+    Cost h_X = m_graph.getValue(x, y);
+    // Update h(X)
+    //
+    // It is unclear if that is needed (from the paper), but seems to *be*
+    // needed in practice ...
     m_graph.setValue(x, y, new_cost.value);
 
     PointID point_id(x, y);
@@ -122,16 +137,19 @@ DStar::Cost DStar::insert(int x, int y, Cost new_cost)
     OpenFromNode::iterator it = m_open_from_node.find(point_id);
     if (it != m_open_from_node.end())
     {
-        // The cell is already in the open list. Update it.
-        Cost old_cost = it->second;
-        if (new_cost >= old_cost)
-            return old_cost;
+        // The cell is already in the open list. Update it if needed
+        Cost k_X = it->second;
+        if (new_cost >= k_X)
+        {
+            // k_X is already the minimum, just return
+            return k_X;
+        }
 
+        // We have to remove it first and then re-add it
         OpenFromCost::iterator it_cost, end;
-        boost::tie(it_cost, end) = m_open_from_cost.equal_range(old_cost);
+        boost::tie(it_cost, end) = m_open_from_cost.equal_range(k_X);
         while (it_cost->second != point_id && it_cost != end)
             ++it_cost;
-
         assert(it_cost != end);
 
         m_open_from_cost.erase(it_cost);
@@ -139,8 +157,8 @@ DStar::Cost DStar::insert(int x, int y, Cost new_cost)
     }
     else
     {
-        if (new_cost > old_cost)
-            new_cost = old_cost;
+        if (h_X < new_cost)
+            new_cost = h_X;
         m_open_from_node.insert( make_pair(point_id, new_cost) );
     }
 
@@ -243,37 +261,54 @@ bool DStar::isOpened(int x, int y) const
 
 void DStar::update()
 {
+    /* This function is (in a loop) the implementation of the PROCESS-STATE()
+     * function from the original D* algorithm
+     *
+     * We try to keep the notations as much as possible
+     */
     while (!m_open_from_cost.empty())
     {
-        /* Remove the top item of the open list */
-        OpenFromCost::iterator it_cost = m_open_from_cost.begin();
-        PointID point_id  = it_cost->second;
-        Cost new_cost     = it_cost->first;
-        Cost old_cost     = m_graph.getValue(point_id.x, point_id.y);
-        m_open_from_cost.erase(it_cost);
-        m_open_from_node.erase(point_id);
+        /* Remove the top item of the open list
+         *
+         * Extracts the minimum state (i.e. point with minimum cost) and k_min
+         * (minimum possible cost for this point)
+         */
+        OpenFromCost::iterator it_X = m_open_from_cost.begin();
+        PointID X  = it_X->second;
+        Cost k_old = it_X->first;
 
-        if (new_cost < old_cost)
+        /* This is the last stored cost (i.e. cost before we put min_state in
+         * the OPEN list
+         */
+        Cost h_X   = m_graph.getValue(X.x, X.y);
+
+        /* And remove both of them from the maps */
+        m_open_from_cost.erase(it_X);
+        m_open_from_node.erase(X);
+
+        if (k_old < h_X)
         {
-            for (NeighbourIterator it = m_graph.neighboursBegin(point_id.x, point_id.y); !it.isEnd(); ++it)
+            for (NeighbourIterator it = m_graph.neighboursBegin(X.x, X.y); !it.isEnd(); ++it)
             {
-                Cost neighbour_cost = it.getValue() + costOf(it);
-                if (Cost(it.getValue()) < new_cost && old_cost > neighbour_cost)
+                Cost h_Y = it.getValue();
+                Cost neighbour_cost = h_Y + costOf(it);
+                if (h_Y <= k_old && h_X > neighbour_cost)
                 {
                     it.setTargetAsParent();
-                    m_graph.setValue(it.sourceX(), it.sourceY(), neighbour_cost.value);
-                    old_cost = neighbour_cost;
+                    m_graph.setValue(it.sourceX(), it.sourceY(), h_X.value);
+                    h_X = neighbour_cost.value;
                 }
             }
         }
-        if (new_cost == old_cost)
+        if (k_old == h_X)
         {
-            for (NeighbourIterator it = m_graph.neighboursBegin(point_id.x, point_id.y); !it.isEnd(); ++it)
+            for (NeighbourIterator it = m_graph.neighboursBegin(X.x, X.y); !it.isEnd(); ++it)
             {
-                Cost neighbour_cost = old_cost + costOf(it);
+                Cost h_Y = it.getValue();
+                Cost neighbour_cost = h_X + costOf(it);
                 if (isNew(it) ||
-                        (it.sourceIsParent()  && Cost(it.getValue()) != neighbour_cost) ||
-                        (!it.sourceIsParent() && Cost(it.getValue()) > neighbour_cost))
+                        (it.sourceIsParent()  && h_Y != neighbour_cost) ||
+                        (!it.sourceIsParent() && h_Y > neighbour_cost))
                 {
                     it.setSourceAsParent();
                     insert(it.x(), it.y(), neighbour_cost);
@@ -282,26 +317,27 @@ void DStar::update()
         }
         else
         {
-            for (NeighbourIterator it = m_graph.neighboursBegin(point_id.x, point_id.y); !it.isEnd(); ++it)
+            for (NeighbourIterator it = m_graph.neighboursBegin(X.x, X.y); !it.isEnd(); ++it)
             {
+                Cost h_Y = it.getValue();
                 float edge_cost = costOf(it);
                 PointID target(it.x(), it.y());
                 if (isNew(it) ||
-                        (it.sourceIsParent() && Cost(it.getValue()) != old_cost + edge_cost))
+                        (it.sourceIsParent() && h_Y != h_X + edge_cost))
                 {
                     it.setSourceAsParent();
-                    insert(it.x(), it.y(), old_cost + edge_cost);
+                    insert(it.x(), it.y(), h_X + edge_cost);
                 }
                 else if (!it.sourceIsParent())
                 {
-                    if (Cost(it.getValue()) > old_cost + edge_cost)
-                        insert(it.sourceX(), it.sourceY(), old_cost);
+                    if (h_Y > h_X + edge_cost)
+                        insert(it.sourceX(), it.sourceY(), h_X);
                     else if (!it.sourceIsParent() && 
-                            old_cost > it.getValue() + edge_cost &&
-                            !m_open_from_node.count(target) &&
-                            Cost(it.getValue()) > new_cost)
+                            h_X > h_Y + edge_cost &&
+                            isClosed(target.x, target.y) &&
+                            h_Y > k_old)
                     {
-                        insert(it.x(), it.y(), it.getValue());
+                        insert(it.x(), it.y(), h_Y);
                     }
                 }
             }
