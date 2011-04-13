@@ -819,7 +819,8 @@ void Corridor::updateCurves(double discount_factor)
     {
         PointID p  = median_it->center;
         base::Vector3d point = new_point_factor * base::Vector3d(p.x, p.y, 0) + discount_factor * last_point;
-        median_points.push_back(point);
+        if (median_points.empty() || point != median_points.back())
+            median_points.push_back(point);
         last_point = point;
     }
     median_curve.interpolate(median_points);
@@ -835,7 +836,8 @@ void Corridor::updateCurves(double discount_factor)
         for (list<PointID>::const_iterator it = boundaries[boundary_idx].begin(); it != boundaries[boundary_idx].end(); ++it)
         {
             base::Vector3d point = new_point_factor * base::Vector3d(it->x, it->y, 0) + discount_factor * last_point;
-            boundary_points.push_back(point);
+            if (boundary_points.empty() || boundary_points.back() != point)
+                boundary_points.push_back(point);
             last_point = point;
         }
 
