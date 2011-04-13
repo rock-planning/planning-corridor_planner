@@ -81,13 +81,18 @@ int main( int argc, char* argv[] )
     int class_count = 10;
     if (argc > 5)
         class_count = boost::lexical_cast<int>(argv[5]);
-    double ground_clearance = 0;
+
+    double min_width = 0.5;
     if (argc > 6)
-        ground_clearance = boost::lexical_cast<int>(argv[6]);
+        min_width = boost::lexical_cast<int>(argv[6]);
+
+    double ground_clearance = 0;
+    if (argc > 7)
+        ground_clearance = boost::lexical_cast<int>(argv[7]);
 
     // Create the convertion operator and run it
     corridor_planner::TraversabilityClassifier *op = new TraversabilityClassifier(
-            weight_force, force_threshold, max_speed, class_count, ground_clearance);
+            weight_force, force_threshold, max_speed, class_count, min_width, ground_clearance);
     env->attachItem( op );
     if (input->hasBand("mean_slope"))
         op->setSlope(input.get(), "mean_slope");

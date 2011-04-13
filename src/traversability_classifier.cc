@@ -10,11 +10,13 @@ TraversabilityClassifier::TraversabilityClassifier(
         double force_threshold,
         double max_speed,
         int class_count,
+        double min_width,
         double ground_clearance)
     : weight_force(weight_force)
     , force_threshold(force_threshold)
     , max_speed(max_speed)
     , class_count(class_count)
+    , min_width(min_width)
     , ground_clearance(ground_clearance)
 {
     for (int i = 0; i < INPUT_COUNT; ++i)
@@ -45,6 +47,7 @@ void TraversabilityClassifier::serialize(envire::Serialization& so)
     so.write("max_speed", max_speed);
     so.write("class_count", class_count);
     so.write("ground_clearance", ground_clearance);
+    so.write("min_width", min_width);
     so.write("output_band", output_band);
 }
 
@@ -65,6 +68,7 @@ void TraversabilityClassifier::unserialize(envire::Serialization& so)
     so.read<double>("max_speed", max_speed);
     so.read<int>("class_count", class_count);
     so.read<double>("ground_clearance", ground_clearance);
+    so.read<double>("min_width", min_width);
     so.read<std::string>("output_band", output_band);
 }
 
@@ -221,7 +225,124 @@ bool TraversabilityClassifier::updateAll()
             }
         }
     }
+
+    closeNarrowPassages(*output_layer, output_band, min_width);
     std::cout << "end update: max_speed=" << max_speed << std::endl;
     return true;
+}
+
+struct RadialLUT
+{
+    int centerx, centery;
+    unsigned int width, height;
+    boost::multi_array<std::pair<int, int>, 2>  parents;
+    boost::multi_array<bool, 2> in_distance;
+
+    void precompute(double distance, double scalex, double scaley)
+    {
+        double const radius2 = distance * distance;
+
+        width  = 2* ceil(distance / scalex) + 1;
+        height = 2* ceil(distance / scaley) + 1;
+        in_distance.resize(boost::extents[height][width]);
+        std::fill(in_distance.data(), in_distance.data() + in_distance.num_elements(), false);
+        parents.resize(boost::extents[height][width]);
+        std::fill(parents.data(), parents.data() + parents.num_elements(), std::make_pair(-1, -1));
+
+        centerx = width  / 2;
+        centery = height / 2;
+        parents[centery][centerx] = std::make_pair(-1, -1);
+
+        for (unsigned int y = 0; y < height; ++y)
+        {
+            for (unsigned int x = 0; x < width; ++x)
+            {
+                int dx = (centerx - x);
+                int dy = (centery - y);
+                if (dx == 0 && dy == 0) continue;
+
+                double d2 = dx * dx * scalex * scalex + dy * dy * scaley * scaley;
+                in_distance[y][x] = (d2 < radius2);
+                if (abs(dx) > abs(dy))
+                {
+                    int parentx = x + dx / abs(dx);
+                    int parenty = y + rint(static_cast<double>(dy) / abs(dx));
+                    parents[y][x] = std::make_pair(parentx, parenty);
+                }
+                else
+                {
+                    int parentx = x + rint(static_cast<double>(dx) / abs(dy));
+                    int parenty = y + dy / abs(dy);
+                    parents[y][x] = std::make_pair(parentx, parenty);
+                }
+            }
+        }
+    }
+
+    void markAllRadius(boost::multi_array<uint8_t, 2>& result, int result_width, int result_height, int centerx, int centery, int value)
+    {
+        for (unsigned int y = 0; y < height; ++y)
+        {
+            int map_y = centery + y - this->centery;
+            if (map_y < 0 || map_y >= result_height)
+                continue;
+
+            for (unsigned int x = 0; x < width; ++x)
+            {
+                int map_x = centerx + x - this->centerx;
+                if (map_x < 0 || map_x >= result_width)
+                    continue;
+                if (result[map_y][map_x] != value)
+                    continue;
+                if (!in_distance[y][x])
+                    continue;
+                markSingleRadius(result, centerx, centery, x, y, value);
+            }
+        }
+    }
+
+    void markSingleRadius(boost::multi_array<uint8_t, 2>& result, int centerx, int centery, int x, int y, int value)
+    {
+        boost::tie(x, y) = parents[y][x];
+        while (x != -1 && y != -1)
+        {
+            uint8_t& current = result[centery + y - this->centery][centerx + x - this->centerx];
+            if (current == value)
+                return;
+
+            current = value;
+            boost::tie(x, y) = parents[y][x];
+        }
+    }
+};
+
+void TraversabilityClassifier::closeNarrowPassages(TraversabilityClassifier::OutputLayer& map, std::string const& band_name, double min_width)
+{
+    RadialLUT lut;
+    lut.precompute(min_width, map.getScaleX(), map.getScaleY());
+    for (unsigned int y = 0; y < lut.height; ++y)
+    {
+        for (unsigned int x = 0; x < lut.width; ++x)
+            std::cout << "(" << lut.parents[y][x].first << " " << lut.parents[y][x].second << ") ";
+        std::cout << std::endl;
+    }
+    std::cout << std::endl;
+    for (unsigned int y = 0; y < lut.height; ++y)
+    {
+        for (unsigned int x = 0; x < lut.width; ++x)
+            std::cout << "(" << lut.in_distance[y][x] << " ";
+        std::cout << std::endl;
+    }
+
+    boost::multi_array<uint8_t, 2>& data = map.getGridData(band_name);
+    for (unsigned int y = 0; y < map.getHeight(); ++y)
+    {
+        for (unsigned int x = 0; x < map.getWidth(); ++x)
+        {
+            int value = data[y][x];
+            if (value == CLASS_OBSTACLE)
+                lut.markAllRadius(data, map.getWidth(), map.getHeight(), x, y, CLASS_OBSTACLE);
+        }
+    }
 }
 

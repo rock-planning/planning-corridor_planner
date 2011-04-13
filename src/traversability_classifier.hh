@@ -58,6 +58,7 @@ namespace corridor_planner {
         double force_threshold;
         double max_speed;
         int class_count;
+        double min_width;
         double ground_clearance;
 
     public:
@@ -68,7 +69,8 @@ namespace corridor_planner {
                 double force_threshold,
                 double max_speed,
                 int class_count,
-                double ground_clearance = 0);
+                double min_width,
+                double ground_clearance);
 
         TraversabilityClassifier(envire::Serialization& so);
 
@@ -88,6 +90,7 @@ namespace corridor_planner {
         void setOutput(OutputLayer* grid, std::string const& band_name);
 
         bool updateAll();
+        void closeNarrowPassages(OutputLayer& map, std::string const& band_name, double min_width);
 
         void serialize(envire::Serialization& so);
         void unserialize(envire::Serialization& so);
