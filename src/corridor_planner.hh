@@ -26,7 +26,8 @@ namespace corridor_planner
         TerrainClasses      classes;
         TraversabilityMap*  map;
         SkeletonExtraction* skeleton;
-        DStar*              dstar;
+        DStar*              dstar_to_start;
+        DStar*              dstar_to_goal;
         Plan                plan;
         corridors::Plan     final;
 

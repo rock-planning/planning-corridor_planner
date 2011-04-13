@@ -285,7 +285,7 @@ void exportSkeleton(CorridorPlanner const& planner, size_t xSize, size_t ySize, 
 
 void exportNavigationFunction(CorridorPlanner const& planner, size_t xSize, size_t ySize, std::vector<uint8_t> const& base_image, std::string const& out_file)
 {
-    GridGraph const& graph = planner.dstar->graph();
+    GridGraph const& graph = planner.dstar_to_goal->graph();
 
     // Find the maximum cost in the dstar output, filtering out actual
     // obstacles
@@ -336,11 +336,12 @@ void do_plan(char name_prefix,
         planner.computeDStar();
     }
     std::cerr << "  done ... checking solution consistency" << std::endl;
-    planner.dstar->checkSolutionConsistency();
+    planner.dstar_to_start->checkSolutionConsistency();
+    planner.dstar_to_goal->checkSolutionConsistency();
 
     // Load the original terrain file, we will superimpose some data later on
     // it.
-    GridGraph const& graph = planner.dstar->graph();
+    GridGraph const& graph = planner.dstar_to_goal->graph();
     uint32_t const xSize = graph.xSize(), ySize = graph.ySize();
     auto_ptr<GDALDataset> set((GDALDataset*) GDALOpen(terrain_file.c_str(), GA_ReadOnly));
     GDALRasterBand* band = set->GetRasterBand(1);

@@ -120,12 +120,16 @@ namespace corridor_planner
          * The resulting zone is the set of points P whose total cost 
          * (cost(P0 -> P) + cost(P -> P1)) is below expand * optimal_cost.
          */
-        void initializeFromDStar(DStar const& nav_function, int x, int y, float expand);
+        void initializeFromDStar(GridGraph const& to_start,
+                GridGraph const& to_goal,
+                int x, int y, float expand);
 
         /** This is a convenience function which extracts the skeleton from a
          * dstar result. It is simply calling initializeFromDStar and process
          */
-        std::list<VoronoiPoint> processDStar(DStar const& nav_function, int x, int y, float expand);
+        std::list<VoronoiPoint> processDStar(
+                GridGraph const& to_start,
+                GridGraph const& to_goal, int x, int y, float expand);
 
         /** Initializes the skeleton extraction process from a set of inside
          * points and a set of border points.

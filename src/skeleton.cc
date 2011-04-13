@@ -235,7 +235,9 @@ pair<PointSet, PointSet> SkeletonExtraction::getBorderAndInside() const
     return make_pair(border, inside);
 }
 
-void SkeletonExtraction::initializeFromDStar(DStar const& dstar, int x, int y, float expand)
+void SkeletonExtraction::initializeFromDStar(
+        GridGraph const& nav_to_start,
+        GridGraph const& nav_to_goal, int x, int y, float expand)
 {
     typedef multimap<float, PointID, std::less<float> > OpenSet;
     OpenSet open_from_cost;
@@ -245,59 +247,41 @@ void SkeletonExtraction::initializeFromDStar(DStar const& dstar, int x, int y, f
     parents.clear();
     fill(heightmap.begin(), heightmap.end(), 0);
 
-    GridGraph const& nav_function = dstar.graph();
-
-    float cost_max = nav_function.getValue(x, y) * expand;
+    float cost_max = nav_to_goal.getValue(x, y) * expand;
+    for (int y = 0; y < height; ++y)
     {
-        PointID p0(x, y);
-        OpenSet::iterator n_it = open_from_cost.insert( make_pair(0, p0) );
-        is_in_open.insert( make_pair(p0, n_it) );
-        heightmap[y * width + x] = MAX_DIST;
+        for (int x = 0; x < width; ++x)
+        {
+            float cost = nav_to_start.getValue(x, y) + nav_to_goal.getValue(x, y);
+            if (cost <= cost_max)
+                heightmap[y * width + x] = MAX_DIST;
+        }
     }
 
-    while(!open_from_cost.empty())
+    const int32_t displacement[8] = {
+        -width, -width - 1, -width + 1,
+        width, width - 1, width + 1, -1, +1 };
+
+    for (int y = 1; y < height - 1; ++y)
     {
-        PointID point; float cost;
-        tie(cost, point) = *open_from_cost.begin();
-        open_from_cost.erase(open_from_cost.begin());
-        is_in_open.erase(point);
-
-        for (NeighbourConstIterator n = nav_function.neighboursBegin(point.x, point.y); !n.isEnd(); ++n)
+        for (int x = 1; x < width - 1; ++x)
         {
-            float n_cost = cost + dstar.costOf(n);
-            PointID n_p = PointID(n.x(), n.y());
+            int idx = y * width + x;
+            if (heightmap[idx] != MAX_DIST)
+                continue;
 
-            if (n_cost + n.getValue() <= cost_max)
-            {
-                if (isInside(n_p.x, n_p.y))
-                {
-                    map<PointID, OpenSet::iterator>::iterator open_it = is_in_open.find(n_p);
-                    OpenSet::iterator n_it = open_it->second;
-                    if (open_it != is_in_open.end() && n_it->first > n_cost)
-                    {
-                        open_from_cost.erase(open_it->second);
-                        n_it = open_from_cost.insert( make_pair(n_cost, n_p) );
-                        open_it->second = n_it;
-                    }
-                }
-                else
-                {
-                    border.erase(n_p);
-                    heightmap[n_p.y * width + n_p.x] = MAX_DIST;
-                    OpenSet::iterator n_it = open_from_cost.insert( make_pair(n_cost, n_p) );
-                    is_in_open.insert( make_pair(n_p, n_it) );
-                }
-            }
-            else if (!isInside(n_p.x, n_p.y))
-            {
-                border.insert(n_p);
-            }
+            for (int i = 0; i < 8; ++i)
+                if (heightmap[idx + displacement[i]] != MAX_DIST)
+                    border.insert(PointID(x, y));
         }
     }
 }
-list<VoronoiPoint> SkeletonExtraction::processDStar(DStar const& dstar, int x, int y, float expand)
+
+list<VoronoiPoint> SkeletonExtraction::processDStar(
+        GridGraph const& to_start,
+        GridGraph const& to_goal, int x, int y, float expand)
 {
-    initializeFromDStar(dstar, x, y, expand);
+    initializeFromDStar(to_start, to_goal, x, y, expand);
     return process();
 }
 

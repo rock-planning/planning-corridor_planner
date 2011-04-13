@@ -11,7 +11,7 @@
 using namespace corridor_planner;
 
 CorridorPlanner::CorridorPlanner()
-    : map(0), skeleton(0), dstar(0)
+    : map(0), skeleton(0), dstar_to_start(0), dstar_to_goal(0)
     , min_width(0)
     , m_state(DSTAR), m_expand(1.1)
 {
@@ -21,7 +21,8 @@ CorridorPlanner::~CorridorPlanner()
 {
     delete map;
     delete skeleton;
-    delete dstar;
+    delete dstar_to_start;
+    delete dstar_to_goal;
 }
 
 void CorridorPlanner::requireProcessing(CorridorPlanner::STATES state)
@@ -40,8 +41,10 @@ void CorridorPlanner::init(std::string const& terrain_classes, std::string const
     if (!map)
         throw std::runtime_error("cannot load the specified map");
 
-    delete dstar;
-    dstar   = new DStar(*map, classes);
+    delete dstar_to_start;
+    delete dstar_to_goal;
+    dstar_to_start = new DStar(*map, classes);
+    dstar_to_goal  = new DStar(*map, classes);
     delete skeleton;
     skeleton = new SkeletonExtraction(map->xSize(), map->ySize());
 
@@ -76,12 +79,13 @@ void CorridorPlanner::setRasterPositions(Eigen::Vector2i const& current, Eigen::
     if (current != m_current)
     {
         m_current = current;
-        requireProcessing(SKELETON);
+        dstar_to_start->initialize(current.x(), current.y());
+        requireProcessing(DSTAR);
     }
     if (goal != m_goal)
     {
         m_goal = goal;
-        dstar->initialize(goal.x(), goal.y());
+        dstar_to_goal->initialize(goal.x(), goal.y());
         requireProcessing(DSTAR);
     }
 }
@@ -90,7 +94,8 @@ void CorridorPlanner::setRasterPositions(Eigen::Vector2i const& current, Eigen::
  * position */
 void CorridorPlanner::updatedMap(int x, int y)
 {
-    dstar->updated(x, y);
+    dstar_to_start->updated(x, y);
+    dstar_to_goal->updated(x, y);
     requireProcessing(DSTAR);
 }
 
@@ -99,7 +104,8 @@ void CorridorPlanner::computeDStar()
 {
     if (isProcessingRequired(DSTAR))
     {
-        dstar->update();
+        dstar_to_start->update();
+        dstar_to_goal->update();
         processed();
     }
 }
@@ -109,8 +115,9 @@ void CorridorPlanner::extractSkeleton()
 {
     if (isProcessingRequired(SKELETON))
     {
-        voronoi_points =
-                skeleton->processDStar(*dstar, m_current.x(), m_current.y(), m_expand);
+        voronoi_points = skeleton->processDStar(
+                dstar_to_start->graph(), dstar_to_goal->graph(),
+                m_current.x(), m_current.y(), m_expand);
         processed();
     }
 }
@@ -120,7 +127,7 @@ void CorridorPlanner::computePlan()
 {
     if (isProcessingRequired(PLAN))
     {
-        plan = skeleton->buildPlan(PointID(m_current.x(), m_current.y()), PointID(m_goal.x(), m_goal.y()), dstar->graph(), voronoi_points);
+        plan = skeleton->buildPlan(PointID(m_current.x(), m_current.y()), PointID(m_goal.x(), m_goal.y()), dstar_to_goal->graph(), voronoi_points);
         processed();
     }
 }
