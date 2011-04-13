@@ -69,7 +69,9 @@ Typelib.specialize '/corridors/Plan_m' do
 
         outbound_connections = next_corridors(corridor_idx, corridor_side)
         if outbound_connections.empty?
-            raise InternalError, "reached a dead end !!!"
+            puts "WARN: found what it seems to be a dead end: #{current.inspect}"
+            return
+            # raise InternalError, "reached a dead end !!!"
         end
 
         outbound_connections.each do |conn|
