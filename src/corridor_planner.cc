@@ -103,8 +103,8 @@ void CorridorPlanner::computeDStar()
 {
     if (isProcessingRequired(DSTAR))
     {
-        dstar_to_start->update();
-        dstar_to_goal->update();
+        dstar_to_start->run(m_current.x(), m_current.y(), m_goal.x(), m_goal.y());
+        dstar_to_goal->run(m_goal.x(), m_goal.y(), m_current.x(), m_current.y());
         std::cout << "to start: optimal is " << dstar_to_start->graph().getValue(m_goal.x(), m_goal.y()) << std::endl;
         std::cout << "to goal:  optimal is " << dstar_to_goal->graph().getValue(m_current.x(), m_current.y()) << std::endl;
         processed();
