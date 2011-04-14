@@ -270,9 +270,10 @@ void SkeletonExtraction::initializeFromDStar(
             if (heightmap[idx] != MAX_DIST)
                 continue;
 
-            for (int i = 0; i < 8; ++i)
-                if (heightmap[idx + displacement[i]] != MAX_DIST)
-                    border.insert(PointID(x, y));
+            for (int dy = -1; dy < 2; ++dy)
+                for (int dx = -1; dx < 2; ++dx)
+                    if (heightmap[idx + width * dy + dx] != MAX_DIST)
+                        border.insert(PointID(x + dx, y + dy));
         }
     }
 }
