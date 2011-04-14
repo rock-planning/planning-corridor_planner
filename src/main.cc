@@ -376,7 +376,7 @@ int main(int argc, char** argv)
     if (argc != 6 && argc != 9)
     {
 	std::cerr 
-	    << "usage: dstar terrain_file terrain_classes x1 y1 basename [x0 y0 expand_factor]\n"
+	    << "usage: plan_corridors <terrain_file> <terrain_classes> <x1> <y1> <basename> [<x0> <y0> <expand_factor>]\n"
             << "  computes the result of D* on the given map, with [x1, y1] as\n"
             << "  the goal. If x0, y0 and expand_factor are given, then we also\n"
             << "  compute the expanded zone of navigation around the optimal path\n"
