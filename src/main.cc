@@ -160,9 +160,10 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
             base::geometry::Spline<3>* curves[2] = { &c.boundary_curves[0], &c.boundary_curves[1] };
             for (int i = 0; i < 2; ++i)
             {
+                double const start = curves[i]->getStartParam();
                 double delta = curves[i]->getUnitParameter() / 10;
                 double end   = curves[i]->getEndParam();
-                for (double t = 0; t < end; t += delta)
+                for (double t = start; t < end; t += delta)
                 {
                     Eigen::Vector3d p = curves[i]->getPoint(t);
                     points[i].push_back(PointID(lrint(p.x()), lrint(p.y())));
@@ -176,9 +177,10 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
                 distance_colors.push_back( RGBColor(200 - 20 * i, 20 * i, 100));
 
             {
+                double const start = c.median_curve.getStartParam();
                 double delta = c.median_curve.getUnitParameter() / 10;
                 double end   = c.median_curve.getEndParam();
-                for (double t = 0; t < end; t += delta)
+                for (double t = start; t < end; t += delta)
                 {
                     Eigen::Vector3d p = c.median_curve.getPoint(t);
 
