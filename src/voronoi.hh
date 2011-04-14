@@ -7,12 +7,19 @@
 #include <boost/tuple/tuple.hpp>
 
 #include <base/geometry/spline.h>
-#include <corridor_planner/point.hh>
-#include <corridor_planner/geometry.hh>
+#include <nav_graph_search/point.hpp>
+#include <nav_graph_search/geometry.hpp>
+#include <nav_graph_search/grid_graph.hpp>
 
 namespace corridor_planner
 {
-    class GridGraph;
+    typedef nav_graph_search::PointID PointID;
+    typedef nav_graph_search::PointSet PointSet;
+    typedef nav_graph_search::BoundingBox BoundingBox;
+    typedef nav_graph_search::PointVector PointVector;
+
+    typedef nav_graph_search::GridGraph GridGraph;
+
     /** This method updates the set of point sets \c sets by adding \c p so
      * that:
      * <ul>
@@ -35,7 +42,7 @@ namespace corridor_planner
 
         PointID center;
 
-        Point<float> tangent;
+        nav_graph_search::Point<float> tangent;
 
         /** VoronoiPoint maintains a list of borders, each borders being a set of
          * adjacent points. This means that:
@@ -56,7 +63,7 @@ namespace corridor_planner
         VoronoiPoint() : width(0)  {}
         bool operator == (VoronoiPoint const& other) const;
 
-        Point<float> direction() const;
+        nav_graph_search::Point<float> direction() const;
         bool isSingleton() const;
 
         void offset(PointID const& v);

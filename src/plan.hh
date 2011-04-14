@@ -2,7 +2,7 @@
 #define NAV_PLAN_HH
 
 #include <corridor_planner/voronoi.hh>
-#include <corridor_planner/dstar.hh>
+#include <nav_graph_search/dstar.hpp>
 
 namespace corridor_planner
 {
@@ -41,6 +41,8 @@ namespace corridor_planner
         void mergeSimpleCrossroads_directed();
 
     public:
+        typedef std::vector< std::pair<int, bool> > Path;
+
         Plan();
         Plan(PointID start, PointID end, GridGraph const& nav_function = GridGraph());
 
@@ -86,6 +88,7 @@ namespace corridor_planner
          * Note that this changes the corridor indexes (but not their name).
          */
         void removeCorridors(std::set<int> const& corridors);
+        void removeCorridors(std::vector<bool> const& to_remove);
 
         /** Move all connections that are defined on \c from_idx into the
          * corridor \c into_idx, updating the other end of the connection as
@@ -149,6 +152,20 @@ namespace corridor_planner
 
         bool removeUselessCorridorConnections();
         bool removeUselessCorridorConnections(int corridor_idx);
+
+        void filterDeadEndPaths(std::vector<Path>& all_paths) const;
+        void removeNarrowCorridors(std::vector<Path>& all_paths, double min_width, std::vector<bool>& to_delete);
+        void computeAllPaths(std::vector<Path>& all_paths, Path& current_path, int next_path, int in_side, std::vector<int>& stack) const;
+
+        /** Computes all possible paths from the corridor plan, including those
+         * that do not lead to the end corridor
+         */
+        void computeAllPaths(std::vector<Path>& all_paths) const;
+        /** Removes the paths in +all_paths+ that contain corridors that are
+         * marked as being deleted in +to_delete+
+         */
+        void filterDeletedPaths(std::vector<Path>& all_paths, std::vector<bool> to_delete) const;
+
     };
     std::ostream& operator << (std::ostream& io, Plan const& plan);
 }

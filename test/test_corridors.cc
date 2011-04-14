@@ -2,7 +2,7 @@
 #include <boost/test/floating_point_comparison.hpp>
 
 #include "testsuite.hh"
-#include "corridor_planner/dstar.hh"
+#include "nav_graph_search/dstar.hpp"
 #include "corridor_planner/voronoi.hh"
 #include <algorithm>
 #include <iostream>
@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE( test_VoronoiPoint_direction )
 {
     VoronoiPoint pt;
 
-    Point<float> dir = pt.direction();
+    nav_graph_search::Point<float> dir = pt.direction();
     BOOST_REQUIRE_EQUAL(0.0f, dir.x);
     BOOST_REQUIRE_EQUAL(0.0f, dir.y);
 

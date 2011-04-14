@@ -3,7 +3,7 @@
 
 #include <string>
 #include <Eigen/Core>
-#include <corridor_planner/dstar.hh>
+#include <nav_graph_search/dstar.hpp>
 #include <corridor_planner/voronoi.hh>
 #include <corridor_planner/plan.hh>
 #include <corridor_planner/corridors.hh>
@@ -12,8 +12,11 @@
 
 namespace corridor_planner
 {
+    typedef nav_graph_search::TerrainClasses TerrainClasses;
+    typedef nav_graph_search::TraversabilityMap TraversabilityMap;
+    typedef nav_graph_search::DStar DStar;
+        
     class SkeletonExtraction;
-    class TraversabilityMap;
     class Plan;
 
     /** Simple interface to the corridor planner functionality

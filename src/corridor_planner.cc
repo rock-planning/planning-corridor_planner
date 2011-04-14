@@ -2,7 +2,6 @@
 
 #include "skeleton.hh"
 #include "voronoi.hh"
-#include "dstar.hh"
 #include "plan.hh"
 
 #include <stdexcept>
@@ -35,7 +34,7 @@ void CorridorPlanner::processed()
 /** Load the terrain classes and traversability map */
 void CorridorPlanner::init(std::string const& terrain_classes, std::string const& map_file, float min_width)
 {
-    classes = TerrainClass::load(terrain_classes);
+    classes = nav_graph_search::TerrainClass::load(terrain_classes);
     delete map;
     map     = TraversabilityMap::load(map_file, classes);
     if (!map)
@@ -106,6 +105,8 @@ void CorridorPlanner::computeDStar()
     {
         dstar_to_start->update();
         dstar_to_goal->update();
+        std::cout << "to start: optimal is " << dstar_to_start->graph().getValue(m_goal.x(), m_goal.y()) << std::endl;
+        std::cout << "to goal:  optimal is " << dstar_to_goal->graph().getValue(m_current.x(), m_current.y()) << std::endl;
         processed();
     }
 }

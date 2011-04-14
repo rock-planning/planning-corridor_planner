@@ -2,7 +2,7 @@
 #include <limits>
 #include <boost/bind.hpp>
 #include <algorithm>
-#include "pool_allocator.hh"
+#include <nav_graph_search/pool_allocator.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include <iterator>

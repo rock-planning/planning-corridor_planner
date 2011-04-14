@@ -1,5 +1,5 @@
 #include "voronoi.hh"
-#include "dstar.hh"
+#include <nav_graph_search/dstar.hpp>
 #include <algorithm>
 #include <boost/bind.hpp>
 #include <iomanip>
@@ -175,10 +175,10 @@ bool VoronoiPoint::isBorderAdjacent(VoronoiPoint const& p) const
 
 bool VoronoiPoint::isSingleton() const { return borders.size() == 0; }
 
-Point<float> VoronoiPoint::direction() const
+nav_graph_search::Point<float> VoronoiPoint::direction() const
 {
     if (borders.size() == 0)
-        return Point<float>();
+        return nav_graph_search::Point<float>();
     if (borders.size() != 2)
         throw std::runtime_error("found more than two borders in VoronoiPoint::direction()");
 
@@ -453,7 +453,7 @@ void Corridor::update()
     // boundary sets and update the bounding boxes while we're at it
     Corridor::voronoi_const_iterator left  = voronoi.end();
     Corridor::voronoi_const_iterator right = ++voronoi.begin();
-    Point<float> last_slice_direction;
+    nav_graph_search::Point<float> last_slice_direction;
     int boundary0 = 0, boundary1 = 1;
     min_width = voronoi.front().width, max_width = min_width;
     for (Corridor::voronoi_iterator it = voronoi.begin(); it != voronoi.end(); ++it, ++left, ++right)
@@ -469,7 +469,7 @@ void Corridor::update()
 
 	if (it != voronoi.begin())
 	{
-	    Point<float> slice_direction = it->direction();
+            nav_graph_search::Point<float> slice_direction = it->direction();
 	    if (slice_direction * last_slice_direction < 0)
 		std::swap(boundary0, boundary1);
 	}
@@ -482,13 +482,13 @@ void Corridor::update()
         median_bbox.update(it->center);
 
         if (left != voronoi.end() && right != voronoi.end())
-            it->tangent = Point<float>(right->center - left->center).normalize();
+            it->tangent = nav_graph_search::Point<float>(right->center - left->center).normalize();
         else if (left != voronoi.end())
-            it->tangent = Point<float>(it->center - left->center).normalize();
+            it->tangent = nav_graph_search::Point<float>(it->center - left->center).normalize();
         else if (right != voronoi.end())
-            it->tangent = Point<float>(right->center - it->center).normalize();
+            it->tangent = nav_graph_search::Point<float>(right->center - it->center).normalize();
         else
-            it->tangent = Point<float>();
+            it->tangent = nav_graph_search::Point<float>();
     }
     bbox.merge(median_bbox);
 

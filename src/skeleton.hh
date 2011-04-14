@@ -1,10 +1,10 @@
 #ifndef __SKELETON_HH__
 #define __SKELETON_HH__
 
-#include <corridor_planner/point.hh>
+#include <nav_graph_search/point.hpp>
+#include <nav_graph_search/dstar.hpp>
 #include <corridor_planner/voronoi.hh>
 #include <corridor_planner/plan.hh>
-#include <corridor_planner/dstar.hh>
 #include <vector>
 
 namespace corridor_planner
