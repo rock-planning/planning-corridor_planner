@@ -54,6 +54,8 @@ namespace corridor_planner
         void setEndPoint(PointID const& p);
         void setNavigationFunction(GridGraph const& nav_function);
 
+        void displayConnections() const;
+
         typedef std::vector<Corridor>::iterator corridor_iterator;
 
         /** The set of corridors in this plan, including the connections between

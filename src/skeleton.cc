@@ -821,6 +821,9 @@ Plan SkeletonExtraction::buildPlan(PointID const& start_point, PointID const& en
 
     state.plan.createEndpointCorridor(state.plan.getStartPoint(), false);
     state.plan.createEndpointCorridor(state.plan.getEndPoint(), true);
+#ifdef DEBUG
+    state.plan.displayConnections();
+#endif
     state.plan.removeDeadEnds();
 
     bool did_something = true;
