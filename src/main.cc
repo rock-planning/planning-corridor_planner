@@ -327,11 +327,11 @@ void exportNavigationFunction(CorridorPlanner const& planner, size_t xSize, size
 
 void do_plan(char name_prefix,
         std::string const& basename, std::string const& terrain_file, std::string const& terrain_classes,
-        int x0, int y0, int x1, int y1, float expand)
+        float x0, float y0, float x1, float y1, float expand)
 {
     CorridorPlanner planner;
     planner.init(terrain_classes, terrain_file);
-    planner.setRasterPositions(Eigen::Vector2i(x0, y0), Eigen::Vector2i(x1, y1));
+    planner.setWorldPositions(Eigen::Vector2d(x0, y0), Eigen::Vector2d(x1, y1));
     planner.setMarginFactor(expand);
 
     { Profile profiler("dstar");
@@ -407,11 +407,11 @@ int main(int argc, char** argv)
 
     string terrain_file    = argv[1];
     string terrain_classes = argv[2];
-    int x1 = boost::lexical_cast<int>(argv[3]);
-    int y1 = boost::lexical_cast<int>(argv[4]);
+    float x1 = boost::lexical_cast<float>(argv[3]);
+    float y1 = boost::lexical_cast<float>(argv[4]);
     std::string out_basename = argv[5];
-    int x0 = boost::lexical_cast<int>(argv[6]);
-    int y0 = boost::lexical_cast<int>(argv[7]);
+    float x0 = boost::lexical_cast<float>(argv[6]);
+    float y0 = boost::lexical_cast<float>(argv[7]);
     float expand = boost::lexical_cast<float>(argv[8]);
 
     do_plan('c', out_basename, terrain_file, terrain_classes,
