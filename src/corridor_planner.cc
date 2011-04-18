@@ -2,6 +2,7 @@
 
 #include "skeleton.hh"
 #include "voronoi.hh"
+#include "annotations.hh"
 #include "plan.hh"
 
 #include <stdexcept>
@@ -12,12 +13,15 @@ using namespace corridor_planner;
 CorridorPlanner::CorridorPlanner()
     : map(0), skeleton(0), dstar_to_start(0), dstar_to_goal(0)
     , min_width(0)
+    , env(0)
     , m_state(DSTAR), m_expand(1.1)
+    , strong_edge_threshold(0)
 {
 }
 
 CorridorPlanner::~CorridorPlanner()
 {
+    delete env;
     delete map;
     delete skeleton;
     delete dstar_to_start;
@@ -55,6 +59,16 @@ void CorridorPlanner::setMarginFactor(double factor)
 {
     m_expand = factor;
     requireProcessing(SKELETON);
+}
+
+void CorridorPlanner::setStrongEdgeFilter(std::string const& env_path, int map_id, std::string const& band_name, double threshold)
+{
+    delete env;
+    env = envire::Environment::unserialize(env_path);
+    strong_edge_map       = map_id;
+    strong_edge_band      = band_name;
+    strong_edge_threshold = threshold;
+    requireProcessing(ANNOTATIONS);
 }
 
 /** Call to set the start and goal positions */
@@ -104,7 +118,9 @@ void CorridorPlanner::computeDStar()
     if (isProcessingRequired(DSTAR))
     {
         dstar_to_start->run(m_current.x(), m_current.y(), m_goal.x(), m_goal.y());
+        dstar_to_start->expandUntil(-1);
         dstar_to_goal->run(m_goal.x(), m_goal.y(), m_current.x(), m_current.y());
+        dstar_to_goal->expandUntil(-1);
         std::cout << "to start: optimal is " << dstar_to_start->graph().getValue(m_goal.x(), m_goal.y()) << std::endl;
         std::cout << "to goal:  optimal is " << dstar_to_goal->graph().getValue(m_current.x(), m_current.y()) << std::endl;
         processed();
@@ -141,9 +157,31 @@ void CorridorPlanner::simplifyPlan()
     if (isProcessingRequired(PLAN_SIMPLIFICATION))
     {
         plan.simplify(m_expand, lround(min_width / map->getScale()));
-        exportPlan();
         processed();
     }
+}
+
+/** Run the annotation pass on the generated corridors
+ */
+void CorridorPlanner::annotateCorridors()
+{
+    if (isProcessingRequired(ANNOTATIONS))
+    {
+        if (strong_edge_threshold != 0)
+        {
+            envire::Grid<double>::Ptr map = env->getItem< envire::Grid<double> >(strong_edge_map);
+            StrongEdgeAnnotation filter(map.get(), strong_edge_band, strong_edge_threshold);
+            exportPlan();
+            AnnotationFilter::apply(filter, final);
+        }
+        processed();
+    }
+}
+
+/** Called when the planning is finished
+ */
+void CorridorPlanner::done()
+{
 }
 
 template<typename SrcContainer, typename DstContainer>
@@ -229,6 +267,8 @@ corridors::Plan const& CorridorPlanner::compute()
     extractSkeleton();
     computePlan();
     simplifyPlan();
+    annotateCorridors();
+    done();
     return final;
 }
 

@@ -10,6 +10,11 @@
 
 #include <boost/noncopyable.hpp>
 
+namespace envire
+{
+    class Environment;
+}
+
 namespace corridor_planner
 {
     typedef nav_graph_search::TerrainClasses TerrainClasses;
@@ -39,13 +44,15 @@ namespace corridor_planner
 
         std::list<VoronoiPoint>  voronoi_points;
 
+        envire::Environment* env;
+
     private:
         Eigen::Vector2i m_current;
         Eigen::Vector2i m_goal;
 
         enum STATES
         {
-            DSTAR, SKELETON, PLAN, PLAN_SIMPLIFICATION, DONE
+            DSTAR, SKELETON, PLAN, PLAN_SIMPLIFICATION, ANNOTATIONS, DONE
         };
 
         int m_state;
@@ -57,6 +64,12 @@ namespace corridor_planner
         void exportPlan();
 
         double m_expand;
+
+        // If this value is nonzero, use it as threshold to run the
+        // StrongEdgeAnnotation filter on the resulting corridors
+        int strong_edge_map;
+        std::string strong_edge_band;
+        double strong_edge_threshold;
 
     public:
         CorridorPlanner();
@@ -72,6 +85,11 @@ namespace corridor_planner
         void setRasterPositions(Eigen::Vector2i const& current, Eigen::Vector2i const& goal);
 
         void setMarginFactor(double factor);
+
+        /** Annotates the resulting corridors using the StrongEdgeAnnotation
+         * filter
+         */
+        void setStrongEdgeFilter(std::string const& env_path, int map_id, std::string const& band_name, double threshold);
 
         /** Call to notify the planner that the map changed at the given
          * position */
@@ -90,6 +108,14 @@ namespace corridor_planner
          * getPlan()
          */
         void simplifyPlan();
+
+        /** Run the annotation pass on the generated corridors
+        */
+        void annotateCorridors();
+
+        /** Called when the planning is finished
+         */
+        void done();
 
         /** Returns the planner's result. Only valid if all stages have been
          * called already

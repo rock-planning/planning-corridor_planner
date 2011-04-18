@@ -38,6 +38,44 @@ namespace corridors
          * end zone of the corridor, and the end points the other.
          */
         base::geometry::Spline<3> boundary_curves[2];
+
+        enum CURVE_INDEX {
+            WITH_CURVE = 0,
+            BOUNDARY_CURVE_LEFT = 1,
+            BOUNDARY_CURVE_RIGHT = 2
+        };
+
+        /** A segment of a curve that has been annotated
+         *
+         * The meanign of \c symbol is dependent on the annotation filter used
+         */
+        struct AnnotatedSegment {
+            double start;
+            double end;
+            int symbol;
+
+            AnnotatedSegment()
+                : start(0), end(0), symbol(0) {}
+            AnnotatedSegment(double start, double end, int symbol)
+                : start(start), end(end), symbol(symbol) {}
+        };
+
+        /** A set of annotated curves
+         *
+         * The segments are supposed to be ordered in increasing order on the
+         * curve
+         */
+        typedef std::vector<AnnotatedSegment> Annotations;
+
+        /** The corridor annotations for the median curve (index = 0) and the
+         * boundary curves (indexes = 1, 2)
+         *
+         * The annotations are symbolic values that are associated with portions
+         * of the curves. The symbols are defined as indexes and the portions of
+         * the curves as pairs of parameters [from, to]. The Plan object then
+         * contains a mapping from symbol index to symbol name (as a string)
+         */
+        std::vector<Annotations> annotations[3];
     };
 
     enum CORRIDOR_SIDE
@@ -83,12 +121,30 @@ namespace corridors
          * indexes in \c corridors
          */
         int start_corridor, end_corridor;
+        /** A mapping from annotation index to annotation symbol for the curve
+         * annotations
+         *
+         * See Corridor::annotations for a more in-depth description
+         */
+        std::vector<std::string> annotation_symbols;
         /** The geometric representation of the corridors
          */
         std::vector<Corridor> corridors;
         /** The connections between the corridors
          */
         std::vector<CorridorConnection> connections;
+
+        /** Returns the index in \c annotation_index that match the given symbol
+         */
+        int findAnnotationIndex(std::string const& name)
+        {
+            for (unsigned int i = 0; i < annotation_symbols.size(); ++i)
+            {
+                if (annotation_symbols[i] == name)
+                    return i;
+            }
+            return -1;
+        }
     };
 }
 
