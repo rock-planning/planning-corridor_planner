@@ -187,6 +187,8 @@ static void toWrapper(corridors::Plan& dest, Plan& src,
 {
     wrapContainer(dest.corridors, src.corridors, scale, raster_to_world);
 
+    dest.connections.clear();
+
     for (unsigned int corridor_idx = 0; corridor_idx < src.corridors.size(); ++corridor_idx)
     {
         Corridor const& corridor = src.corridors[corridor_idx];
@@ -194,6 +196,7 @@ static void toWrapper(corridors::Plan& dest, Plan& src,
             conn_it = corridor.connections.begin(),
             conn_end = corridor.connections.end();
 
+        dest.connections.reserve(dest.connections.size() + corridor.connections.size());
         for (; conn_it != conn_end; ++conn_it)
         {
             corridors::CorridorConnection conn = 
