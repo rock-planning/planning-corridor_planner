@@ -10,16 +10,20 @@ Typelib.specialize '/corridors/Corridor_m' do
     end
 
     def join(corridor, geometric_resolution = 0.1)
+        # Offsets of the joined curves. Used at the end of the method to join
+        # the annotations as well
+        offsets = []
         # The width curve is a bit special. The constraint is that its
         # parametrization must match the parametrization of the median curve.
         #
         # We must join it ourselves, to maintain the constraint ...
         current_end = median_curve.end_param
         new_curve_length = (corridor.median_curve.end_param - corridor.median_curve.start_param)
-        median_curve.join(corridor.median_curve, geometric_resolution, false)
+        offsets[0] = median_curve.join(corridor.median_curve, geometric_resolution, false)
 
-        interpolator_length = median_curve.end_param - (current_end + new_curve_length)
-        if interpolator_length == 0  # just did append()
+        interpolator_length = (median_curve.end_param - median_curve.start_param) - (current_end + new_curve_length)
+        if interpolator_length == 0
+            # Just did #append
             width_curve.append(corridor.width_curve)
         else
             # Must create an interpolation segment (a segment is a good
@@ -31,10 +35,35 @@ Typelib.specialize '/corridors/Corridor_m' do
             width_curve.append(corridor.width_curve)
         end
 
-        boundary_curves[0].join(corridor.boundary_curves[0], geometric_resolution, false)
-        boundary_curves[1].join(corridor.boundary_curves[1], geometric_resolution, false)
-    end
+        offsets[1] = boundary_curves[0].join(corridor.boundary_curves[0], geometric_resolution, false)
+        offsets[2] = boundary_curves[1].join(corridor.boundary_curves[1], geometric_resolution, false)
 
+        self_curves = [median_curve, boundary_curves[0], boundary_curves[1]]
+        other_curves = [corridor.median_curve, corridor.boundary_curves[0], corridor.boundary_curves[1]]
+        offsets.each_with_index do |off, idx|
+            self_c  = self_curves[idx]
+            other_c = other_curves[idx]
+
+            self_ann  = annotations[idx]
+            other_ann = corridor.annotations[idx]
+
+            other_ann.each_with_index do |segments, annotation_idx|
+                self_segments = []
+                segments.each do |seg|
+                    seg = seg.dup
+                    seg.start += off
+                    seg.end += off
+                    self_segments << seg
+                end
+
+                if annotation_idx == self_ann.size
+                    self_ann.push(self_segments)
+                else
+                    self_ann[annotation_idx].concat(self_segments)
+                end
+            end
+        end
+    end
 
 
     # Filters the given annotation information
