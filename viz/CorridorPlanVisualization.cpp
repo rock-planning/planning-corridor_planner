@@ -321,6 +321,11 @@ void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
             }
         }
 
+        if (min_annotation > max_annotation)
+        {
+            // no data
+            return;
+        }
         std::cerr << "max_annotation=" << max_annotation << ", min_annotation=" << min_annotation << std::endl;
         computeColors(p->annotation_colors, max_annotation - min_annotation + 2);
         std::cerr << p->annotation_colors.size() << " colors allocated for annotations" << std::endl;
