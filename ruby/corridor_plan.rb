@@ -34,6 +34,59 @@ Typelib.specialize '/corridors/Corridor_m' do
         boundary_curves[0].join(corridor.boundary_curves[0], geometric_resolution, false)
         boundary_curves[1].join(corridor.boundary_curves[1], geometric_resolution, false)
     end
+
+
+
+    # Filters the given annotation information
+    #
+    # +operations+ is a mapping about geometrical constraints that are applied
+    # on the filtered annotations. It is a mapping of the form
+    #
+    #   symbol => [min_width, max_hole]
+    #
+    # Where +min_width+ is the minimum width an annotated segment should have
+    # without being removed and +max_hole+ the size between two consecutive
+    # segments below which they get merged (if they have the same symbol,
+    # obviously)
+    def cleanup_single_annotations(curve, annotations, operations)
+        filtered = []
+        if annotations.empty?
+            return filtered
+        end
+
+        current  = annotations.first
+        for an in annotations[1, annotations.size - 1]
+            min_width, max_hole = operations[an.symbol]
+
+            do_push = true
+            if max_hole && current.symbol == an.symbol
+                if curve.length(current.end, an.start, 0.01) < max_hole
+                    current.end = an.end
+                    do_push = false
+                end
+            end
+
+            if do_push
+                if !min_width || curve.length(current.start, current.end, 0.01) > min_width
+                    filtered << current
+                end
+                current = an
+            end
+        end
+
+        if current
+            if min_width && curve.length(current.start, current.end, 0.01) > min_width
+                filtered << current
+            end
+        end
+        filtered
+    end
+
+    def cleanup_annotations(index, operations)
+        annotations[0][index] = cleanup_single_annotations(median_curve, annotations[0][index], operations)
+        annotations[1][index] = cleanup_single_annotations(boundary_curves[0], annotations[1][index], operations)
+        annotations[2][index] = cleanup_single_annotations(boundary_curves[1], annotations[2][index], operations)
+    end
 end
 
 Typelib.specialize '/corridors/Plan_m' do
@@ -144,6 +197,17 @@ Typelib.specialize '/corridors/Plan_m' do
         end
 
         connections.pretty_print(pp)
+    end
+
+    def cleanup_annotations(symbol, operations)
+        ann_idx = annotation_symbols.index(symbol)
+        if !ann_idx
+            raise ArgumentError, "there is no annotations for the given symbol. Known annotations are: #{annotation_symbols.map(&:name).join(", ")}"
+        end
+
+        for c in corridors
+            c.cleanup_annotations(ann_idx, operations)
+        end
     end
 end
 
