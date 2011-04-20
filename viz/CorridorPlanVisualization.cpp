@@ -116,23 +116,14 @@ void CorridorPlanVisualization::createCurveNode(osg::Geode* geode, base::geometr
     {
         osg::Vec4 color = colors[0];
         while (!annotations.empty() && annotations.front().end <= t)
-        {
-            std::cerr << "removing annotated segment" << std::endl;
             annotations.erase(annotations.begin());
-        }
 
         if (!annotations.empty())
         {
             if (annotations.front().start > t)
-            {
                 color = colors[0];
-                std::cerr << "t=" << t << " no symbol" << ", color=" << color[0] << "," << color[1] << "," << color[2] << std::endl;
-            }
             else
-            {
                 color = colors[1 + annotations.front().symbol - min_annotation];
-                std::cerr << "t=" << t << " symbol=" << annotations.front().symbol << ", color=" << color[0] << "," << color[1] << "," << color[2] << std::endl;
-            }
         }
 
 
@@ -311,7 +302,6 @@ void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
             corridors::Corridor& c = p->plan.corridors[corridor_idx];
             for (int curve_idx = 0; curve_idx < 3; ++curve_idx)
             {
-                std::cerr << "corridor " << corridor_idx << ", curve=" << curve_idx << ". size=" << c.annotations[curve_idx].size() << std::endl;
                 corridors::Corridor::Annotations& annotations = c.annotations[curve_idx][annotation_idx];
                 for (unsigned int i = 0; i < annotations.size(); ++i)
                 {
@@ -326,11 +316,7 @@ void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
             // no data
             return;
         }
-        std::cerr << "max_annotation=" << max_annotation << ", min_annotation=" << min_annotation << std::endl;
         computeColors(p->annotation_colors, max_annotation - min_annotation + 2);
-        std::cerr << p->annotation_colors.size() << " colors allocated for annotations" << std::endl;
-        for (int i = 0; i < p->annotation_colors.size(); ++i)
-            std::cerr << p->annotation_colors[i][0] << " " << p->annotation_colors[i][1] << " " << p->annotation_colors[i][2] << std::endl;
     }
 
     // Create objects for each of the plan's corridors
