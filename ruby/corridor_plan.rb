@@ -1,4 +1,10 @@
+ANN_UNKNOWN     = 0
+ANN_STRONG_EDGE = 1
+
 Typelib.specialize '/corridors/Corridor_m' do
+    Annotations      = self['annotations'].deference.deference
+    AnnotatedSegment = Annotations.deference
+
     def reverse
         self.median_curve.reverse
 
@@ -109,6 +115,81 @@ Typelib.specialize '/corridors/Corridor_m' do
             end
         end
         filtered
+    end
+
+    # If curve is one of the boundary curves and +t+ a parameter on it, returns
+    # the parameter of the associated median point
+    #
+    # Note that this point is *not* the closest median point. It is the median
+    # point for which curve.get(t) is the closest point in +curve+.
+    def associated_median_parameter(curve, t, geometric_resolution)
+        median_curve.dichotomic_search(0.05) do |median_t, median_p|
+            points, segments = curve.find_closest_points(median_p, geometric_resolution)
+
+            if (points.empty? || points.last < t) && (segments.empty? || segments.last < t)
+                true
+            elsif (points.empty? || points.first > t) && (segments.empty? || segments.first > t)
+                false
+            else
+                nil
+            end
+        end
+    end
+
+    # Returns corridor segments that have a given common symbol
+    #
+    # The returned value is an array of parameter intervals on the median curve
+    def annotate_segments(annotation_index, symbol, save_as = nil)
+        median_segments = [[], []]
+        2.times do |curve_idx|
+            curve = boundary_curves[curve_idx]
+            annotations[curve_idx + 1][annotation_index].each do |segment|
+                next if segment.symbol != symbol
+
+                median_start = associated_median_parameter(curve, segment.start, 0.05)
+                median_end   = associated_median_parameter(curve, segment.end, 0.05)
+                median_segments[curve_idx] << [median_start, median_end]
+            end
+        end
+
+        # Now compute segment intersections between the two median_segments sets
+        median0, median1 = median_segments[0], median_segments[1]
+        result = []
+        median0.each do |seg_start, seg_end|
+            while !median1.empty? && median1[0][0] > seg_end
+                median1.shift
+            end
+            if median1.empty?
+                break
+            end
+
+            if median1[0][1] < seg_start
+                next
+            end
+
+            # So, now
+            #   median1[0][0] < seg_end
+            #   median1[0][1] > seg_start
+            #
+            # I.e. we have an intersection
+            result << [[seg_start, median1[0][0]].max, [seg_end, median1[0][1]].min]
+        end
+
+        if save_as
+            save_corridor_segments_as_annotation(save_as, symbol, result)
+        end
+        return result
+    end
+
+    def save_corridor_segments_as_annotation(annotation_idx, symbol, segments)
+        segments = segments.map do |first, last|
+            result = AnnotatedSegment.new
+            result.start = first
+            result.end = last
+            result.symbol = symbol
+            result
+        end
+        annotations[0][annotation_idx] = segments
     end
 
     def cleanup_annotations(index, operations)
@@ -228,12 +309,43 @@ Typelib.specialize '/corridors/Plan_m' do
         connections.pretty_print(pp)
     end
 
-    def cleanup_annotations(symbol, operations)
+    # Returns the index of the given annotation
+    #
+    # If +create+ is true, it will be added if it can't be found. Otherwise,
+    # raises ArgumentError
+    def find_annotation(symbol, create = false)
         ann_idx = annotation_symbols.index(symbol)
-        if !ann_idx
-            raise ArgumentError, "there is no annotations for the given symbol. Known annotations are: #{annotation_symbols.map(&:name).join(", ")}"
+        if ann_idx
+            return ann_idx
+        elsif !create
+            raise ArgumentError, "there is no annotations for the requested symbol #{symbol}. Known annotations are: #{annotation_symbols.to_a.join(", ")}"
         end
 
+        ann_idx = annotation_symbols.size
+        annotation_symbols.push(symbol)
+
+        # Add a new annotation vector to all corridors as well
+        corridors.each do |c|
+            c.annotations[0].push(Annotations.new)
+            c.annotations[1].push(Annotations.new)
+            c.annotations[2].push(Annotations.new)
+        end
+        return ann_idx
+    end
+
+    def annotate_corridor_segments(annotation_symbol, symbol, save_as = nil)
+        ann_idx = find_annotation(annotation_symbol)
+        if save_as
+            save_as_idx = find_annotation(save_as, true)
+        end
+
+        for c in corridors
+            c.annotate_segments(ann_idx, symbol, save_as_idx)
+        end
+    end
+
+    def cleanup_annotations(symbol, operations)
+        ann_idx = find_annotation(annotation_symbol)
         for c in corridors
             c.cleanup_annotations(ann_idx, operations)
         end
