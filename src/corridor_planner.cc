@@ -167,11 +167,12 @@ void CorridorPlanner::annotateCorridors()
 {
     if (isProcessingRequired(ANNOTATIONS))
     {
+        exportPlan();
+
         if (strong_edge_threshold != 0)
         {
             envire::Grid<double>::Ptr map = env->getItem< envire::Grid<double> >(strong_edge_map);
             StrongEdgeAnnotation filter(map.get(), strong_edge_band, strong_edge_threshold);
-            exportPlan();
             AnnotationFilter::apply(filter, final);
         }
         processed();
