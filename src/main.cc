@@ -236,9 +236,6 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
 
             int in_side  = conn_it->this_side;
             int out_side = conn_it->target_side;
-            if (in_side == false)
-                backwards = true;
-
             dot << "  c" << corridor_idx << "_" << in_side
                 << " -> c" << target_idx << "_" << out_side << " [weight=3];\n";
         }
@@ -250,16 +247,9 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
         dot << "  c" << corridor_idx << "_0 " << node_setup.str();
         dot << "  c" << corridor_idx << "_1 " << node_setup.str();
 
-        int in_side = backwards, out_side = !backwards;
-        dot << "  c" << corridor_idx << "_" << in_side << " -> c" << corridor_idx
-            << "_" << out_side << " [label=\"" << corridor_name << "\", color=\""
+        dot << "  c" << corridor_idx << "_0" << " -> c" << corridor_idx
+            << "_1" << " [label=\"" << corridor_name << "\", color=\""
             << colorToDot(color) << "\"]\n";
-
-        if (corridor.bidirectional)
-        {
-            dot << "  c" << corridor_idx << "_1 -> c" << corridor_idx << "_0 [color=\""
-                << colorToDot(color) << "\"]\n";
-        }
     }
     dot << "}\n";
 }
