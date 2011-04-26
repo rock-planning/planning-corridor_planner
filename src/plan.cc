@@ -853,17 +853,6 @@ int Plan::findCorridorOf(PointID const& endp) const
     return owner;
 }
 
-static int solveMergeMappings(map<int, int> const& merge_mappings, int idx)
-{
-    map<int, int>::const_iterator it = merge_mappings.find(idx);
-    while (it != merge_mappings.end())
-    {
-        idx = it->second;
-        it = merge_mappings.find(idx);
-    }
-    return idx;
-}
-
 void Plan::mergeSimpleCrossroads_directed()
 {
     DEBUG_OUT("removing simple crossroads");
@@ -942,21 +931,29 @@ void Plan::mergeSimpleCrossroads_directed()
     // Mapping from an already merged corridor to the corridor into which is has
     // been merged
     DEBUG_OUT("found " << crossroads.size() << " crossroads");
-    map<int, int> merge_mappings;
+    std::vector< std::pair<int, bool> > merge_mappings(corridors.size());
+    for (int i = 0; i < corridors.size(); ++i)
+        merge_mappings[i] = make_pair(i, false);
+
     for (int crossroad_idx = 0; crossroad_idx < (int)crossroads.size(); ++crossroad_idx)
     {
         DEBUG_OUT("crossroad " << crossroad_idx << " has " << crossroads[crossroad_idx].size() << " endpoints");
         if (crossroads[crossroad_idx].size() != 2)
             continue;
 
+        bool reversed;
         Endpoint c0_endp = crossroads[crossroad_idx].front();
         int c0_idx = c0_endp.corridor_idx;
-        c0_idx = solveMergeMappings(merge_mappings, c0_idx);
+        bool c0_side = c0_endp.side;
+        tie(c0_idx, reversed) = merge_mappings[c0_idx];
+        if (reversed) c0_side = !c0_side;
         Corridor& c0 = corridors[c0_idx];
 
         Endpoint c1_endp = crossroads[crossroad_idx].back();
         int c1_idx = c1_endp.corridor_idx;
-        c1_idx = solveMergeMappings(merge_mappings, c1_idx);
+        bool c1_side = c1_endp.side;
+        tie(c1_idx, reversed) = merge_mappings[c1_idx];
+        if (reversed) c1_side = !c1_side;
         Corridor& c1 = corridors[c1_idx];
 
         if (c0.bidirectional ^ c1.bidirectional)
@@ -965,27 +962,53 @@ void Plan::mergeSimpleCrossroads_directed()
                 c0_idx == end_corridor || c1_idx == end_corridor)
             continue;
 
-        if (c1_endp.side == c0_endp.side)
-            reverseCorridor(c1_idx);
+        DEBUG_OUT("concatenating " << c0.name << " side=" << c0_side << "(stored=" << c0_endp.side << ") with " << c1.name << " side=" << c1_side << " (stored=" << c1_endp.side << ")");
 
-
-        if (c0_endp.side == false)
+        if (c1_side == c0_side)
         {
-            DEBUG_OUT("concatenating " << c0.name << " at the end of " << c1.name);
+            for (size_t i = 0; i < corridors.size(); ++i)
+            {
+                if (merge_mappings[i].first == c1_idx)
+                    merge_mappings[i].second ^= true;
+            }
+            reverseCorridor(c1_idx);
+        }
+
+        if (c0_side == false)
+        {
+            DEBUG_OUT("  " << c0.name << " goes at the end of " << c1.name);
             // grafting c1.back onto
             moveConnections(c0_idx, c1_idx);
             c1.concat(c0);
-            merge_mappings[c0_idx] = c1_idx;
+            for (size_t i = 0; i < corridors.size(); ++i)
+            {
+                if (merge_mappings[i].first == c0_idx)
+                    merge_mappings[i].first = c1_idx;
+            }
             to_remove.insert(c0_idx);
         }
         else
         {
-            DEBUG_OUT("concatenating " << c1.name << " at the end of " << c0.name);
+            DEBUG_OUT("  " << c1.name << " goes at the end of " << c0.name);
             moveConnections(c1_idx, c0_idx);
             c0.concat(c1);
-            merge_mappings[c1_idx] = c0_idx;
+            for (size_t i = 0; i < corridors.size(); ++i)
+            {
+                if (merge_mappings[i].first == c1_idx)
+                    merge_mappings[i].first = c0_idx;
+            }
             to_remove.insert(c1_idx);
         }
+
+#ifdef DEBUG
+        for (int i = 0; i < corridors.size(); ++i)
+        {
+            if (merge_mappings[i].first != i || merge_mappings[i].second)
+                DEBUG_OUT("  " << corridors[i].name << " => " << corridors[merge_mappings[i].first].name << " (reverse=" << merge_mappings[i].second << ")");
+        }
+
+        displayConnections();
+#endif
     }
 
     for (set<int>::const_reverse_iterator it = to_remove.rbegin();
