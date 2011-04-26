@@ -104,16 +104,17 @@ void CorridorPlanVisualization::createCurveNode(osg::Geode* geode, base::geometr
 
     osg::ref_ptr<osg::Vec3Array> points = new osg::Vec3Array;
 
-    double start = curve.getStartParam();
-    double step  = (curve.getEndParam() - curve.getStartParam()) / curve.getCurveLength() / 10;
-    double last_z;
-
     osg::Vec4Array* vertex_colors = new osg::Vec4Array();
     osg::Vec4 color;
 
-    Eigen::Vector3d last_p;
-    for (double t = start; t < curve.getEndParam(); t += step)
+    double last_z;
+    std::vector<double> parameters;
+    std::vector<base::Vector3d> curve_points = curve.sample(0.05, &parameters);
+
+    for (unsigned int point_idx = 0; point_idx < curve_points.size(); ++point_idx)
     {
+        double t = parameters[point_idx];
+
         osg::Vec4 color = colors[0];
         while (!annotations.empty() && annotations.front().end <= t)
             annotations.erase(annotations.begin());
@@ -127,13 +128,10 @@ void CorridorPlanVisualization::createCurveNode(osg::Geode* geode, base::geometr
         }
 
 
-        Eigen::Vector3d p = curve.getPoint(t);
+        Eigen::Vector3d p = curve_points[point_idx];
         double z = getElevation(p) + z_offset;
-        if (t == start)
-        {
-            last_p = p;
+        if (point_idx == 0)
             last_z = z;
-        }
         else
         {
             z = 0.5 * last_z + 0.5 * z;
