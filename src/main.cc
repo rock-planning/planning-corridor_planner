@@ -376,7 +376,7 @@ int main(int argc, char** argv)
     if (argc != 6 && argc != 9)
     {
 	std::cerr 
-	    << "usage: plan_corridors <terrain_file> <terrain_classes> <x1> <y1> <basename> [<x0> <y0> <expand_factor>]\n"
+	    << "usage: plan_corridors <map_file> <cost_classes> <expand_factor> <x0> <y0> <x1> <y1> <basename>\n"
             << "  computes the result of D* on the given map, with [x1, y1] as\n"
             << "  the goal. If x0, y0 and expand_factor are given, then we also\n"
             << "  compute the expanded zone of navigation around the optimal path\n"
@@ -407,12 +407,12 @@ int main(int argc, char** argv)
 
     string terrain_file    = argv[1];
     string terrain_classes = argv[2];
-    float x1 = boost::lexical_cast<float>(argv[3]);
-    float y1 = boost::lexical_cast<float>(argv[4]);
-    std::string out_basename = argv[5];
-    float x0 = boost::lexical_cast<float>(argv[6]);
-    float y0 = boost::lexical_cast<float>(argv[7]);
-    float expand = boost::lexical_cast<float>(argv[8]);
+    float expand = boost::lexical_cast<float>(argv[3]);
+    float x0 = boost::lexical_cast<float>(argv[4]);
+    float y0 = boost::lexical_cast<float>(argv[5]);
+    float x1 = boost::lexical_cast<float>(argv[6]);
+    float y1 = boost::lexical_cast<float>(argv[7]);
+    std::string out_basename = argv[8];
 
     do_plan('c', out_basename, terrain_file, terrain_classes,
           x0, y0, x1, y1, expand);
