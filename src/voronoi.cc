@@ -936,16 +936,29 @@ void Corridor::updateCurves(double discount_factor)
 
         if (!has_cut_start && !has_cut_end)
         {
-            // The median curve is OUTSIDE the corridor (it is possible for very
-            // small corridors in complicated areas). Reduce it to a line
-            // between the centers of the in and out segments
-            vector<base::Vector3d> line;
-            line.push_back((boundary_startp[0] + boundary_startp[1]) / 2);
-            line.push_back((boundary_endp[0] + boundary_endp[1]) / 2);
-            if (line.front() == line.back())
-                median_curve.setSingleton(line.front());
-            else
-                median_curve.interpolate(line);
+            // The median curve might be OUTSIDE the corridor (it is possible
+            // for very small corridors in complicated areas). Reduce it to a
+            // line between the centers of the in and out segments
+            //
+            // To discriminate, we look whether the end point is closer than the
+            // start point to the start segment
+            Eigen::Vector3d median_p[2] = { median_curve.getStartPoint(), median_curve.getEndPoint() };
+            Eigen::Vector3d segment((boundary_startp[1] - boundary_startp[0]).normalized());
+            Eigen::Vector3d normal(-segment.y(), segment.x(), 0);
+            double d[2];
+            for (int i = 0; i < 2; ++i)
+                d[i] = fabs((median_p[i] - boundary_startp[0]).dot(segment));
+
+            if (d[0] > d[1])
+            {
+                vector<base::Vector3d> line;
+                line.push_back((boundary_startp[0] + boundary_startp[1]) / 2);
+                line.push_back((boundary_endp[0] + boundary_endp[1]) / 2);
+                if (line.front() == line.back())
+                    median_curve.setSingleton(line.front());
+                else
+                    median_curve.interpolate(line);
+            }
         }
         else
             median_curve.crop(cut_start_t, cut_end_t);
