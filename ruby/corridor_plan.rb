@@ -29,8 +29,12 @@ Typelib.specialize '/corridors/Corridor_m' do
 
         interpolator_length = (median_curve.end_param - median_curve.start_param) - (current_end + new_curve_length)
         if interpolator_length == 0
-            # Just did #append
-            width_curve.append(corridor.width_curve)
+            if is_endpoint && self.width_curve.singleton?
+                self.width_curve = corridor.width_curve
+            elsif !is_endpoint
+                # Just did #append
+                width_curve.append(corridor.width_curve)
+            end
         else
             # Must create an interpolation segment (a segment is a good
             # approximation as we join all curves with segments)
@@ -264,6 +268,7 @@ Typelib.specialize '/corridors/Plan_m' do
         result.boundary_curves[0] = Types::Base::Geometry::Spline3.new
         result.boundary_curves[1] = Types::Base::Geometry::Spline3.new
 
+        endpoints = [path[0].first, path[-1].first]
         path.each do |idx, side|
             corridor = corridors[idx]
             if side == :BACK_SIDE
@@ -271,7 +276,7 @@ Typelib.specialize '/corridors/Plan_m' do
                 corridor.reverse
             end
 
-            result.join(corridor, 0.1)
+            result.join(corridor, 0.1, endpoints.include?(idx))
         end
 
         result
