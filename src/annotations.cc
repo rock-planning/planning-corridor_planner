@@ -59,10 +59,14 @@ void StrongEdgeAnnotation::annotateCurve(corridors::Corridor::Annotations& resul
             continue;
 
         int new_state = -1;
-        if (no_data.second && data[y][x] == no_data.first)
-            new_state = UNKNOWN;
-        else if (data[y][x] > threshold)
-            new_state = STRONG;
+        for (int dy = -1; dy < 2; ++dy)
+            for (int dx = -1; dx < 2; ++dx)
+            {
+                if (no_data.second && data[y][x] == no_data.first && new_state == -1)
+                    new_state = UNKNOWN;
+                else if (data[y][x] > threshold)
+                    new_state = STRONG;
+            }
 
         if (new_state != current_state)
         {
