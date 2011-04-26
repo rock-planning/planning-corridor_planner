@@ -159,6 +159,11 @@ namespace corridor_planner
         void removeNarrowCorridors(std::vector<Path>& all_paths, double min_width, std::vector<bool>& to_delete);
         void computeAllPaths(std::vector<Path>& all_paths, Path& current_path, int next_path, int in_side, std::vector<int>& stack) const;
 
+        void removePointTurnConnections();
+        void fixBoundaryOrdering();
+
+        bool needsBoundarySwap(Corridor& source, bool source_side, Corridor& target, bool target_side) const;
+
         /** Computes all possible paths from the corridor plan, including those
          * that do not lead to the end corridor
          */

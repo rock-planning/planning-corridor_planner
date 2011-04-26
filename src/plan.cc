@@ -558,6 +558,121 @@ bool Plan::filterNullSingleton(int corridor_idx)
     return (corridor.connections.size() < 2);
 }
 
+/// A robust test to check if two segment intersects
+static bool segmentIntersects(Eigen::Vector3d a0, Eigen::Vector3d a1, Eigen::Vector3d b0, Eigen::Vector3d b1)
+{
+    {
+        Eigen::Vector3d a0a1 = a1 - a0;
+        Eigen::Vector3d a0b0 = b0 - a0;
+        Eigen::Vector3d a0b1 = b1 - a0;
+        double dir0 = a0a1.x() * a0b0.y() - a0a1.y() * a0b0.x();
+        double dir1 = a0a1.x() * a0b1.y() - a0a1.y() * a0b1.x();
+        if (dir0 * dir1 > 0)
+            return false;
+    }
+
+    {
+        Eigen::Vector3d b0b1 = b1 - b0;
+        Eigen::Vector3d b0a0 = a0 - b0;
+        Eigen::Vector3d b0a1 = a1 - b0;
+        double dir0 = b0b1.x() * b0a0.y() - b0b1.y() * b0a0.x();
+        double dir1 = b0b1.x() * b0a1.y() - b0b1.y() * b0a1.x();
+        if (dir0 * dir1 > 0)
+            return false;
+    }
+
+    return true;
+}
+
+bool Plan::needsBoundarySwap(Corridor& source, bool source_side, Corridor& target, bool target_side) const
+{
+
+    Eigen::Vector3d boundary_source_p =
+        source.getBoundaryCurveEndpoint(0, source_side);
+    Eigen::Vector3d median_source_p   =
+        source.getMedianCurveEndpoint(source_side);
+
+    Eigen::Vector3d boundary_target_p =
+        target.getBoundaryCurveEndpoint(0, target_side);
+    Eigen::Vector3d median_target_p   =
+        target.getMedianCurveEndpoint(target_side);
+
+    if (segmentIntersects(boundary_source_p, boundary_target_p,
+                median_source_p, median_target_p))
+        return true;
+
+    if (source.median_curve.isIntersectingSegment(boundary_source_p, boundary_target_p, 0.01))
+        return true;
+    if (target.median_curve.isIntersectingSegment(boundary_source_p, boundary_target_p, 0.01))
+        return true;
+
+    return false;
+}
+
+void Plan::fixBoundaryOrdering()
+{
+    int startCorridorIdx = findStartCorridor();
+    int endCorridorIdx = findEndCorridor();
+
+    for (unsigned int corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
+    {
+        Corridor& source = corridors[corridor_idx];
+        if (corridor_idx == startCorridorIdx || corridor_idx == endCorridorIdx)
+            continue;
+
+        Corridor::connection_iterator conn_it = source.connections.begin();
+        while (conn_it != source.connections.end())
+        {
+            if (conn_it->target_idx == startCorridorIdx || conn_it->target_idx == endCorridorIdx)
+            {
+                ++conn_it;
+                continue;
+            }
+
+            Corridor& target = corridors[conn_it->target_idx];
+            if (needsBoundarySwap(source, conn_it->this_side, target, conn_it->target_side))
+                std::cout << "NEEDS REORDERING " << corridor_idx << " " << conn_it->this_side << " => " << conn_it->target_idx << " " << conn_it->target_side << std::endl;
+            ++conn_it;
+        }
+    }
+}
+
+void Plan::removePointTurnConnections()
+{
+    unsigned int startCorridorIdx = findStartCorridor();
+    unsigned int endCorridorIdx = findEndCorridor();
+
+    for (unsigned int corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
+    {
+        Corridor& source = corridors[corridor_idx];
+        if (corridor_idx == startCorridorIdx || corridor_idx == endCorridorIdx)
+            continue;
+
+        Corridor::connection_iterator conn_it = source.connections.begin();
+        while (conn_it != source.connections.end())
+        {
+            if (conn_it->target_idx == startCorridorIdx || conn_it->target_idx == endCorridorIdx)
+            {
+                ++conn_it;
+                continue;
+            }
+            Corridor& target = corridors[conn_it->target_idx];
+
+            Eigen::Vector3d median_source_p   =
+                source.getMedianCurveEndpoint(conn_it->this_side);
+            Eigen::Vector3d median_target_p   =
+                target.getMedianCurveEndpoint(conn_it->target_side);
+
+            Eigen::Vector3d median_join = median_target_p - median_source_p;
+            Eigen::Vector3d target_median_tg = target.median_curve.getPointAndTangent(target.median_curve.getStartParam()).second;
+
+            if (median_join.dot(target_median_tg) < 0)
+                std::cout << "POINT TURN " << corridor_idx << " " << conn_it->this_side << " => " << conn_it->target_idx << " " << conn_it->target_side << std::endl;
+            ++conn_it;
+        }
+    }
+}
+
 void Plan::removeNullCorridors(set<int> keepalive)
 {
     set<int> to_remove;

@@ -274,6 +274,16 @@ namespace corridor_planner
         PointID backPoint() const { return voronoi.back().center; }
         PointID getEndpoint(bool side) const
         { return side ? backPoint() : frontPoint(); }
+        Eigen::Vector3d getMedianCurveEndpoint(bool side) const
+        { return side ? median_curve.getEndPoint() : median_curve.getStartPoint(); }
+
+        PointID getBoundaryEndpoint(int boundary_idx, bool side) const
+        {
+            return side ? boundaries[boundary_idx].back() :
+                boundaries[boundary_idx].front();
+        }
+        Eigen::Vector3d getBoundaryCurveEndpoint(int boundary_idx, bool side) const
+        { return side ? boundary_curves[boundary_idx].getEndPoint() : boundary_curves[boundary_idx].getStartPoint(); }
 
         typedef std::list<VoronoiPoint>::const_iterator voronoi_const_iterator;
         typedef std::list<VoronoiPoint>::iterator voronoi_iterator;
