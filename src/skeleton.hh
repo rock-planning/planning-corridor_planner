@@ -26,6 +26,8 @@ namespace corridor_planner
     {
         std::set<PointID> points;
         std::set<Endpoint> endpoints;
+        bool empty() const
+        { return points.empty(); }
         void clear()
         {
             points.clear();

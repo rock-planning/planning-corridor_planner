@@ -291,6 +291,9 @@ void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end)
 
 void Plan::simplify(double margin_factor, int min_width)
 {
+    DEBUG_OUT("");
+    DEBUG_OUT("");
+    DEBUG_OUT("");
     DEBUG_OUT("checking consistency before simplification");
     checkConsistency();
 

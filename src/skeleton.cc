@@ -420,6 +420,11 @@ void SkeletonExtraction::mergeCrossroads(CorridorExtractionState& state, int int
     GeometricCrossroad& into = state.geometric_crossroads[into_idx];
     into.points.insert(from.points.begin(), from.points.end());
     into.endpoints.insert(from.endpoints.begin(), from.endpoints.end());
+#ifdef DEBUG
+    DEBUG_OUT("  the crossroad now joins the following corridors:");
+    for (set<Endpoint>::const_iterator endp_it = into.endpoints.begin(); endp_it != into.endpoints.end(); ++endp_it)
+        DEBUG_OUT("  " << state.plan.corridors[endp_it->corridor_idx].name << ":" << endp_it->side);
+#endif
 
     from.clear();
 }
@@ -677,6 +682,27 @@ void SkeletonExtraction::computeConnections(CorridorExtractionState& state)
             state_split->second.swap(split_it->second);
         }
     }
+
+#ifdef DEBUG
+    DEBUG_OUT("");
+    DEBUG_OUT("Results of crossroad extraction");
+    DEBUG_OUT("-------------------------------");
+    for (size_t i = 0; i < state.geometric_crossroads.size(); ++i)
+    {
+        GeometricCrossroad const& crossroad = state.geometric_crossroads[i];
+        if (crossroad.empty())
+            continue;
+
+        DEBUG_OUT("crossroad " << i);
+        DEBUG_OUT("  points: ");
+        for (set<PointID>::const_iterator it = crossroad.points.begin(); it != crossroad.points.end(); ++it)
+            DEBUG_OUT("    " << *it);
+        DEBUG_OUT("  corridor endpoints: ");
+        for (set<Endpoint>::const_iterator it = crossroad.endpoints.begin(); it != crossroad.endpoints.end(); ++it)
+            DEBUG_OUT("    " << state.plan.corridors[it->corridor_idx].name << ":" << it->side);
+
+    }
+#endif
 }
 
 void SkeletonExtraction::registerConnections(CorridorExtractionState& state)
@@ -814,10 +840,14 @@ Plan SkeletonExtraction::buildPlan(PointID const& start_point, PointID const& en
 {
     CorridorExtractionState state(start_point, end_point, nav_function);
 
+    DEBUG_OUT("SkeletonExtraction: extract branches");
     extractBranches(points, state);
+    DEBUG_OUT("SkeletonExtraction: compute connections");
     computeConnections(state);
 
+    DEBUG_OUT("SkeletonExtraction: register connections");
     registerConnections(state);
+    DEBUG_OUT("SkeletonExtraction: apply splits");
     applySplits(state);
 
     state.plan.createEndpointCorridor(state.plan.getStartPoint(), false);
@@ -837,6 +867,8 @@ Plan SkeletonExtraction::buildPlan(PointID const& start_point, PointID const& en
             did_something = true;
         }
     }
+    DEBUG_OUT("done building plan");
+    DEBUG_OUT("");
 
     return state.plan;
 }
