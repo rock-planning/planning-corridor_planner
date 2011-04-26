@@ -37,7 +37,7 @@ void StrongEdgeAnnotation::annotateCurve(corridors::Corridor::Annotations& resul
 {
     typedef corridors::Corridor::AnnotatedSegment AnnotatedSegment;
     double const scaleX = map->getScaleX(), scaleY = map->getScaleY();
-    int const map_width = map->getWidth(), map_height = map->getHeight();
+    size_t const map_width = map->getWidth(), map_height = map->getHeight();
 
     std::vector<double> parameters;
     std::vector<base::Vector3d> points = curve.sample(std::min(scaleX, scaleY) / 2, &parameters);
