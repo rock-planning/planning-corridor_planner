@@ -1139,17 +1139,20 @@ bool Plan::removeUselessCorridorConnections(int corridor_idx)
     return true;
 }
 
-void Plan::displayConnections() const
+void Plan::displayConnections(bool include_corridor_inner_connections) const
 {
     for (unsigned int i = 0; i < corridors.size(); ++i)
     {
-        std::cout << "FRONT_" << corridors[i].name << " -> " << "BACK_" << corridors[i].name << std::endl;
-        std::cout << "BACK_" << corridors[i].name << " -> " << "FRONT_" << corridors[i].name << std::endl;
+        if (include_corridor_inner_connections)
+        {
+            std::cout << "FRONT_" << corridors[i].name << " -> " << "BACK_" << corridors[i].name << std::endl;
+            std::cout << "BACK_" << corridors[i].name << " -> " << "FRONT_" << corridors[i].name << std::endl;
+        }
 
         Corridor const& corridor = corridors[i];
         Corridor::Connections const& connections = corridor.connections;
         for (Corridor::Connections::const_iterator it = connections.begin(); it != connections.end(); ++it)
-            std::cout << (it->this_side ? "FRONT" : "BACK") << "_" << corridors[i].name << " -> " << (it->target_side ? "FRONT" : "BACK") << "_" << corridors[it->target_idx].name << std::endl;
+            std::cout << (it->this_side ? "BACK" : "FRONT") << "_" << corridors[i].name << " -> " << (it->target_side ? "BACK" : "FRONT") << "_" << corridors[it->target_idx].name << std::endl;
     }
 }
 
