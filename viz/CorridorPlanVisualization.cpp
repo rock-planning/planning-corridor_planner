@@ -155,7 +155,7 @@ void CorridorPlanVisualization::createCurveNode(osg::Geode* geode, base::geometr
     {
         osg::StateSet* stateset = new osg::StateSet;
         osg::LineWidth* linewidth = new osg::LineWidth();
-        linewidth->setWidth(25.0f);
+        linewidth->setWidth(line_width);
         stateset->setAttributeAndModes(linewidth, osg::StateAttribute::ON);
         geom->setStateSet(stateset);
     }
@@ -227,9 +227,9 @@ void CorridorPlanVisualization::createCorridorNode(osg::Geode* geode, corridors:
 
     if (annotation_idx != -1)
     {
-        createCurveNode(geode, c.median_curve, c.annotations[0][annotation_idx], p->annotation_colors, p->offset + 0.1, 20);
-        createCurveNode(geode, c.boundary_curves[0], c.annotations[1][annotation_idx], p->annotation_colors, p->offset + 0.1, 20);
-        createCurveNode(geode, c.boundary_curves[1], c.annotations[2][annotation_idx], p->annotation_colors, p->offset + 0.1, 20);
+        createCurveNode(geode, c.median_curve, c.annotations[0][annotation_idx], p->annotation_colors, p->offset + 0.1, 15);
+        createCurveNode(geode, c.boundary_curves[0], c.annotations[1][annotation_idx], p->annotation_colors, p->offset + 0.1, 10);
+        createCurveNode(geode, c.boundary_curves[1], c.annotations[2][annotation_idx], p->annotation_colors, p->offset + 0.1, 15);
     }
 }
 
