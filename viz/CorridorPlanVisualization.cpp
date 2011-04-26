@@ -287,7 +287,7 @@ void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
         {
             std::cerr << "cannot find required annotation " << p->displayed_annotation << std::endl;
             std::cerr << "known annotations in this plan:" << std::endl;
-            for (int i = 0; i < p->plan.annotation_symbols.size(); ++i)
+            for (unsigned int i = 0; i < p->plan.annotation_symbols.size(); ++i)
                 std::cerr << "  " << p->plan.annotation_symbols[i] << std::endl;
         }
     }
