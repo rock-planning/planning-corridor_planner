@@ -225,6 +225,10 @@ Typelib.specialize '/corridors/Plan_m' do
             return enum_for(:each_path, current, corridor_idx, corridor_side)
         end
 
+        if corridors.empty?
+            return []
+        end
+
         corridor_idx  ||= start_corridor
         corridor_side ||= :FRONT_SIDE
 
