@@ -354,7 +354,7 @@ Typelib.specialize '/corridors/Plan_m' do
     end
 
     def cleanup_annotations(symbol, operations)
-        ann_idx = find_annotation(annotation_symbol)
+        ann_idx = find_annotation(symbol)
         for c in corridors
             c.cleanup_annotations(ann_idx, operations)
         end
