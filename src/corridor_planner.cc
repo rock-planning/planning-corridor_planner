@@ -58,7 +58,7 @@ void CorridorPlanner::init(std::string const& terrain_classes, std::string const
 void CorridorPlanner::setMarginFactor(double factor)
 {
     m_expand = factor;
-    requireProcessing(SKELETON);
+    requireProcessing(DSTAR);
 }
 
 void CorridorPlanner::setStrongEdgeFilter(std::string const& env_path, int map_id, std::string const& band_name, double threshold)
@@ -92,13 +92,11 @@ void CorridorPlanner::setRasterPositions(Eigen::Vector2i const& current, Eigen::
     if (current != m_current)
     {
         m_current = current;
-        dstar_to_start->initialize(current.x(), current.y());
         requireProcessing(DSTAR);
     }
     if (goal != m_goal)
     {
         m_goal = goal;
-        dstar_to_goal->initialize(goal.x(), goal.y());
         requireProcessing(DSTAR);
     }
 }
@@ -117,12 +115,14 @@ void CorridorPlanner::computeDStar()
 {
     if (isProcessingRequired(DSTAR))
     {
-        dstar_to_start->run(m_current.x(), m_current.y(), m_goal.x(), m_goal.y());
-        dstar_to_start->expandUntil(-1);
-        dstar_to_goal->run(m_goal.x(), m_goal.y(), m_current.x(), m_current.y());
-        dstar_to_goal->expandUntil(-1);
-        std::cout << "to start: optimal is " << dstar_to_start->graph().getValue(m_goal.x(), m_goal.y()) << std::endl;
-        std::cout << "to goal:  optimal is " << dstar_to_goal->graph().getValue(m_current.x(), m_current.y()) << std::endl;
+        double optimal = dstar_to_start->run(m_current.x(), m_current.y(), m_goal.x(), m_goal.y());
+        std::cout << "to start: optimal before expansion is " << optimal << std::endl;
+        dstar_to_start->expandUntil(optimal * m_expand);
+        optimal = dstar_to_goal->run(m_goal.x(), m_goal.y(), m_current.x(), m_current.y());
+        std::cout << "to goal:  optimal before expansion is " << optimal << std::endl;
+        dstar_to_goal->expandUntil(optimal * m_expand);
+        std::cout << "to start: optimal after expansion is " << dstar_to_start->graph().getValue(m_goal.x(), m_goal.y()) << std::endl;
+        std::cout << "to goal:  optimal after expansion is " << dstar_to_goal->graph().getValue(m_current.x(), m_current.y()) << std::endl;
         processed();
     }
 }
