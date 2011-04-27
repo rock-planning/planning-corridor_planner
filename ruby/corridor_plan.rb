@@ -130,9 +130,9 @@ Typelib.specialize '/corridors/Corridor_m' do
         median_curve.dichotomic_search(0.05) do |median_t, median_p|
             points, segments = curve.find_closest_points(median_p, geometric_resolution)
 
-            if (points.empty? || points.last < t) && (segments.empty? || segments.last < t)
+            if (points.empty? || points.last < t) && (segments.empty? || segments.last.last < t)
                 true
-            elsif (points.empty? || points.first > t) && (segments.empty? || segments.first > t)
+            elsif (points.empty? || points.first > t) && (segments.empty? || segments.first.first > t)
                 false
             else
                 nil
