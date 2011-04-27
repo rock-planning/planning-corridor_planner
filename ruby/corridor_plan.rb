@@ -28,7 +28,7 @@ Typelib.specialize '/corridors/Corridor_m' do
         offsets[0] = median_curve.join(corridor.median_curve, geometric_resolution, false)
 
         interpolator_length = (median_curve.end_param - median_curve.start_param) - (current_end + new_curve_length)
-        if interpolator_length == 0
+        if width_curve.empty? || interpolator_length <= 0
             if is_endpoint && self.width_curve.singleton?
                 self.width_curve = corridor.width_curve
             elsif !is_endpoint
