@@ -226,7 +226,6 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
         Corridor const& corridor = plan.corridors[corridor_idx];
         string corridor_name = corridor.name;
 
-        bool backwards = false;
         Corridor::Connections const& connections = corridor.connections;
         Corridor::Connections::const_iterator conn_it;
 
