@@ -828,17 +828,23 @@ void Corridor::updateCurves(double discount_factor)
 
     for (int boundary_idx = 0; boundary_idx < 2; ++boundary_idx)
     {
-        if (boundaries[boundary_idx].empty())
-            continue;
-
-        base::Vector3d last_point = base::Vector3d(boundaries[boundary_idx].front().x, boundaries[boundary_idx].front().y, 0);
         vector<base::Vector3d> boundary_points;
-        for (list<PointID>::const_iterator it = boundaries[boundary_idx].begin(); it != boundaries[boundary_idx].end(); ++it)
+        if (boundaries[boundary_idx].empty())
         {
-            base::Vector3d point = new_point_factor * base::Vector3d(it->x, it->y, 0) + discount_factor * last_point;
-            if (boundary_points.empty() || boundary_points.back() != point)
-                boundary_points.push_back(point);
-            last_point = point;
+            // We are dealing with one of the endpoint corridors
+            // Use the median curve position
+            boundary_points.push_back(last_point);
+        }
+        else
+        {
+            base::Vector3d last_point = base::Vector3d(boundaries[boundary_idx].front().x, boundaries[boundary_idx].front().y, 0);
+            for (list<PointID>::const_iterator it = boundaries[boundary_idx].begin(); it != boundaries[boundary_idx].end(); ++it)
+            {
+                base::Vector3d point = new_point_factor * base::Vector3d(it->x, it->y, 0) + discount_factor * last_point;
+                if (boundary_points.empty() || boundary_points.back() != point)
+                    boundary_points.push_back(point);
+                last_point = point;
+            }
         }
 
         boundary_curves[boundary_idx].interpolate(boundary_points);
