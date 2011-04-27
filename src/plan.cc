@@ -614,7 +614,7 @@ void Plan::fixBoundaryOrdering()
     int startCorridorIdx = findStartCorridor();
     int endCorridorIdx = findEndCorridor();
 
-    for (unsigned int corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
+    for (int corridor_idx = 0; corridor_idx < static_cast<int>(corridors.size()); ++corridor_idx)
     {
         Corridor& source = corridors[corridor_idx];
         if (corridor_idx == startCorridorIdx || corridor_idx == endCorridorIdx)
@@ -639,10 +639,10 @@ void Plan::fixBoundaryOrdering()
 
 void Plan::removePointTurnConnections()
 {
-    unsigned int startCorridorIdx = findStartCorridor();
-    unsigned int endCorridorIdx = findEndCorridor();
+    int startCorridorIdx = findStartCorridor();
+    int endCorridorIdx = findEndCorridor();
 
-    for (unsigned int corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
+    for (int corridor_idx = 0; corridor_idx < static_cast<int>(corridors.size()); ++corridor_idx)
     {
         Corridor& source = corridors[corridor_idx];
         if (corridor_idx == startCorridorIdx || corridor_idx == endCorridorIdx)
@@ -971,8 +971,8 @@ int Plan::findCorridorOf(PointID const& endp) const
 void Plan::mergeSimpleCrossroads_directed()
 {
     DEBUG_OUT("removing simple crossroads");
-    int start_corridor = findStartCorridor();
-    int end_corridor   = findEndCorridor();
+    unsigned int start_corridor = findStartCorridor();
+    unsigned int end_corridor   = findEndCorridor();
 
     map< Endpoint, int > endpoint_to_crossroad;
     vector< list<Endpoint> > crossroads;
@@ -1046,8 +1046,8 @@ void Plan::mergeSimpleCrossroads_directed()
     // Mapping from an already merged corridor to the corridor into which is has
     // been merged
     DEBUG_OUT("found " << crossroads.size() << " crossroads");
-    std::vector< std::pair<int, bool> > merge_mappings(corridors.size());
-    for (int i = 0; i < corridors.size(); ++i)
+    std::vector< std::pair<unsigned int, bool> > merge_mappings(corridors.size());
+    for (unsigned int i = 0; i < corridors.size(); ++i)
         merge_mappings[i] = make_pair(i, false);
 
     for (int crossroad_idx = 0; crossroad_idx < (int)crossroads.size(); ++crossroad_idx)
@@ -1058,14 +1058,14 @@ void Plan::mergeSimpleCrossroads_directed()
 
         bool reversed;
         Endpoint c0_endp = crossroads[crossroad_idx].front();
-        int c0_idx = c0_endp.corridor_idx;
+        unsigned int c0_idx = c0_endp.corridor_idx;
         bool c0_side = c0_endp.side;
         tie(c0_idx, reversed) = merge_mappings[c0_idx];
         if (reversed) c0_side = !c0_side;
         Corridor& c0 = corridors[c0_idx];
 
         Endpoint c1_endp = crossroads[crossroad_idx].back();
-        int c1_idx = c1_endp.corridor_idx;
+        unsigned int c1_idx = c1_endp.corridor_idx;
         bool c1_side = c1_endp.side;
         tie(c1_idx, reversed) = merge_mappings[c1_idx];
         if (reversed) c1_side = !c1_side;
@@ -1116,7 +1116,7 @@ void Plan::mergeSimpleCrossroads_directed()
         }
 
 #ifdef DEBUG
-        for (int i = 0; i < corridors.size(); ++i)
+        for (unsigned int i = 0; i < corridors.size(); ++i)
         {
             if (merge_mappings[i].first != i || merge_mappings[i].second)
                 DEBUG_OUT("  " << corridors[i].name << " => " << corridors[merge_mappings[i].first].name << " (reverse=" << merge_mappings[i].second << ")");
