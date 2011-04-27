@@ -258,9 +258,37 @@ void SkeletonExtraction::initializeFromDStar(
         }
     }
 
-    const int32_t displacement[8] = {
-        -width, -width - 1, -width + 1,
-        width, width - 1, width + 1, -1, +1 };
+    // Filter out "small spots" of "outside" in the "inside"
+    int const small_spot_radius = 2;
+    for (int y = small_spot_radius; y < height - small_spot_radius; ++y)
+    {
+        for (int x = small_spot_radius; x < width - small_spot_radius; ++x)
+        {
+            if (heightmap[y * width + x] != MAX_DIST)
+            {
+                int dx = 0;
+                for (dx = -small_spot_radius; dx < small_spot_radius + 1; ++dx)
+                {
+                    if (heightmap[(y - small_spot_radius) * width + x + dx] != MAX_DIST)
+                        break;
+                    if (heightmap[(y + small_spot_radius) * width + x + dx] != MAX_DIST)
+                        break;
+                }
+
+                int dy = 0;
+                for (dy = -small_spot_radius; dy < small_spot_radius + 1; ++dy)
+                {
+                    if (heightmap[(y + dy) * width + x - small_spot_radius] != MAX_DIST)
+                        break;
+                    if (heightmap[(y + dy) * width + x - small_spot_radius] != MAX_DIST)
+                        break;
+                }
+
+                if (dx == small_spot_radius + 1 && dy == small_spot_radius + 1)
+                    heightmap[y * width + x] = MAX_DIST;
+            }
+        }
+    }
 
     for (int y = 1; y < height - 1; ++y)
     {
