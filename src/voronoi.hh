@@ -176,6 +176,11 @@ namespace corridor_planner
             ConnectionDescriptor(bool side, int target_idx, bool target_side)
                 : this_side(side), target_idx(target_idx), target_side(target_side)
             {}
+
+            bool operator == (ConnectionDescriptor const& other) const
+            { return this_side == other.this_side &&
+                target_idx == other.target_idx &&
+                target_side == other.target_side; }
         };
 
         typedef std::list<ConnectionDescriptor> Connections;
@@ -253,8 +258,8 @@ namespace corridor_planner
          */
         void moveConnections(size_t prev_idx, size_t new_idx);
         
-        /** Copy all the connections that come from the specified side of the
-         * corridor onto the other corridor side
+        /** Copy all the connections that come from the specified side of +this+
+         * onto the other corridor, at the specified side
          */
         void copyOutgoingConnections(bool this_side, Corridor& other_corridor, bool other_side) const;
 

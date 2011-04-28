@@ -90,7 +90,17 @@ namespace corridor_planner
          * Note that this changes the corridor indexes (but not their name).
          */
         void removeCorridors(std::set<int> const& corridors);
-        void removeCorridors(std::vector<bool> const& to_remove);
+        bool removeCorridors(std::vector<bool> const& to_remove);
+
+        /** Removes all connections that have for source the given side of the
+         * given corridor
+         */
+        void removeInboundConnectionsTo(int corridor_idx, bool side);
+
+        /** Removes all connections that have for target the given side of the
+         * given corridor
+         */
+        void removeOutboundConnectionsFrom(int corridor_idx, bool side);
 
         /** Move all connections that are defined on \c from_idx into the
          * corridor \c into_idx, updating the other end of the connection as
@@ -152,8 +162,23 @@ namespace corridor_planner
         void removeNullCorridors(std::set<int> keepalive);
         bool filterNullSingleton(int corridor_idx);
 
-        bool removeUselessCorridorConnections();
-        bool removeUselessCorridorConnections(int corridor_idx);
+        /** Applies removeRedundantCorridorConnections(corridor_idx) on every
+         * corridor
+         */
+        bool removeRedundantCorridorConnections();
+
+        /** Filters out redundant connections that go out of the given corridor
+         *
+         * This function removes connections from a corridor's side when the
+         * following pattern is found:
+         *
+         *   a:0 -> b:0
+         *   a:0 -> b:1
+         *
+         * if this is found, then the outgoing connections of b:0 and b:1 are
+         * copied to a:0, and the a:0->b:* connections are removed
+         */
+        bool removeRedundantCorridorConnections(int corridor_idx);
 
         void filterDeadEndPaths(std::vector<Path>& all_paths) const;
         void removeNarrowCorridors(std::vector<Path>& all_paths, double min_width, std::vector<bool>& to_delete);

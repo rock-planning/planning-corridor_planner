@@ -889,7 +889,7 @@ Plan SkeletonExtraction::buildPlan(PointID const& start_point, PointID const& en
     while (did_something)
     {
         did_something = false;
-        if (state.plan.removeUselessCorridorConnections())
+        if (state.plan.removeRedundantCorridorConnections())
         {
             state.plan.removeDeadEnds();
             did_something = true;
