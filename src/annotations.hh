@@ -76,6 +76,33 @@ namespace corridor_planner {
 
         void annotate(int index, corridors::Corridor& corridor);
     };
+
+    /** Annotation filter that annotates the parts of a corridor in NARROW or
+     * WIDE classes, if the corridor local width is resp. below a certain
+     * threshold or above another threshold
+     *
+     * In the annotated segments, the \c symbol field can take the following
+     * values:
+     *
+     * <ul>
+     * <li>NARROW=0: the corridor is locally narrower than wide_threshold
+     * <li>WIDE=1: the corridor is locally wider than wide_threshold
+     * </ul>
+     */
+    struct NarrowWideAnnotation : public AnnotationFilter {
+        enum Symbols {
+            NARROW,
+            WIDE
+        };
+        /** The threshold below which a segment is marked as NARROW */
+        double narrow_threshold;
+        /** The threshold above which a segment is marked as WIDE */
+        double wide_threshold;
+
+        NarrowWideAnnotation(double narrow_threshold, double wide_threshold);
+
+        virtual void annotate(int index, corridors::Corridor& corridor);
+    };
 }
 
 #endif

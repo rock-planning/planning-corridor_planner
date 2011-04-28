@@ -65,11 +65,18 @@ namespace corridor_planner
 
         double m_expand;
 
-        // If this value is nonzero, use it as threshold to run the
-        // StrongEdgeAnnotation filter on the resulting corridors
+        // If this value is true, the StrongEdgeAnnotation filter will be
+        // passed on the resulting corridors
+        bool strong_edge_enable;
         int strong_edge_map;
         std::string strong_edge_band;
         double strong_edge_threshold;
+
+        // If this value is true, the NarrowWideAnnotation filter will be
+        // passed on the resulting corridors
+        bool narrow_wide_enable;
+        double narrow_wide_narrow_threshold;
+        double narrow_wide_wide_threshold;
 
     public:
         CorridorPlanner();
@@ -89,7 +96,21 @@ namespace corridor_planner
         /** Annotates the resulting corridors using the StrongEdgeAnnotation
          * filter
          */
-        void setStrongEdgeFilter(std::string const& env_path, int map_id, std::string const& band_name, double threshold);
+        void enableStrongEdgeFilter(std::string const& env_path, int map_id, std::string const& band_name, double threshold);
+
+        /** Disables the strong edge filter as enabled by enableStrongEdgeFilter
+         */
+        void disableStrongEdgeFilter();
+
+        /** Annotates the resulting corridors using the NarrowWideAnnotation
+         * filter
+         */
+        void enableNarrowWideFilter(double narrow_threshold, double wide_threshold);
+
+        /** Disables the strong edge filter as enabled by
+         * enableNarrowWideAnnotation
+         */
+        void disableNarrowWideFilter();
 
         /** Call to notify the planner that the map changed at the given
          * position */

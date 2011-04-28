@@ -103,3 +103,56 @@ void StrongEdgeAnnotation::annotate(int index, corridors::Corridor& corridor)
     annotateCurve(corridor.annotations[2][index], corridor.boundary_curves[1]);
 }
 
+
+NarrowWideAnnotation::NarrowWideAnnotation(double narrow_threshold, double wide_threshold)
+    : AnnotationFilter("NARROW_WIDE"), narrow_threshold(narrow_threshold), wide_threshold(wide_threshold)
+{
+}
+void NarrowWideAnnotation::annotate(int index, corridors::Corridor& corridor)
+{
+    typedef base::geometry::Spline<1> Spline;
+    typedef corridors::Corridor::AnnotatedSegment AnnotatedSegment;
+
+    Spline& width_curve = corridor.width_curve;
+    std::vector<double> parameters;
+
+    double sample_step;
+    if (narrow_threshold > 0)
+        sample_step = narrow_threshold / 10;
+    else if (wide_threshold > 0)
+        sample_step = wide_threshold / 10;
+    else
+        throw std::runtime_error("both the narrow_threshold and wide_threshold parameters are zero !");
+
+    std::vector< Spline::vector_t > points = width_curve.sample(sample_step, &parameters);
+
+    corridors::Corridor::Annotations& result =
+        corridor.annotations[0][index];
+
+    // The current state
+    double state_start = corridor.width_curve.getStartParam();
+    int current_state = -1;
+    for (size_t point_idx = 0; point_idx < points.size(); ++point_idx)
+    {
+        int new_state = -1;
+        if (points[point_idx][0] < narrow_threshold)
+            new_state = NARROW;
+        else if (points[point_idx][0] > wide_threshold)
+            new_state = WIDE;
+
+        if (new_state != current_state)
+        {
+            if (current_state != -1)
+                result.push_back( AnnotatedSegment(state_start, parameters[point_idx], current_state) );
+
+            state_start = parameters[point_idx];
+        }
+        current_state = new_state;
+    }
+
+    if (current_state != -1)
+    {
+        result.push_back( AnnotatedSegment(state_start, parameters.back(), current_state) );
+    }
+}
+

@@ -15,7 +15,7 @@ CorridorPlanner::CorridorPlanner()
     , min_width(0)
     , env(0)
     , m_state(DSTAR), m_expand(1.1)
-    , strong_edge_threshold(0)
+    , strong_edge_enable(false), narrow_wide_enable(false)
 {
 }
 
@@ -61,13 +61,34 @@ void CorridorPlanner::setMarginFactor(double factor)
     requireProcessing(DSTAR);
 }
 
-void CorridorPlanner::setStrongEdgeFilter(std::string const& env_path, int map_id, std::string const& band_name, double threshold)
+void CorridorPlanner::enableStrongEdgeFilter(std::string const& env_path, int map_id, std::string const& band_name, double threshold)
 {
     delete env;
     env = envire::Environment::unserialize(env_path);
+    strong_edge_enable    = true;
     strong_edge_map       = map_id;
     strong_edge_band      = band_name;
     strong_edge_threshold = threshold;
+    requireProcessing(ANNOTATIONS);
+}
+
+void CorridorPlanner::disableStrongEdgeFilter()
+{
+    strong_edge_enable    = false;
+    requireProcessing(ANNOTATIONS);
+}
+
+void CorridorPlanner::enableNarrowWideFilter(double narrow_threshold, double wide_threshold)
+{
+    narrow_wide_enable = true;
+    narrow_wide_narrow_threshold = narrow_threshold;
+    narrow_wide_wide_threshold   = wide_threshold;
+    requireProcessing(ANNOTATIONS);
+}
+
+void CorridorPlanner::disableNarrowWideFilter()
+{
+    narrow_wide_enable = false;
     requireProcessing(ANNOTATIONS);
 }
 
@@ -169,10 +190,16 @@ void CorridorPlanner::annotateCorridors()
     {
         exportPlan();
 
-        if (strong_edge_threshold != 0)
+        if (strong_edge_enable)
         {
             envire::Grid<double>::Ptr map = env->getItem< envire::Grid<double> >(strong_edge_map);
             StrongEdgeAnnotation filter(map.get(), strong_edge_band, strong_edge_threshold);
+            AnnotationFilter::apply(filter, final);
+        }
+        if (narrow_wide_enable)
+        {
+            std::cout << "running the narrow_wide filter" << std::endl;
+            NarrowWideAnnotation filter(narrow_wide_narrow_threshold, narrow_wide_wide_threshold);
             AnnotationFilter::apply(filter, final);
         }
         processed();
