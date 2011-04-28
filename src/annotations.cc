@@ -50,23 +50,36 @@ void StrongEdgeAnnotation::annotateCurve(corridors::Corridor::Annotations& resul
     boost::multi_array<double, 2> const& data = map->getGridData(band);
     std::pair<double, bool> const no_data = map->getNoData(band);
 
+    static const int RADIUS = 1;
+
     envire::FrameNode const* world_node = map->getFrameNode()->getRoot();
     for (unsigned int point_idx = 0; point_idx < points.size(); ++point_idx)
     {
         size_t x, y;
         map->toGrid(points[point_idx], x, y, world_node);
-        if (x == 0 || x == map_width - 1 || y == 0 || y == map_height - 1)
+        std::cout << parameters[point_idx] << " " << points[point_idx].x() << " " << points[point_idx].y() << std::endl;
+        if (x <= (size_t)RADIUS || x >= map_width - RADIUS || y <= (size_t)RADIUS || y >= map_height - RADIUS)
             continue;
 
         int new_state = -1;
-        for (int dy = -1; dy < 2; ++dy)
-            for (int dx = -1; dx < 2; ++dx)
+        for (int dy = -RADIUS; new_state != STRONG && dy < RADIUS + 1; ++dy)
+        {
+            for (int dx = -RADIUS; dx < RADIUS + 1; ++dx)
             {
-                if (no_data.second && data[y][x] == no_data.first && new_state == -1)
+                double cell_data = data[y + dy][x + dx];
+                if (no_data.second && cell_data == no_data.first && new_state == -1)
+                {
+                    std::cout << "  new_state=UNKNOWN\n";
                     new_state = UNKNOWN;
-                else if (data[y][x] > threshold)
+                }
+                else if (cell_data > threshold)
+                {
+                    std::cout << "  new_state=STRONG\n";
                     new_state = STRONG;
+                    break;
+                }
             }
+        }
 
         if (new_state != current_state)
         {
