@@ -132,7 +132,7 @@ Typelib.specialize '/corridors/Corridor_m' do
         end
 
         if current
-            if min_width && curve.length(current.start, current.end, 0.01) > min_width
+            if !min_width || curve.length(current.start, current.end, 0.01) > min_width
                 filtered << current
             end
         end
