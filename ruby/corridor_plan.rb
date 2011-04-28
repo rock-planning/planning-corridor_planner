@@ -5,14 +5,32 @@ Typelib.specialize '/corridors/Corridor_m' do
     Annotations      = self['annotations'].deference.deference
     AnnotatedSegment = Annotations.deference
 
+    # Reverses the direction of this corridor
     def reverse
-        self.median_curve.reverse
-
-        # Reverse the curve an
-        2.times do |i|
-            self.boundary_curves[i].reverse
+        curves = [median_curve, boundary_curves[0], boundary_curves[1]]
+        old_start_t = []
+        curves.each_with_index do |curve, curve_idx|
+            old_start_t = curve.start_param
+            length = curve.end_param - curve.start_param
+            curve.reverse
+            new_start_t = curve.start_param
+            self.annotations[curve_idx] = annotations[curve_idx].map do |per_symbol|
+                result = []
+                per_symbol.each do |ann|
+                    start, finish = ann.start, ann.end
+                    ann.start = length - (finish - old_start_t) + new_start_t
+                    ann.end   = length - (start - old_start_t) + new_start_t
+                    result.unshift(ann)
+                end
+                result
+            end
         end
+
         self.boundary_curves = self.boundary_curves.reverse
+        temp = self.annotations[1].dup
+        self.annotations[1] = self.annotations[2]
+        self.annotations[2] = temp
+        self.width_curve.reverse
     end
 
     def join(corridor, geometric_resolution = 0.1, is_endpoint = false)
