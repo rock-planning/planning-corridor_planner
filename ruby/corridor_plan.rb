@@ -158,6 +158,36 @@ Typelib.specialize '/corridors/Corridor_m' do
         end
     end
 
+    def do_segment_intersection(median0, median1) # :nodoc:
+        # Now compute segment intersections between the two median_segments sets
+        result = []
+        while !median0.empty? && !median1.empty?
+            while !median0.empty? && median0[0][1] < median1[0][0] 
+                median0.shift
+            end
+            break if median0.empty?
+
+            seg_start, seg_end = median0[0]
+            while !median1.empty? && median0[0][0] > median1[0][1]
+                median1.shift
+            end
+            break if median1.empty?
+
+            if median0[0][1] < median1[0][0]
+                next
+            end
+
+            # So, now
+            #   median1[0][0] < seg_end
+            #   median1[0][1] > seg_start
+            #
+            # I.e. we have an intersection
+            result << [[seg_start, median1[0][0]].max, [seg_end, median1[0][1]].min]
+            median1.shift
+        end
+        result
+    end
+
     # Returns corridor segments that have a given common symbol
     #
     # The returned value is an array of parameter intervals on the median curve
@@ -174,36 +204,16 @@ Typelib.specialize '/corridors/Corridor_m' do
             end
         end
 
-        # Now compute segment intersections between the two median_segments sets
         median0, median1 = median_segments[0], median_segments[1]
-        result = []
-        median0.each do |seg_start, seg_end|
-            while !median1.empty? && median1[0][0] > seg_end
-                median1.shift
-            end
-            if median1.empty?
-                break
-            end
-
-            if median1[0][1] < seg_start
-                next
-            end
-
-            # So, now
-            #   median1[0][0] < seg_end
-            #   median1[0][1] > seg_start
-            #
-            # I.e. we have an intersection
-            result << [[seg_start, median1[0][0]].max, [seg_end, median1[0][1]].min]
-        end
+        result = do_segment_intersection(median0, median1)
 
         if save_as
-            save_corridor_segments_as_annotation(save_as, symbol, result)
+            save_corridor_segments_as_annotation(0, save_as, symbol, result)
         end
         return result
     end
 
-    def save_corridor_segments_as_annotation(annotation_idx, symbol, segments)
+    def save_corridor_segments_as_annotation(curve_idx, annotation_idx, symbol, segments)
         segments = segments.map do |first, last|
             result = AnnotatedSegment.new
             result.start = first
@@ -211,9 +221,63 @@ Typelib.specialize '/corridors/Corridor_m' do
             result.symbol = symbol
             result
         end
-        annotations[0][annotation_idx] = segments
+        annotations[curve_idx][annotation_idx] = segments
     end
 
+    def intersect_annotations(ann0_idx, symbol0, ann1_idx, symbol1, save_as)
+        result = []
+
+        curves = [median_curve, boundary_curves[0], boundary_curves[1]]
+        curves.each_with_index do |curve, curve_idx|
+            segments0 = []
+            last_end = curve.start_param
+            annotations[curve_idx][ann0_idx].each do |seg|
+                if !symbol0
+                    segments0 << [last_end, seg.start]
+                    last_end = seg.end
+                elsif seg.symbol == symbol0
+                    segments0 << [seg.start, seg.end]
+                end
+            end
+            if !symbol0
+                segments0 << [last_end, curve.end_param]
+            end
+
+            segments1 = []
+            last_end = curve.start_param
+            annotations[curve_idx][ann1_idx].each do |seg|
+                if !symbol1
+                    segments1 << [last_end, seg.start]
+                    last_end = seg.end
+                elsif seg.symbol == symbol1
+                    segments1 << [seg.start, seg.end]
+                end
+            end
+            if !symbol1
+                segments1 << [last_end, curve.end_param]
+            end
+
+            result << do_segment_intersection(segments0, segments1)
+            if save_as
+                puts "SAVING"
+                save_corridor_segments_as_annotation(curve_idx, save_as, 0, result.last)
+            end
+        end
+
+        result
+    end
+
+    # Filters the given annotation information
+    #
+    # +operations+ is a mapping about geometrical constraints that are applied
+    # on the filtered annotations. It is a mapping of the form
+    #
+    #   symbol => [min_width, max_hole]
+    #
+    # Where +min_width+ is the minimum width an annotated segment should have
+    # without being removed and +max_hole+ the size between two consecutive
+    # segments below which they get merged (if they have the same symbol,
+    # obviously)
     def cleanup_annotations(index, operations)
         annotations[0][index] = cleanup_single_annotations(median_curve, annotations[0][index], operations)
         annotations[1][index] = cleanup_single_annotations(boundary_curves[0], annotations[1][index], operations)
@@ -360,17 +424,81 @@ Typelib.specialize '/corridors/Plan_m' do
         return ann_idx
     end
 
+    # Computes annotations on the median curve for regions of the corridors that
+    # have matching symbols on both boundaries.
+    #
+    # If +save_as+ is non-nil, the result is saved as a median curve annotation
+    # with the symbol name given by +save_as+ (which can be the same than
+    # +annotation_symbol+.
+    #
+    # The result is returned as an array of the form
+    #
+    #   result = [
+    #      [[start, stop], [start, stop], ...],
+    #      [[start, stop], [start, stop], ...],
+    #      ...
+    #   ]
+    #
+    # where each [start, stop] pair is a segment on the median curve of the
+    # corresponding corridor
+    #
+    # I.e. result[0] lists the segments on corridors[0].median_curve
     def annotate_corridor_segments(annotation_symbol, symbol, save_as = nil)
         ann_idx = find_annotation(annotation_symbol)
         if save_as
             save_as_idx = find_annotation(save_as, true)
         end
 
-        for c in corridors
-            c.annotate_segments(ann_idx, symbol, save_as_idx)
+        result = []
+        corridors.each_with_index do |c, i|
+            result << c.annotate_segments(ann_idx, symbol, save_as_idx)
         end
+        result
     end
 
+    # Intersects two given annotations
+    #
+    # If +save_as+ is non-nil, the result is saved as an annotation with the
+    # symbol name given by +save_as+ (which can be the same than
+    # +annotation_symbol+.
+    #
+    # The result is returned as an array of the form
+    #
+    #   result = [
+    #     corridor0 = [
+    #       [[start, stop], [start, stop], ...],
+    #       [[start, stop], [start, stop], ...],
+    #       [[start, stop], [start, stop], ...]
+    #     ],
+    #     corridor1 = ...
+    #   ]
+    #
+    def intersect_annotations(ann0, symbol0, ann1, symbol1, save_as = nil)
+        ann0_idx = find_annotation(ann0)
+        ann1_idx = find_annotation(ann1)
+        if save_as
+            save_as_idx = find_annotation(save_as, true)
+        end
+
+        result = []
+        corridors.each_with_index do |c, i|
+            puts "intersect_annotations: #{i} #{save_as_idx}"
+            result << c.intersect_annotations(ann0_idx, symbol0, ann1_idx, symbol1, save_as_idx)
+        end
+        result
+    end
+
+    # Filters the given annotation information
+    #
+    # +operations+ is a mapping about geometrical constraints that are applied
+    # on the filtered annotations. It is a mapping of the form
+    #
+    #   symbol => [min_width, max_hole]
+    #
+    # Where +min_width+ is the minimum width an annotated segment should have
+    # without being removed and +max_hole+ the size between two consecutive
+    # segments below which they get merged (if they have the same symbol,
+    # obviously)
     def cleanup_annotations(symbol, operations)
         ann_idx = find_annotation(symbol)
         for c in corridors
