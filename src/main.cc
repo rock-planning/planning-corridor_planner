@@ -316,10 +316,10 @@ void exportNavigationFunction(CorridorPlanner const& planner, size_t xSize, size
 
 void do_plan(char name_prefix,
         std::string const& basename, std::string const& terrain_file, std::string const& terrain_classes,
-        float x0, float y0, float x1, float y1, float expand)
+        float x0, float y0, float x1, float y1, float expand, float min_width)
 {
     CorridorPlanner planner;
-    planner.init(terrain_classes, terrain_file);
+    planner.init(terrain_classes, terrain_file, min_width);
     planner.setWorldPositions(Eigen::Vector2d(x0, y0), Eigen::Vector2d(x1, y1));
     planner.setMarginFactor(expand);
 
@@ -362,10 +362,10 @@ void do_plan(char name_prefix,
 
 int main(int argc, char** argv)
 {
-    if (argc != 6 && argc != 9)
+    if (argc != 10)
     {
 	std::cerr 
-	    << "usage: plan_corridors <map_file> <cost_classes> <expand_factor> <x0> <y0> <x1> <y1> <basename>\n"
+	    << "usage: plan_corridors <map_file> <cost_classes> <expand_factor> <x0> <y0> <x1> <y1> <min_width> <basename>\n"
             << "  computes the result of D* on the given map, with [x1, y1] as\n"
             << "  the goal. If x0, y0 and expand_factor are given, then we also\n"
             << "  compute the expanded zone of navigation around the optimal path\n"
@@ -401,10 +401,11 @@ int main(int argc, char** argv)
     float y0 = boost::lexical_cast<float>(argv[5]);
     float x1 = boost::lexical_cast<float>(argv[6]);
     float y1 = boost::lexical_cast<float>(argv[7]);
-    std::string out_basename = argv[8];
+    float min_width = boost::lexical_cast<float>(argv[8]);
+    std::string out_basename = argv[9];
 
     do_plan('c', out_basename, terrain_file, terrain_classes,
-          x0, y0, x1, y1, expand);
+          x0, y0, x1, y1, expand, min_width);
  
     return 0;
 }
