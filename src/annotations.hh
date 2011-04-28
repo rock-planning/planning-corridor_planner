@@ -54,8 +54,8 @@ namespace corridor_planner {
      * values:
      *
      * <ul>
-     * <li>STRONG: the local step size is above the given threshold
-     * <li>UNKNOWN: no information for that segment
+     * <li>UNKNOWN=0: no information for that segment
+     * <li>STRONG=1: the local step size is above the given threshold
      * </ul>
      */
     struct StrongEdgeAnnotation : public AnnotationFilter {
