@@ -747,13 +747,11 @@ void SkeletonExtraction::registerConnections(CorridorExtractionState& state)
         list<Endpoint>::const_iterator source_it = conn_it->begin();
         for (; source_it != conn_end; ++source_it)
         {
-            Corridor& source = state.plan.corridors[source_it->corridor_idx];
-
             list<Endpoint>::const_iterator target_it = conn_it->begin();
             for (; target_it != conn_end; ++target_it)
             {
                 if (target_it->corridor_idx == source_it->corridor_idx) continue;
-                source.addConnection(source_it->side, target_it->corridor_idx, target_it->side);
+                state.plan.addConnection(source_it->corridor_idx, source_it->side, target_it->corridor_idx, target_it->side);
             }
         }
     }
@@ -889,6 +887,9 @@ Plan SkeletonExtraction::buildPlan(PointID const& start_point, PointID const& en
     while (did_something)
     {
         did_something = false;
+#ifdef DEBUG
+        state.plan.displayConnections();
+#endif
         if (state.plan.removeRedundantCorridorConnections())
         {
             state.plan.removeDeadEnds();

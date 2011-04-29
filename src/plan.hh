@@ -92,6 +92,9 @@ namespace corridor_planner
         void removeCorridors(std::set<int> const& corridors);
         bool removeCorridors(std::vector<bool> const& to_remove);
 
+        /** Add a new connection in the plan */
+        void addConnection(int from_idx, bool from_side, int to_idx, bool to_side);
+
         /** Removes all connections that have for source the given side of the
          * given corridor
          */
@@ -123,7 +126,7 @@ namespace corridor_planner
          * @arg min_width { the minimum acceptable width for a corridor. All
          *     corridors narrower than that will be removed. }
          */
-        void simplify(double margin_factor, int min_width = 0);
+        void simplify(double margin_factor, int min_width = 0, bool convert_to_dag = true);
 
         /** Split the given corridor at the specified place, and returns the new
          * corridor.
@@ -184,7 +187,7 @@ namespace corridor_planner
         void removeNarrowCorridors(std::vector<Path>& all_paths, double min_width, std::vector<bool>& to_delete);
         void computeAllPaths(std::vector<Path>& all_paths, Path& current_path, int next_path, int in_side, std::vector<int>& stack) const;
 
-        void removePointTurnConnections();
+        bool removePointTurnConnections();
         void fixBoundaryOrdering();
 
         bool needsBoundarySwap(Corridor& source, bool source_side, Corridor& target, bool target_side) const;

@@ -292,7 +292,7 @@ void Plan::createEndpointCorridor(PointID const& endpoint, bool is_end)
     }
 }
 
-void Plan::simplify(double margin_factor, int min_width)
+void Plan::simplify(double margin_factor, int min_width, bool convert_to_dag)
 {
     DEBUG_OUT("");
     DEBUG_OUT("");
@@ -300,12 +300,15 @@ void Plan::simplify(double margin_factor, int min_width)
     DEBUG_OUT("checking consistency before simplification");
     checkConsistency();
 
+    if (convert_to_dag)
+    {
+        removeBackToBackConnections(margin_factor);
+        removeDeadEnds();
+        mergeSimpleCrossroads_directed();
+    }
+
     std::vector<bool> to_remove(corridors.size(), false);
     std::vector<Path> all_paths;
-    removeBackToBackConnections(margin_factor);
-    removeDeadEnds();
-    mergeSimpleCrossroads_directed();
-
     while(true)
     {
         bool did_something = true;
@@ -333,7 +336,12 @@ void Plan::simplify(double margin_factor, int min_width)
     }
 
     for (size_t i = 0; i < corridors.size(); ++i)
+    {
         corridors[i].update();
+        corridors[i].updateCurves();
+    }
+    if (removePointTurnConnections())
+        return simplify(margin_factor, min_width, false);
 
     checkConsistency();
 }
@@ -535,6 +543,7 @@ bool Plan::removeDeadEnds(set<int> keepalive)
         }
         else if (needs_bidirectional_removal)
         {
+            DEBUG_OUT("removing invalid bidirectional connection on corridor " << corridors[corridor_idx].name);
             corridors[corridor_idx].bidirectional = false;
 
             // Remove connections where this_side is involved
@@ -564,10 +573,17 @@ bool Plan::removeDeadEnds(set<int> keepalive)
 
     if (did_something) // we have removed some corridors
     {
+        DEBUG_OUT("recursively calling removeDeadEnds");
         removeDeadEnds();
         return true;
     }
     return false;
+}
+
+void Plan::addConnection(int from_idx, bool from_side, int to_idx, bool to_side)
+{
+    DEBUG_OUT("adding connection " << corridors[from_idx].name << ":" << from_side << " => " << corridors[to_idx].name << ":" << to_side);
+    corridors[from_idx].addConnection(from_side, to_idx, to_side);
 }
 
 void Plan::removeInboundConnectionsTo(int corridor_idx, bool side)
@@ -712,8 +728,9 @@ void Plan::fixBoundaryOrdering()
     }
 }
 
-void Plan::removePointTurnConnections()
+bool Plan::removePointTurnConnections()
 {
+    bool did_something = false;
     int startCorridorIdx = findStartCorridor();
     int endCorridorIdx = findEndCorridor();
 
@@ -742,10 +759,18 @@ void Plan::removePointTurnConnections()
             Eigen::Vector3d target_median_tg = target.median_curve.getPointAndTangent(target.median_curve.getStartParam()).second;
 
             if (median_join.dot(target_median_tg) < 0)
+            {
                 std::cout << "POINT TURN " << corridor_idx << " " << conn_it->this_side << " => " << conn_it->target_idx << " " << conn_it->target_side << std::endl;
-            ++conn_it;
+                source.connections.erase(conn_it++);
+                did_something = true;
+            }
+            else
+            {
+                ++conn_it;
+            }
         }
     }
+    return did_something;
 }
 
 void Plan::removeNullCorridors(set<int> keepalive)
@@ -1344,13 +1369,13 @@ bool Plan::removeRedundantCorridorConnections(int corridor_idx)
         else
         {
             DEBUG_OUT("  redundant connection from " << conn_it->this_side
-                    << " to " << corridors[conn_it->target_idx].name << ":" << conn_it->target_side);
+                    << " to " << corridors[target_idx].name << ":" << conn_it->target_side);
 
             Corridor& useless_corridor = corridors[conn_it->target_idx];
             for (Corridor::connection_iterator it = useless_corridor.connections.begin();
                     it != useless_corridor.connections.end(); ++it)
             {
-                if (target_idx == corridor_idx)
+                if (it->target_idx == corridor_idx)
                     continue;
                 if (removed_connections[this_side][it->target_idx])
                     continue;
