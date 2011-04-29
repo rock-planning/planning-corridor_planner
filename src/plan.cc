@@ -1100,7 +1100,7 @@ void Plan::mergeSimpleCrossroads_directed()
         }
     }
 
-    set<int> to_remove;
+    vector<bool> to_remove(corridors.size(), false);
     for (int corridor_idx = 0; corridor_idx < (int)corridors.size(); ++corridor_idx)
     {
         Corridor& corridor = corridors[corridor_idx];
@@ -1114,7 +1114,7 @@ void Plan::mergeSimpleCrossroads_directed()
         if (in_crossroad.empty() || out_crossroad.empty())
         {
             DEBUG_OUT(corridor.name << " is a null corridor");
-            to_remove.insert(corridor_idx);
+            to_remove[corridor_idx] = true;
         }
     }
 
@@ -1167,27 +1167,28 @@ void Plan::mergeSimpleCrossroads_directed()
         if (c0_side == false)
         {
             DEBUG_OUT("  " << c0.name << " goes at the end of " << c1.name);
-            // grafting c1.back onto
             moveConnections(c0_idx, c1_idx);
             c1.concat(c0);
+
             for (size_t i = 0; i < corridors.size(); ++i)
             {
                 if (merge_mappings[i].first == c0_idx)
                     merge_mappings[i].first = c1_idx;
             }
-            to_remove.insert(c0_idx);
+            to_remove[c0_idx] = true;
         }
         else
         {
             DEBUG_OUT("  " << c1.name << " goes at the end of " << c0.name);
             moveConnections(c1_idx, c0_idx);
             c0.concat(c1);
+
             for (size_t i = 0; i < corridors.size(); ++i)
             {
                 if (merge_mappings[i].first == c1_idx)
                     merge_mappings[i].first = c0_idx;
             }
-            to_remove.insert(c1_idx);
+            to_remove[c1_idx] = true;
         }
 
 #ifdef DEBUG
@@ -1201,9 +1202,7 @@ void Plan::mergeSimpleCrossroads_directed()
 #endif
     }
 
-    for (set<int>::const_reverse_iterator it = to_remove.rbegin();
-            it != to_remove.rend(); ++it)
-        removeCorridor(*it);
+    removeCorridors(to_remove);
 }
 
 void Plan::checkConsistency() const
