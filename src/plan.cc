@@ -337,7 +337,6 @@ void Plan::simplify(double margin_factor, int min_width, bool convert_to_dag)
 
     for (size_t i = 0; i < corridors.size(); ++i)
     {
-        corridors[i].update();
         corridors[i].updateCurves();
     }
     if (removePointTurnConnections())

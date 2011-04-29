@@ -491,18 +491,18 @@ void Corridor::update()
             it->tangent = nav_graph_search::Point<float>();
     }
     bbox.merge(median_bbox);
-
-    // Fix the boundary lines. The way we added the points is completely wrong
-    // (obviously)
-    //
-    // We use a method akin to the one used by SkeletonExtraction to extract the
-    // skeleton
     for_each(boundaries[0].begin(), boundaries[0].end(),
 	    bind(&BoundingBox::update, ref(bbox), _1));
     for_each(boundaries[1].begin(), boundaries[1].end(),
 	    bind(&BoundingBox::update, ref(bbox), _1));
 
     GridGraph temp(bbox.max.x - bbox.min.x + 1, bbox.max.y - bbox.min.y + 1);
+
+    // Fix the boundary lines. The way we added the points is completely wrong
+    // (obviously)
+    //
+    // We use a method akin to the one used by SkeletonExtraction to extract the
+    // skeleton
     fixLineOrdering(temp, boundaries[0]);
     fixLineOrdering(temp, boundaries[1]);
 
@@ -689,11 +689,37 @@ void Corridor::concat(Corridor& other)
 
     if (min_distance == 0 || min_distance == 3)
     {
+        // Remove from other.boundaries[x] the points that are already in
+        // boundaries[x]
+        for (int boundary_idx = 0; boundary_idx < 2; ++boundary_idx)
+        {
+            while (true)
+            {
+                PointID p = other.boundaries[boundary_idx].front();
+                if (find(boundaries[boundary_idx].rbegin(), boundaries[boundary_idx].rend(), p) != boundaries[boundary_idx].rend())
+                    other.boundaries[boundary_idx].pop_front();
+                else
+                    break;
+            }
+        }
         boundaries[0].splice(boundaries[0].end(), other.boundaries[0]);
         boundaries[1].splice(boundaries[1].end(), other.boundaries[1]);
     }
     else
     {
+        // Remove from other.boundaries[x] the points that are already in
+        // boundaries[x]
+        for (int boundary_idx = 0; boundary_idx < 2; ++boundary_idx)
+        {
+            while (true)
+            {
+                PointID p = other.boundaries[!boundary_idx].front();
+                if (find(boundaries[boundary_idx].rbegin(), boundaries[boundary_idx].rend(), p) != boundaries[boundary_idx].rend())
+                    other.boundaries[!boundary_idx].pop_front();
+                else
+                    break;
+            }
+        }
         boundaries[1].splice(boundaries[1].end(), other.boundaries[0]);
         boundaries[0].splice(boundaries[0].end(), other.boundaries[1]);
     }
