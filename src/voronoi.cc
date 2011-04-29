@@ -1155,19 +1155,6 @@ void Corridor::moveOutgoingConnections(Corridor& other_corridor)
     connections.splice(connections.end(), other_corridor.connections);
 }
 
-void Corridor::copyOutgoingConnections(bool this_side, Corridor& other_corridor, bool other_side) const
-{
-    for (Connections::const_iterator it = connections.begin(); it != connections.end(); ++it)
-    {
-        if (it->this_side == this_side)
-        {
-            ConnectionDescriptor conn = *it;
-            conn.this_side = other_side;
-            other_corridor.connections.push_back(conn);
-        }
-    }
-}
-
 float Corridor::getCostDelta(bool in_side) const
 {
     if (in_side)

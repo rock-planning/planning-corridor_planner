@@ -257,11 +257,6 @@ namespace corridor_planner
          * pointing to +prev_idx+ are now pointing to +new_idx+
          */
         void moveConnections(size_t prev_idx, size_t new_idx);
-        
-        /** Copy all the connections that come from the specified side of +this+
-         * onto the other corridor, at the specified side
-         */
-        void copyOutgoingConnections(bool this_side, Corridor& other_corridor, bool other_side) const;
 
         /** Copy all outgoing connections from +other_corridor+ onto this
          * corridor.
