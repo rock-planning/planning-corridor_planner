@@ -192,7 +192,7 @@ Typelib.specialize '/corridors/Corridor_m' do
 
         current  = annotations.first
         for an in annotations[1, annotations.size - 1]
-            min_width, max_hole = operations[an.symbol]
+            min_width, max_hole = operations[current.symbol]
 
             do_push = true
             if max_hole && current.symbol == an.symbol
@@ -211,6 +211,7 @@ Typelib.specialize '/corridors/Corridor_m' do
         end
 
         if current
+            min_width, max_hole = operations[current.symbol]
             if !min_width || curve.length(current.start, current.end, 0.01) > min_width
                 filtered << current
             end
