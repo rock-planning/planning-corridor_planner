@@ -33,6 +33,85 @@ Typelib.specialize '/corridors/Corridor_m' do
         self.width_curve.reverse
     end
 
+    # Helper method for #split
+    def split_single_annotation(annotations, pos)
+        old_annotations, new_annotations = annotations.partition do |seg|
+            seg.end <= pos
+        end
+        if !new_annotations.empty? && new_annotations.first.start < pos
+            old_annotations << new_annotations.first.dup
+            old_annotations.last.end = pos
+            new_annotations.first.start = pos
+        end
+        return old_annotations, new_annotations
+    end
+
+    def split_annotations(annotations, pos)
+        old, new = [], []
+        annotations.each do |ann|
+            old_ann, new_ann = split_single_annotation(ann, pos)
+            old << old_ann
+            new << new_ann
+        end
+        return old, new
+    end
+
+    # Splits the corridor at the given position, where +position+ is a parameter
+    # on the median curve
+    def split(position)
+        new_corridor = self.class.new
+        new_corridor.zero!
+        new_corridor.min_width = min_width
+        new_corridor.max_width = max_width
+
+        result = median_curve.split(position)
+        new_corridor.median_curve = result
+
+        new_corridor.width_curve  = width_curve.split(position)
+        old_annotations, new_annotations = split_annotations(annotations[0], position)
+        self.annotations[0] = old_annotations
+        new_corridor.annotations[0] = new_annotations
+
+        2.times do |boundary_idx|
+            boundary_pos = associated_boundary(position, boundary_idx, 0.01).inject(&:+) / 2
+            result = boundary_curves[boundary_idx].split(boundary_pos)
+            new_corridor.boundary_curves[boundary_idx] = result
+
+            old_annotations, new_annotations = split_annotations(annotations[boundary_idx + 1], position)
+            self.annotations[boundary_idx + 1] = old_annotations
+            new_corridor.annotations[boundary_idx + 1] = new_annotations
+        end
+
+        new_corridor
+    end
+
+    # Splits this corridor following the annotations for +annotation_idx+
+    def split_annotation_segments(annotation_idx)
+        result = [[nil, self]]
+        current_corridor = self
+        last_pos = median_curve.start_param
+        annotations[0][annotation_idx].each do |seg|
+            new_pos = seg.start
+            if last_pos == median_curve.start_param
+                result[0][0] = seg.symbol
+            else
+                current_corridor = current_corridor.split(last_pos)
+                result << [nil, current_corridor]
+            end
+            if new_pos != last_pos
+                current_corridor = current_corridor.split(new_pos)
+                result << [seg.symbol, current_corridor]
+            end
+            last_pos = seg.end
+        end
+        if last_pos != median_curve.end_param
+            current_corridor = current_corridor.split(last_pos)
+            result << [nil, current_corridor]
+        end
+
+        result
+    end
+
     def join(corridor, geometric_resolution = 0.1, is_endpoint = false)
         # Offsets of the joined curves. Used at the end of the method to join
         # the annotations as well
@@ -137,6 +216,25 @@ Typelib.specialize '/corridors/Corridor_m' do
             end
         end
         filtered
+    end
+
+    # Returns the region of the requested boundary curve that is associated with
+    # the given point on the median curve.
+    def associated_boundary(t, boundary_idx, geometric_resolution)
+        median_p = median_curve.get(t)
+        curve = boundary_curves[boundary_idx]
+        points, segments = curve.find_closest_points(median_p, geometric_resolution)
+        
+        min, max = curve.end_param, curve.start_param
+        if !points.empty?
+            min = [min, points.min].min
+            max = [max, points.max].max
+        end
+        if !segments.empty?
+            min = [min, segments.min[0]].min
+            max = [max, segments.max[1]].max
+        end
+        return [min, max]
     end
 
     # If curve is one of the boundary curves and +t+ a parameter on it, returns
