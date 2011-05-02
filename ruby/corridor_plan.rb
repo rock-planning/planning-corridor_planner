@@ -358,7 +358,6 @@ Typelib.specialize '/corridors/Corridor_m' do
 
             result << do_segment_intersection(segments0, segments1)
             if save_as
-                puts "SAVING"
                 save_corridor_segments_as_annotation(curve_idx, save_as, 0, result.last)
             end
         end
@@ -581,7 +580,6 @@ Typelib.specialize '/corridors/Plan_m' do
 
         result = []
         corridors.each_with_index do |c, i|
-            puts "intersect_annotations: #{i} #{save_as_idx}"
             result << c.intersect_annotations(ann0_idx, symbol0, ann1_idx, symbol1, save_as_idx)
         end
         result
