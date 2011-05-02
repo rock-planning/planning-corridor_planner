@@ -35,6 +35,7 @@ namespace vizkit
         void setDisplayedAnnotation(std::string const& name);
         void displayCorridor(corridors::Corridor const& selected_corridor);
         void clearCorridors(double);
+        void displayAnnotationsOnPlan(bool enable);
         
     protected:
         virtual osg::ref_ptr<osg::Node> createMainNode();

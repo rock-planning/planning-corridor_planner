@@ -13,6 +13,7 @@ using envire::MLSGrid;
 struct CorridorPlanVisualization::Data
 {
     corridors::Plan plan;
+    bool plan_annotations;
     typedef std::list<corridors::Corridor> Corridors;
     Corridors corridors;
 
@@ -25,7 +26,7 @@ struct CorridorPlanVisualization::Data
     std::vector<osg::Vec4> annotation_colors;
 
     Data()
-        : environment(0), offset(0.1), alpha(0.5) {}
+        : plan_annotations(false), environment(0), offset(0.1), alpha(0.5) {}
 };
 
 CorridorPlanVisualization::CorridorPlanVisualization()
@@ -38,6 +39,7 @@ CorridorPlanVisualization::CorridorPlanVisualization()
     VizPluginRubyConfig(CorridorPlanVisualization, corridors::Corridor, displayCorridor);
     VizPluginRubyConfig(CorridorPlanVisualization, double, clearCorridors);
     VizPluginRubyConfig(CorridorPlanVisualization, std::string, setDisplayedAnnotation);
+    VizPluginRubyConfig(CorridorPlanVisualization, bool, displayAnnotationsOnPlan);
 }
 
 CorridorPlanVisualization::~CorridorPlanVisualization()
@@ -165,7 +167,7 @@ void CorridorPlanVisualization::createCurveNode(osg::Geode* geode, base::geometr
 
 void CorridorPlanVisualization::createCorridorNode(osg::Geode* geode, corridors::Corridor& c, int annotation_idx, osg::Vec4 const& color, double z_offset)
 {
-    if (annotation_idx == -1)
+    if (annotation_idx == -1 || !p->plan_annotations)
     {
         osg::ref_ptr<osg::Vec3Array> points = new osg::Vec3Array;
 
@@ -225,7 +227,7 @@ void CorridorPlanVisualization::createCorridorNode(osg::Geode* geode, corridors:
         geode->addDrawable(geom);
     }
 
-    if (annotation_idx != -1)
+    if (annotation_idx != -1 && p->plan_annotations)
     {
         createCurveNode(geode, c.median_curve, c.annotations[0][annotation_idx], p->annotation_colors, p->offset + 0.1, 15);
         createCurveNode(geode, c.boundary_curves[0], c.annotations[1][annotation_idx], p->annotation_colors, p->offset + 0.1, 10);
@@ -354,6 +356,12 @@ void CorridorPlanVisualization::setAlpha(double value)
 void CorridorPlanVisualization::updateDataIntern(corridors::Plan const& plan)
 {
     p->plan = plan;
+}
+void CorridorPlanVisualization::displayAnnotationsOnPlan(bool enable)
+{ boost::mutex::scoped_lock lockit(this->updateMutex);
+    std::cout << "displayAnnotationsOnPlan: " << enable << std::endl;
+    p->plan_annotations = enable;
+    setDirty();
 }
 
 void CorridorPlanVisualization::clearCorridors(double)
