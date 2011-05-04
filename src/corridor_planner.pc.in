@@ -5,7 +5,7 @@ includedir=${prefix}/include
 
 Name: @PROJECT_NAME@
 Description: Corridor-centric path planner
-Depends: @corridor_planner_DEPS_PKGCONFIG@
+Requires: @DEPS_PKGCONFIG@
 Version: @PROJECT_VERSION@
 Libs: -L${libdir} -l@PROJECT_NAME@
 Cflags: -I${includedir}
