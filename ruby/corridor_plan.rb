@@ -87,14 +87,19 @@ Typelib.specialize '/corridors/Corridor_m' do
 
     # Splits this corridor following the annotations for +annotation_idx+
     def split_annotation_segments(annotation_idx)
-        result = [[nil, self]]
+        segments = annotations[0][annotation_idx]
+        if segments.empty?
+            return [[nil, self]]
+        end
+
         current_corridor = self
+        result = [[nil, current_corridor]]
         last_pos = median_curve.start_param
-        annotations[0][annotation_idx].each do |seg|
+        segments.each do |seg|
             new_pos = seg.start
-            if last_pos == median_curve.start_param
+            if new_pos == median_curve.start_param
                 result[0][0] = seg.symbol
-            else
+            elsif last_pos != median_curve.start_param
                 current_corridor = current_corridor.split(last_pos)
                 result << [nil, current_corridor]
             end
