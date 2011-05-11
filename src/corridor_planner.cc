@@ -193,6 +193,9 @@ void CorridorPlanner::annotateCorridors()
         if (strong_edge_enable)
         {
             envire::Grid<double>::Ptr map = env->getItem< envire::Grid<double> >(strong_edge_map);
+            if (!map)
+                throw std::runtime_error("invalid map selected for the strong edge filter");
+
             StrongEdgeAnnotation filter(map.get(), strong_edge_band, strong_edge_threshold);
             AnnotationFilter::apply(filter, final);
         }
