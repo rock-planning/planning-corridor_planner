@@ -15,7 +15,7 @@
 // #include <CGAL/Cartesian.h>
 // #include <CGAL/convex_hull_2.h>
 
-#define DEBUG
+#undef DEBUG
 #ifdef DEBUG
 #define DEBUG_OUT(x) cerr << x << endl;
 #else
