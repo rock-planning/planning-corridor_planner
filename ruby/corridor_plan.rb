@@ -117,7 +117,7 @@ Typelib.specialize '/corridors/Corridor_m' do
         result
     end
 
-    def join(corridor, geometric_resolution = 0.1, is_endpoint = false)
+    def join(corridor, geometric_resolution = 0.1)
         # Offsets of the joined curves. Used at the end of the method to join
         # the annotations as well
         offsets = []
@@ -130,13 +130,9 @@ Typelib.specialize '/corridors/Corridor_m' do
         offsets[0] = median_curve.join(corridor.median_curve, geometric_resolution, false)
 
         interpolator_length = (median_curve.end_param - median_curve.start_param) - (current_end + new_curve_length)
-        if width_curve.empty? || interpolator_length <= 0
-            if is_endpoint && self.width_curve.singleton?
-                self.width_curve = corridor.width_curve
-            elsif !is_endpoint
-                # Just did #append
-                width_curve.append(corridor.width_curve)
-            end
+
+        if interpolator_length <= 0
+            width_curve.append(corridor.width_curve)
         else
             # Must create an interpolation segment (a segment is a good
             # approximation as we join all curves with segments)
@@ -457,7 +453,22 @@ Typelib.specialize '/corridors/Plan_m' do
         result.boundary_curves[0] = Types::Base::Geometry::Spline3.new
         result.boundary_curves[1] = Types::Base::Geometry::Spline3.new
 
-        endpoints = [path[0].first, path[-1].first]
+        path = path.dup
+
+        # Check if the endpoints "touch" the corridors. If it is the case, just
+        # remove them. Otherwise, we need them to provide the "last mile"
+        endpoint0 = corridors[path[0].first]
+        corridor0 = corridors[path[1].first]
+        if (endpoint0.median_curve.end_point - corridor0.median_curve.start_point).norm < 0.1
+            path.shift
+        end
+
+        corridor1 = corridors[path[-2].first]
+        endpoint1 = corridors[path[-1].first]
+        if (endpoint1.median_curve.start_point - corridor1.median_curve.end_point).norm < 0.1
+            path.pop
+        end
+
         path.each do |idx, side|
             corridor = corridors[idx]
             if side == :BACK_SIDE
@@ -465,7 +476,7 @@ Typelib.specialize '/corridors/Plan_m' do
                 corridor.reverse
             end
 
-            result.join(corridor, 0.1, endpoints.include?(idx))
+            result.join(corridor, 0.1)
         end
 
         result
