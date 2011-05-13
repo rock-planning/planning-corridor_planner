@@ -217,7 +217,7 @@ void CorridorPlanner::done()
 
 template<typename SrcContainer, typename DstContainer>
 static void wrapContainer(DstContainer& dest, SrcContainer& src,
-        double scale, Eigen::Transform3d const& raster_to_world)
+        double scale, Eigen::Affine3d const& raster_to_world)
 {
     dest.resize(src.size());
 
@@ -239,7 +239,7 @@ static void toWrapper(base::geometry::Spline<DIM>& dest, base::geometry::Spline<
 }
 
 static void toWrapper(corridors::Corridor& dest, Corridor& src,
-        double scale, Eigen::Transform3d const& raster_to_world)
+        double scale, Eigen::Affine3d const& raster_to_world)
 {
     src.updateCurves();
     toWrapper(dest.median_curve, src.median_curve, raster_to_world);
@@ -252,7 +252,7 @@ static void toWrapper(corridors::Corridor& dest, Corridor& src,
 }
 
 static void toWrapper(corridors::Plan& dest, Plan& src,
-        double scale, Eigen::Transform3d const& raster_to_world)
+        double scale, Eigen::Affine3d const& raster_to_world)
 {
     wrapContainer(dest.corridors, src.corridors, scale, raster_to_world);
 
@@ -283,7 +283,7 @@ static void toWrapper(corridors::Plan& dest, Plan& src,
 
 void CorridorPlanner::exportPlan()
 {
-    Eigen::Transform3d raster_to_world(map->getLocalToWorld());
+    Eigen::Affine3d raster_to_world(map->getLocalToWorld());
     toWrapper(final, plan, map->getScale(), raster_to_world);
 }
 
