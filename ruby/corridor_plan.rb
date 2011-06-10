@@ -488,8 +488,8 @@ Typelib.specialize '/corridors/Plan_m' do
             u = (corridor0.boundary_curves[1].start_point - corridor0.boundary_curves[0].start_point).
                 normalize * start_end_width
             path_corridors[0] = endpoint0 = endpoint0.dup
-            endpoint0.boundary_curves[1] = Types::Base::Geometry::Spline3.singleton(endpoint0.median_curve.end_point + u * start_end_width)
-            endpoint0.boundary_curves[0] = Types::Base::Geometry::Spline3.singleton(endpoint0.median_curve.end_point - u * start_end_width)
+            endpoint0.boundary_curves[1] = Types::Base::Geometry::Spline3.singleton(endpoint0.median_curve.end_point + u)
+            endpoint0.boundary_curves[0] = Types::Base::Geometry::Spline3.singleton(endpoint0.median_curve.end_point - u)
             endpoint0.width_curve = Types::Base::Geometry::Spline.singleton([start_end_width * 2])
         end
 
@@ -500,13 +500,13 @@ Typelib.specialize '/corridors/Plan_m' do
         else
             u = (corridor1.boundary_curves[1].start_point - corridor1.boundary_curves[0].start_point).
                 normalize * start_end_width
-            path_corridors[1] = endpoint1 = endpoint1.dup
-            endpoint1.boundary_curves[1] = Types::Base::Geometry::Spline3.singleton(endpoint1.median_curve.start_point + u * start_end_width)
-            endpoint1.boundary_curves[0] = Types::Base::Geometry::Spline3.singleton(endpoint1.median_curve.start_point - u * start_end_width)
+            path_corridors[-1] = endpoint1 = endpoint1.dup
+            endpoint1.boundary_curves[1] = Types::Base::Geometry::Spline3.singleton(endpoint1.median_curve.start_point + u)
+            endpoint1.boundary_curves[0] = Types::Base::Geometry::Spline3.singleton(endpoint1.median_curve.start_point - u)
             endpoint1.width_curve = Types::Base::Geometry::Spline.singleton([start_end_width * 2])
         end
 
-        corridors.each do |c|
+        path_corridors.each do |c|
             result.join(c, 0.1)
         end
         result
