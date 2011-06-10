@@ -143,6 +143,18 @@ Typelib.specialize '/corridors/Corridor_m' do
             width_curve.append(corridor.width_curve)
         end
 
+        if self.min_width < 0
+            self.min_width = corridor.min_width
+            self.max_width = corridor.max_width
+        else
+            if self.min_width > corridor.min_width
+                self.min_width = corridor.min_width
+            end
+            if self.max_width < corridor.max_width
+                self.max_width = corridor.max_width
+            end
+        end
+
         offsets[1] = boundary_curves[0].join(corridor.boundary_curves[0], geometric_resolution, false)
         offsets[2] = boundary_curves[1].join(corridor.boundary_curves[1], geometric_resolution, false)
 
