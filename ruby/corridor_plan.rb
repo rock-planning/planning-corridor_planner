@@ -457,40 +457,58 @@ Typelib.specialize '/corridors/Plan_m' do
     end
 
     # Create a new Corridor object that represents the corridor path +path+
-    def path_to_corridor(path)
+    def path_to_corridor(path, start_end_width = 1)
         result = self.class['corridors'].deference.new
         result.zero!
+        result.min_width = -1
+        result.max_width = -1
         result.width_curve  = Types::Base::Geometry::Spline.new(1)
         result.median_curve = Types::Base::Geometry::Spline3.new
         result.boundary_curves[0] = Types::Base::Geometry::Spline3.new
         result.boundary_curves[1] = Types::Base::Geometry::Spline3.new
 
         path = path.dup
-
-        # Check if the endpoints "touch" the corridors. If it is the case, just
-        # remove them. Otherwise, we need them to provide the "last mile"
-        endpoint0 = corridors[path[0].first]
-        corridor0 = corridors[path[1].first]
-        if (endpoint0.median_curve.end_point - corridor0.median_curve.start_point).norm < 0.1
-            path.shift
-        end
-
-        corridor1 = corridors[path[-2].first]
-        endpoint1 = corridors[path[-1].first]
-        if (endpoint1.median_curve.start_point - corridor1.median_curve.end_point).norm < 0.1
-            path.pop
-        end
-
-        path.each do |idx, side|
+        path_corridors = path.map do |idx, side|
             corridor = corridors[idx]
             if side == :BACK_SIDE
                 corridor = corridor.dup
                 corridor.reverse
             end
-
-            result.join(corridor, 0.1)
+            corridor
         end
 
+        # Check if the endpoints "touch" the corridors. If it is the case, just
+        # remove them. Otherwise, we transform them so that the "last mile" is
+        # not too narrow
+        endpoint0 = path_corridors[0]
+        corridor0 = path_corridors[1]
+        if (endpoint0.median_curve.end_point - corridor0.median_curve.start_point).norm < 0.1
+            path_corridors.shift
+        else
+            u = (corridor0.boundary_curves[1].start_point - corridor0.boundary_curves[0].start_point).
+                normalize * start_end_width
+            path_corridors[0] = endpoint0 = endpoint0.dup
+            endpoint0.boundary_curves[1] = Types::Base::Geometry::Spline3.singleton(endpoint0.median_curve.end_point + u * start_end_width)
+            endpoint0.boundary_curves[0] = Types::Base::Geometry::Spline3.singleton(endpoint0.median_curve.end_point - u * start_end_width)
+            endpoint0.width_curve = Types::Base::Geometry::Spline.singleton([start_end_width * 2])
+        end
+
+        corridor1 = path_corridors[-2]
+        endpoint1 = path_corridors[-1]
+        if (endpoint1.median_curve.start_point - corridor1.median_curve.end_point).norm < 0.1
+            path_corridors.shift
+        else
+            u = (corridor1.boundary_curves[1].start_point - corridor1.boundary_curves[0].start_point).
+                normalize * start_end_width
+            path_corridors[1] = endpoint1 = endpoint1.dup
+            endpoint1.boundary_curves[1] = Types::Base::Geometry::Spline3.singleton(endpoint1.median_curve.start_point + u * start_end_width)
+            endpoint1.boundary_curves[0] = Types::Base::Geometry::Spline3.singleton(endpoint1.median_curve.start_point - u * start_end_width)
+            endpoint1.width_curve = Types::Base::Geometry::Spline.singleton([start_end_width * 2])
+        end
+
+        corridors.each do |c|
+            result.join(c, 0.1)
+        end
         result
     end
 
