@@ -687,6 +687,11 @@ void Corridor::concat(Corridor& other)
     distances[3] = boundaries[1].back().distance2(other.boundaries[1].front());
     int min_distance = min_element(distances, distances + 4) - distances;
 
+    if (this->min_width > other.min_width)
+        this->min_width = other.min_width;
+    if (this->max_width < other.max_width)
+        this->max_width = other.max_width;
+
     if (min_distance == 0 || min_distance == 3)
     {
         // Remove from other.boundaries[x] the points that are already in
