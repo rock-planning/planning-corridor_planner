@@ -401,7 +401,10 @@ void Plan::removeNarrowCorridors(std::vector<Path>& all_paths, double min_width,
     for (unsigned int corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
     {
         if (!to_delete[corridor_idx] && corridors[corridor_idx].min_width < min_width)
+        {
+            DEBUG_OUT("  candidate for width removal: " << corridors[corridor_idx].name << " of width " << corridors[corridor_idx].min_width);
             candidates.push(corridor_idx);
+        }
     }
 
     std::vector<unsigned int> corridor_use_count;
@@ -422,7 +425,13 @@ void Plan::removeNarrowCorridors(std::vector<Path>& all_paths, double min_width,
         }
 
         for (unsigned int i = 0; i < corridors.size(); ++i)
+        {
             critical_paths[i] = (corridor_use_count[i] == all_paths.size());
+#ifdef DEBUG
+            if (critical_paths[i])
+                DEBUG_OUT("  corridor " << corridors[i].name << " is critical");
+#endif
+        }
 
         int corridor_idx = candidates.top();
         candidates.pop();
@@ -430,6 +439,7 @@ void Plan::removeNarrowCorridors(std::vector<Path>& all_paths, double min_width,
         if (to_delete[corridor_idx] || critical_paths[corridor_idx])
             continue;
 
+        DEBUG_OUT("  removing " << corridors[corridor_idx].name << " as it is too narrow");
         to_delete[corridor_idx] = true;
         filterDeletedPaths(all_paths, to_delete);
     }
@@ -782,6 +792,7 @@ bool Plan::removeShortCorridors(unsigned int threshold)
 
 bool Plan::removePointTurnConnections()
 {
+    DEBUG_OUT("removing point-turn connections");
     bool did_something = false;
     int startCorridorIdx = findStartCorridor();
     int endCorridorIdx = findEndCorridor();
@@ -814,9 +825,14 @@ bool Plan::removePointTurnConnections()
             else
                 target_median_tg = - target.median_curve.getPointAndTangent(target.median_curve.getEndParam()).second;
 
+            DEBUG_OUT("connection " << source.name << ":" << conn_it->this_side << " => " << target.name << ":" << conn_it->target_side);
+            DEBUG_OUT("  " << median_source_p.transpose() << " => " << median_target_p.transpose());
+            DEBUG_OUT("  tangent " << target_median_tg.transpose());
+
             if (median_join.dot(target_median_tg) < 0)
             {
-                std::cout << "POINT TURN " << corridor_idx << " " << conn_it->this_side << " => " << conn_it->target_idx << " " << conn_it->target_side << std::endl;
+                DEBUG_OUT("point turn " << corridors[corridor_idx].name << ":" << conn_it->this_side << " => " << corridors[conn_it->target_idx].name << ":" << conn_it->target_side);
+                DEBUG_OUT("  scalar product: " << median_join.normalized().dot(target_median_tg.normalized()));
                 source.connections.erase(conn_it++);
                 did_something = true;
             }

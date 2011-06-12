@@ -883,9 +883,12 @@ Plan SkeletonExtraction::buildPlan(PointID const& start_point, PointID const& en
 #endif
     state.plan.removeDeadEnds();
 
+    DEBUG_OUT("SkeletonExtraction: iteratively removing redundant connections");
+    int pass = 0;
     bool did_something = true;
     while (did_something)
     {
+        DEBUG_OUT("SkeletonExtraction: removing redundant connections, pass " + boost::lexical_cast<std::string>(pass));
         did_something = false;
 #ifdef DEBUG
         state.plan.displayConnections();
@@ -895,6 +898,7 @@ Plan SkeletonExtraction::buildPlan(PointID const& start_point, PointID const& en
             state.plan.removeDeadEnds();
             did_something = true;
         }
+        ++pass;
     }
     DEBUG_OUT("done building plan");
     DEBUG_OUT("");
