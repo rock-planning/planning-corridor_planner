@@ -398,9 +398,7 @@ void reverseList(list<T>& l)
     if (l.size() < 2)
         return;
 
-    typename list<T>::iterator
-        end = l.end(),
-        it = l.end();
+    typename list<T>::iterator it = l.end();
 
     // Get one element before the last element
     --it; --it;
@@ -1122,7 +1120,6 @@ void Corridor::fixLineOrdering(GridGraph& graph, list<PointID>& line)
                 continue;
 
             temp.clear();
-            PointID root = n_it.getTargetPoint();
             lineOrderingDFS(temp, n_it.getTargetPoint(), n_it.getNeighbourIndex(), graph);
             //std::cerr << "temp:" << temp.size();
 

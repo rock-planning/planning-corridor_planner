@@ -376,7 +376,6 @@ bool lineOrderingDFS(PointID const& cur_point, int neighbour_mask,
             continue;
         }
 
-        PointID root = n_it.getTargetPoint();
         bool detached = lineOrderingDFS(n_it.getTargetPoint(), PROGRESSION_MASKS[n_it.getNeighbourIndex()],
                 result, state);
 
