@@ -755,7 +755,11 @@ bool Plan::removePointTurnConnections()
                 target.getMedianCurveEndpoint(conn_it->target_side);
 
             Eigen::Vector3d median_join = median_target_p - median_source_p;
-            Eigen::Vector3d target_median_tg = target.median_curve.getPointAndTangent(target.median_curve.getStartParam()).second;
+            Eigen::Vector3d target_median_tg;
+            if (conn_it->target_side == false)
+                target_median_tg = target.median_curve.getPointAndTangent(target.median_curve.getStartParam()).second;
+            else
+                target_median_tg = - target.median_curve.getPointAndTangent(target.median_curve.getEndParam()).second;
 
             if (median_join.dot(target_median_tg) < 0)
             {
