@@ -948,8 +948,12 @@ void Plan::markDirections_cost()
         for (conn_it = corridor.connections.begin(); conn_it != corridor.connections.end(); ++conn_it)
         {
             PointID p = corridors[conn_it->target_idx].getEndpoint(conn_it->target_side);
-            costs[conn_it->this_side] += m_nav_function.getValue(p.x, p.y);
-            counts[conn_it->this_side]++;
+            double cost = m_nav_function.getValue(p.x, p.y);
+            if (cost < 1e+5)
+            {
+                costs[conn_it->this_side] += cost;
+                counts[conn_it->this_side]++;
+            }
         }
 
         if (counts[0] == 0 || counts[1] == 0)
