@@ -105,6 +105,14 @@ namespace corridor_planner
          */
         void removeOutboundConnectionsFrom(int corridor_idx, bool side);
 
+        /** Connect directly corridors that were passing through a third corridor
+         *
+         * This method changes the connection graph so that the corridors that were
+         * previously connected through +corridor_idx+ are now directly
+         * connected
+         */
+        void shortcutCorridor(unsigned int corridor_idx);
+
         /** Move all connections that are defined on \c from_idx into the
          * corridor \c into_idx, updating the other end of the connection as
          * well.
@@ -127,6 +135,14 @@ namespace corridor_planner
          *     corridors narrower than that will be removed. }
          */
         void simplify(double margin_factor, int min_width = 0, bool convert_to_dag = true);
+
+        /** Used at the end of the simplification process to remove short
+         * corridors
+         *
+         * Removing short corridors simplify the handling of everything as they
+         * are the most "uncertain" corridors
+         */
+        bool removeShortCorridors(unsigned int threshold);
 
         /** Split the given corridor at the specified place, and returns the new
          * corridor.

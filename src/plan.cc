@@ -339,6 +339,10 @@ void Plan::simplify(double margin_factor, int min_width, bool convert_to_dag)
     {
         corridors[i].updateCurves();
     }
+    
+    if (removeShortCorridors(3))
+        return simplify(margin_factor, min_width, false);
+
     if (removePointTurnConnections())
         return simplify(margin_factor, min_width, false);
 
@@ -725,6 +729,55 @@ void Plan::fixBoundaryOrdering()
             ++conn_it;
         }
     }
+}
+
+void Plan::shortcutCorridor(unsigned int corridor_idx)
+{
+    Corridor& removed_corridor = corridors[corridor_idx];
+    DEBUG_OUT("shortcutting " << removed_corridor.name);
+    for (unsigned int c_idx = 0; c_idx < corridors.size(); ++c_idx)
+    {
+        if (c_idx == corridor_idx) continue;
+
+        Corridor& corridor = corridors[c_idx];
+        Corridor::connection_iterator conn_it = corridor.connections.begin();
+        while (conn_it != corridor.connections.end())
+        {
+            if (conn_it->target_idx != (int)corridor_idx)
+            {
+                ++conn_it;
+                continue;
+            }
+
+            bool this_side = conn_it->target_side;
+            for (Corridor::connection_iterator copy_it = removed_corridor.connections.begin(); copy_it != removed_corridor.connections.end(); ++copy_it)
+            {
+                if (copy_it->this_side == !this_side)
+                {
+                    Corridor::ConnectionDescriptor conn = *copy_it;
+                    conn.this_side = conn_it->this_side;
+                    corridor.connections.push_back(conn);
+                    DEBUG_OUT("  adding connection from " << corridor.name << ":" << conn.this_side << " to " << corridors[conn_it->target_idx].name << ":" << conn_it->target_side);
+                }
+            }
+            corridor.connections.erase(conn_it++);
+        }
+    }
+}
+
+bool Plan::removeShortCorridors(unsigned int threshold)
+{
+    std::vector<bool> to_remove(corridors.size(), false);
+    for (unsigned int corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
+    {
+        Corridor& corridor = corridors[corridor_idx];
+        if (corridor.voronoi.size() > threshold || corridor.voronoi.size() <= 1)
+            continue;
+
+        shortcutCorridor(corridor_idx);
+        to_remove[corridor_idx] = true;
+    }
+    return removeCorridors(to_remove);
 }
 
 bool Plan::removePointTurnConnections()
