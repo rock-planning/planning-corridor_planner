@@ -224,7 +224,7 @@ static void wrapContainer(DstContainer& dest, SrcContainer& src,
     size_t point_idx;
     typename SrcContainer::iterator src_it = src.begin();
     typename SrcContainer::iterator const src_end = src.end();
-    for (point_idx = 0, src_it = src.begin(); src_it != src.end(); ++point_idx, ++src_it)
+    for (point_idx = 0, src_it = src.begin(); src_it != src_end; ++point_idx, ++src_it)
     {
         toWrapper(dest[point_idx], *src_it, scale, raster_to_world);
     }
