@@ -168,7 +168,7 @@ namespace corridor_planner
         /** Applies removeRedundantCorridorConnections(corridor_idx) on every
          * corridor
          */
-        bool removeRedundantCorridorConnections();
+        bool removeRedundantCorridorConnections(bool bidir_graph);
 
         /** Filters out redundant connections that go out of the given corridor
          *
@@ -181,7 +181,7 @@ namespace corridor_planner
          * if this is found, then the outgoing connections of b:0 and b:1 are
          * copied to a:0, and the a:0->b:* connections are removed
          */
-        bool removeRedundantCorridorConnections(int corridor_idx);
+        bool removeRedundantCorridorConnections(int corridor_idx, bool bidir_graph);
 
         void filterDeadEndPaths(std::vector<Path>& all_paths) const;
         void removeNarrowCorridors(std::vector<Path>& all_paths, double min_width, std::vector<bool>& to_delete);

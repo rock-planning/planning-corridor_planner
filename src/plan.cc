@@ -316,7 +316,7 @@ void Plan::simplify(double margin_factor, int min_width, bool convert_to_dag)
         {
             did_something = false;
             unsigned long last_count = corridors.size();
-            removeRedundantCorridorConnections();
+            removeRedundantCorridorConnections(false);
             did_something = removeDeadEnds();
             mergeSimpleCrossroads_directed();
             did_something = did_something || (last_count != corridors.size());
@@ -1320,7 +1320,7 @@ void Plan::reverseCorridor(int corridor_idx)
     }
 }
 
-bool Plan::removeRedundantCorridorConnections()
+bool Plan::removeRedundantCorridorConnections(bool bidir_graph)
 {
     bool did_something = true, result = false;
     while (did_something)
@@ -1328,7 +1328,7 @@ bool Plan::removeRedundantCorridorConnections()
         did_something = false;
         for (size_t corridor_idx = 0; corridor_idx < corridors.size(); ++corridor_idx)
         {
-            if (removeRedundantCorridorConnections(corridor_idx))
+            if (removeRedundantCorridorConnections(corridor_idx, bidir_graph))
                 did_something = result = true;
         }
     }
@@ -1336,7 +1336,7 @@ bool Plan::removeRedundantCorridorConnections()
     return result;
 }
 
-bool Plan::removeRedundantCorridorConnections(int corridor_idx)
+bool Plan::removeRedundantCorridorConnections(int corridor_idx, bool bidir_graph)
 {
     DEBUG_OUT("looking for redundant connections in " << corridors[corridor_idx].name);
     Corridor& corridor = corridors[corridor_idx];
@@ -1383,6 +1383,13 @@ bool Plan::removeRedundantCorridorConnections(int corridor_idx)
                 conn.this_side = this_side;
                 DEBUG_OUT("    copying connection to " << conn.target_idx << ":" << conn.target_side);
                 corridor.connections.push_back(conn);
+                if (bidir_graph)
+                {
+                    std::swap(conn.this_side, conn.target_side);
+                    int target_idx = conn.target_idx;
+                    conn.target_idx = corridor_idx;
+                    corridors[target_idx].connections.push_back(conn);
+                }
             }
 
             removed_connections[this_side][target_idx] = true;
