@@ -166,7 +166,7 @@ namespace corridor_planner
         /** Returns true if this corridor contains only one point
          */
         bool isSingleton() const
-        { return voronoi.size() == 1; }
+        { return !voronoi.empty() && (++voronoi.begin() == voronoi.end()); }
 
         struct ConnectionDescriptor
         {
