@@ -457,7 +457,7 @@ Typelib.specialize '/corridors/Plan_m' do
     end
 
     # Create a new Corridor object that represents the corridor path +path+
-    def path_to_corridor(path, start_end_width = 1)
+    def path_to_corridor(path, start_end_width = 0.5)
         result = self.class['corridors'].deference.new
         result.zero!
         result.min_width = -1
