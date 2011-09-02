@@ -480,15 +480,6 @@ Typelib.specialize '/corridors/Plan_m' do
 
     # Create a new Corridor object that represents the corridor path +path+
     def path_to_corridor(path, start_end_width = 0.5)
-        result = self.class['corridors'].deference.new
-        result.zero!
-        result.min_width = -1
-        result.max_width = -1
-        result.width_curve  = Types::Base::Geometry::Spline.new(1)
-        result.median_curve = Types::Base::Geometry::Spline3.new
-        result.boundary_curves[0] = Types::Base::Geometry::Spline3.new
-        result.boundary_curves[1] = Types::Base::Geometry::Spline3.new
-
         path = path.dup
         path_corridors = path.map do |idx, side|
             corridor = corridors[idx]
@@ -498,6 +489,19 @@ Typelib.specialize '/corridors/Plan_m' do
             end
             corridor
         end
+
+        if path.size == 1
+            return path_corridors[0].dup
+        end
+
+        result = self.class['corridors'].deference.new
+        result.zero!
+        result.min_width = -1
+        result.max_width = -1
+        result.width_curve  = Types::Base::Geometry::Spline.new(1)
+        result.median_curve = Types::Base::Geometry::Spline3.new
+        result.boundary_curves[0] = Types::Base::Geometry::Spline3.new
+        result.boundary_curves[1] = Types::Base::Geometry::Spline3.new
 
         # Check if the endpoints "touch" the corridors. If it is the case, just
         # remove them. Otherwise, we transform them so that the "last mile" is
