@@ -1,6 +1,28 @@
 ANN_UNKNOWN     = 0
 ANN_STRONG_EDGE = 1
 
+Typelib.specialize_model '/corridors/Plan_m' do
+    def from_path(path)
+        result = self.new
+        result.zero!
+        result.start_corridor = 0
+        result.end_corridor = path.size - 1
+        path.each_with_index do |(corridor, modality), idx|
+            result.corridors << corridor
+            if idx != 0
+                conn = Types::Corridors::CorridorConnection.new
+                conn.zero!
+                conn.from_idx = idx - 1
+                conn.from_side = :BACK_SIDE
+                conn.to_idx   = idx
+                conn.to_side = :FRONT_SIDE
+                result.connections << conn
+            end
+        end
+        result
+    end
+end
+
 Typelib.specialize '/corridors/Corridor_m' do
     Annotations      = self['annotations'].deference.deference
     AnnotatedSegment = Annotations.deference
