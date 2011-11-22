@@ -500,8 +500,7 @@ Typelib.specialize '/corridors/Plan_m' do
         result.max_width = -1
         result.width_curve  = Types::Base::Geometry::Spline.new(1)
         result.median_curve = Types::Base::Geometry::Spline3.new
-        result.boundary_curves[0] = Types::Base::Geometry::Spline3.new
-        result.boundary_curves[1] = Types::Base::Geometry::Spline3.new
+        result.boundary_curves = [Types::Base::Geometry::Spline3.new, Types::Base::Geometry::Spline3.new]
 
         # Check if the endpoints "touch" the corridors. If it is the case, just
         # remove them. Otherwise, we transform them so that the "last mile" is
