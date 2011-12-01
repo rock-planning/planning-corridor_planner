@@ -227,6 +227,16 @@ void CorridorPlanVisualization::createCorridorNode(osg::Geode* geode, corridors:
         geode->addDrawable(geom);
     }
 
+    base::geometry::Spline<3> start_line(0.1, 2);
+    std::vector<base::Vector3d> points;
+    points.push_back(c.boundary_curves[0].getStartPoint());
+    points.push_back(c.median_curve.getStartPoint());
+    if (points[0] == points[1]) points.pop_back();
+    points.push_back(c.boundary_curves[1].getStartPoint());
+    if (points[0] == points[1]) points.pop_back();
+    start_line.interpolate(points);
+    createCurveNode(geode, start_line, osg::Vec4(1, 1, 1, 1), p->offset + 0.1, 5);
+
     if (annotation_idx != -1 && p->plan_annotations)
     {
         createCurveNode(geode, c.median_curve, c.annotations[0][annotation_idx], p->annotation_colors, p->offset + 0.1, 10);
