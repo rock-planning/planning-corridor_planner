@@ -882,26 +882,56 @@ void Corridor::updateCurves(double discount_factor)
 
     // Check if we must swap boundaries[0] and boundaries[1]
     //
-    // First get a general corridor direction
-    base::Vector3d median_p, median_t;
-    base::Vector3d boundaries_p[2], boundaries_t[2];
-    tie(median_p, median_t) = median_curve.getPointAndTangent(median_curve.getStartParam());
-    for (int i = 0; i < 2; ++i)
-        tie(boundaries_p[i], boundaries_t[i]) = boundary_curves[i].getPointAndTangent(boundary_curves[i].getStartParam());
+    // Since we are dealing with actual non-smooth data, we compute the four
+    // possible solution and look for the most likely one.
+    double solutions[4];
 
-    // NOTE: singletons return a zero tangent, so we can do that (we are only
-    // interested in the cross product sign later on). I.e. we don't need to
-    // take the mean
-    base::Vector3d corridor_dir = median_t;
-    if (median_curve.isSingleton())
+    for (int front_back = 0; front_back < 2; ++front_back)
     {
-        if (boundary_curves[0].isSingleton())
-            corridor_dir = boundaries_t[1];
+        // First get a general corridor direction
+        base::Vector3d median_p, median_t;
+        base::Vector3d boundaries_p[2], boundaries_t[2];
+
+        if (front_back == 0)
+        {
+            tie(median_p, median_t) =
+                median_curve.getPointAndTangent(median_curve.getStartParam());
+            for (int i = 0; i < 2; ++i)
+                tie(boundaries_p[i], boundaries_t[i]) =
+                    boundary_curves[i].getPointAndTangent(boundary_curves[i].getStartParam());
+        }
         else
-            corridor_dir = boundaries_t[0];
+        {
+            tie(median_p, median_t) =
+                median_curve.getPointAndTangent(median_curve.getEndParam());
+            for (int i = 0; i < 2; ++i)
+                tie(boundaries_p[i], boundaries_t[i]) =
+                    boundary_curves[i].getPointAndTangent(boundary_curves[i].getEndParam());
+        }
+
+        // NOTE: singletons return a zero tangent, so we can do that (we are only
+        // interested in the cross product sign later on). I.e. we don't need to
+        // take the mean
+        base::Vector3d corridor_dir = median_t;
+        if (median_curve.isSingleton())
+        {
+            if (boundary_curves[0].isSingleton())
+                corridor_dir = boundaries_t[1];
+            else
+                corridor_dir = boundaries_t[0];
+        }
+
+        solutions[front_back * 2] = (boundaries_p[0] - median_p).cross(corridor_dir).z();
+        solutions[front_back * 2 + 1] = (median_p - boundaries_p[1]).cross(corridor_dir).z();
     }
 
-    if ((boundaries_p[0] - median_p).cross(corridor_dir).z() < 0)
+    double solution = solutions[0];
+    for (int solution_idx = 1; solution_idx < 4; ++solution_idx)
+    {
+        if (fabs(solution) < fabs(solutions[solution_idx]))
+            solution = solutions[solution_idx];
+    }
+    if (solution < 0)
         std::swap(boundary_curves[0], boundary_curves[1]);
 
     // Finally, "cut" the median curve at corridor boundaries. Otherwise,
