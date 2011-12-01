@@ -233,6 +233,12 @@ void CorridorPlanVisualization::createCorridorNode(osg::Geode* geode, corridors:
         createCurveNode(geode, c.boundary_curves[0], c.annotations[1][annotation_idx], p->annotation_colors, p->offset + 0.1, 5);
         createCurveNode(geode, c.boundary_curves[1], c.annotations[2][annotation_idx], p->annotation_colors, p->offset + 0.1, 5);
     }
+    else
+    {
+        createCurveNode(geode, c.median_curve, osg::Vec4(1.0, 1.0, 1.0, 1.0), p->offset + 0.1, 10);
+        createCurveNode(geode, c.boundary_curves[0], osg::Vec4(0.75, 0.5, 0.25, 1.0), p->offset + 0.1, 5);
+        createCurveNode(geode, c.boundary_curves[1], osg::Vec4(0.25, 0.5, 0.75, 1.0), p->offset + 0.1, 5);
+    }
 }
 
 void CorridorPlanVisualization::computeColors(std::vector<osg::Vec4>& colors, int size)
