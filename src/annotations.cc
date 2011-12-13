@@ -41,7 +41,6 @@ void StrongEdgeAnnotation::annotateCurve(corridors::Corridor::Annotations& resul
 
     std::vector<double> parameters;
     std::vector<base::Vector3d> points = curve.sample(std::min(scaleX, scaleY) / 2, &parameters);
-    std::cout << "StrongEdgeAnnotation: marking " << points.size() << " points on curve fron band " << band << std::endl;
 
     // The current state
     double state_start = curve.getStartParam();
@@ -57,7 +56,6 @@ void StrongEdgeAnnotation::annotateCurve(corridors::Corridor::Annotations& resul
     {
         size_t x, y;
         map->toGrid(points[point_idx], x, y, world_node);
-        std::cout << parameters[point_idx] << " " << points[point_idx].x() << " " << points[point_idx].y() << std::endl;
         if (x <= (size_t)RADIUS || x >= map_width - RADIUS || y <= (size_t)RADIUS || y >= map_height - RADIUS)
             continue;
 
@@ -69,12 +67,10 @@ void StrongEdgeAnnotation::annotateCurve(corridors::Corridor::Annotations& resul
                 double cell_data = data[y + dy][x + dx];
                 if (no_data.second && cell_data == no_data.first && new_state == -1)
                 {
-                    std::cout << "  new_state=UNKNOWN\n";
                     new_state = UNKNOWN;
                 }
                 else if (cell_data > threshold)
                 {
-                    std::cout << "  new_state=STRONG\n";
                     new_state = STRONG;
                     break;
                 }
@@ -92,7 +88,6 @@ void StrongEdgeAnnotation::annotateCurve(corridors::Corridor::Annotations& resul
     }
     if (current_state != -1)
     {
-        std::cout << "marking " << state_start << "->" << parameters.back() << " as " << current_state << std::endl;
         result.push_back( AnnotatedSegment(state_start, parameters.back(), current_state) );
     }
 }
