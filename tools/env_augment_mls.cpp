@@ -1,5 +1,6 @@
 #include <envire/Core.hpp>
 #include <envire/maps/GridBase.hpp>
+#include <envire/maps/Grids.hpp>
 #include <envire/maps/MLSGrid.hpp>
 #include <envire/operators/GridFloatToMLS.hpp>
 #include <boost/scoped_ptr.hpp>
@@ -41,6 +42,24 @@ int main(int argc, char* argv[])
     // get max_force band
     envire::Grid<double>::ArrayType &max_force( input->getGridData( grid_band_name ) );
 
+    // get the rgb image
+    envire::ImageRGB24::Ptr image;
+    std::vector<ImageRGB24*> images = env->getItems<envire::ImageRGB24>();
+    if( images.empty() )
+    {
+	image = new envire::ImageRGB24( input->getWidth(), input->getHeight(), input->getScaleX(), input->getScaleY() );
+	env->setFrameNode( image.get(), input->getFrameNode() );
+    }
+    else
+    {
+	image = images.front();
+    }
+
+    envire::ImageRGB24::ArrayType
+	&r( image->getGridData( envire::ImageRGB24::R ) ),
+	&g( image->getGridData( envire::ImageRGB24::G ) ),
+	&b( image->getGridData( envire::ImageRGB24::B ) );
+
     for( size_t x = 0; x < input->getWidth(); x++ )
     {
 	for( size_t y = 0; y < input->getHeight(); y++ )
@@ -63,6 +82,11 @@ int main(int argc, char* argv[])
 	    {
 		it->color = color;
 	    }
+
+	    // set in the image
+	    r[y][x] = color[0] * 255;
+	    g[y][x] = color[1] * 255;
+	    b[y][x] = color[2] * 255;
 	}
     }
 

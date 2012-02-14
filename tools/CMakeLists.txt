@@ -4,4 +4,4 @@ rock_executable(fix_terrain_classes fix_terrain_classes.cc
     DEPS_PKGCONFIG base-types)
 
 rock_executable(env_augment_mls env_augment_mls.cpp
-    DEPS_PKGCONFIG envire base-types)
+    DEPS_PKGCONFIG envire base-types base-lib)
