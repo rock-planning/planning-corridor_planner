@@ -68,7 +68,7 @@ namespace corridor_planner
         // If this value is true, the StrongEdgeAnnotation filter will be
         // passed on the resulting corridors
         bool strong_edge_enable;
-        int strong_edge_map;
+        std::string strong_edge_map;
         std::string strong_edge_band;
         double strong_edge_threshold;
 
@@ -96,7 +96,7 @@ namespace corridor_planner
         /** Annotates the resulting corridors using the StrongEdgeAnnotation
          * filter
          */
-        void enableStrongEdgeFilter(std::string const& env_path, int map_id, std::string const& band_name, double threshold);
+        void enableStrongEdgeFilter(std::string const& env_path, std::string map_id, std::string const& band_name, double threshold);
 
         /** Disables the strong edge filter as enabled by enableStrongEdgeFilter
          */

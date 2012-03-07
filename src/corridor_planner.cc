@@ -61,7 +61,7 @@ void CorridorPlanner::setMarginFactor(double factor)
     requireProcessing(DSTAR);
 }
 
-void CorridorPlanner::enableStrongEdgeFilter(std::string const& env_path, int map_id, std::string const& band_name, double threshold)
+void CorridorPlanner::enableStrongEdgeFilter(std::string const& env_path, std::string map_id, std::string const& band_name, double threshold)
 {
     delete env;
     env = envire::Environment::unserialize(env_path);
