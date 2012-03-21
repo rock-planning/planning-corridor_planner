@@ -24,6 +24,18 @@ namespace corridor_planner
     class SkeletonExtraction;
     class Plan;
 
+    struct PlanningFailed : public std::runtime_error
+    {
+        PlanningFailed(std::string const& msg)
+            : std::runtime_error(msg) {}
+    };
+
+    struct CostCutoffReached : public PlanningFailed
+    {
+        CostCutoffReached(std::string const& msg)
+            : PlanningFailed(msg) {}
+    };
+
     /** Simple interface to the corridor planner functionality
      */
     class CorridorPlanner : boost::noncopyable
@@ -83,7 +95,7 @@ namespace corridor_planner
         ~CorridorPlanner();
 
         /** Load the terrain classes and traversability map */
-        void init(std::string const& terrain_classes, std::string const& map, float min_width = 0);
+        void init(std::string const& terrain_classes, std::string const& map, float min_width = 0, float cost_cutoff = std::numeric_limits<float>::max());
 
         /** Call to set the start and goal positions */
         void setWorldPositions(Eigen::Vector2d const& current, Eigen::Vector2d const& goal);

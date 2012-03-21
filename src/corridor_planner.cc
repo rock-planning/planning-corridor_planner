@@ -36,7 +36,7 @@ void CorridorPlanner::processed()
 { m_state++; }
 
 /** Load the terrain classes and traversability map */
-void CorridorPlanner::init(std::string const& terrain_classes, std::string const& map_file, float min_width)
+void CorridorPlanner::init(std::string const& terrain_classes, std::string const& map_file, float min_width, float cost_cutoff)
 {
     classes = nav_graph_search::TerrainClass::load(terrain_classes);
     delete map;
@@ -47,12 +47,13 @@ void CorridorPlanner::init(std::string const& terrain_classes, std::string const
     delete dstar_to_start;
     delete dstar_to_goal;
     dstar_to_start = new DStar(*map, classes);
+    dstar_to_start->setCostCutoff(cost_cutoff);
     dstar_to_goal  = new DStar(*map, classes);
+    dstar_to_goal->setCostCutoff(cost_cutoff);
     delete skeleton;
     skeleton = new SkeletonExtraction(map->xSize(), map->ySize());
 
     this->min_width = min_width;
-
 }
 
 void CorridorPlanner::setMarginFactor(double factor)
@@ -137,9 +138,16 @@ void CorridorPlanner::computeDStar()
     if (isProcessingRequired(DSTAR))
     {
         double optimal = dstar_to_start->run(m_current.x(), m_current.y(), m_goal.x(), m_goal.y());
+        if (base::isUnknown<double>(optimal))
+            throw CostCutoffReached("reached cost cutoff during planning from goal to start");
+
         std::cout << "to start: optimal before expansion is " << optimal << std::endl;
         dstar_to_start->expandUntil(optimal * m_expand);
+
         optimal = dstar_to_goal->run(m_goal.x(), m_goal.y(), m_current.x(), m_current.y());
+        if (base::isUnknown<double>(optimal))
+            throw CostCutoffReached("reached cost cutoff during planning from start to goal");
+
         std::cout << "to goal:  optimal before expansion is " << optimal << std::endl;
         dstar_to_goal->expandUntil(optimal * m_expand);
         std::cout << "to start: optimal after expansion is " << dstar_to_start->graph().getValue(m_goal.x(), m_goal.y()) << std::endl;
