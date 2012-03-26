@@ -7,6 +7,7 @@
 #include <corridor_planner/voronoi.hh>
 #include <corridor_planner/plan.hh>
 #include <corridor_planner/corridors.hh>
+#include <envire/maps/Grid.hpp>
 
 #include <boost/noncopyable.hpp>
 
@@ -96,6 +97,16 @@ namespace corridor_planner
 
         /** Load the terrain classes and traversability map */
         void init(std::string const& terrain_classes, std::string const& map, float min_width = 0, float cost_cutoff = std::numeric_limits<float>::max());
+
+        /** Load the terrain classes and traversability map */
+        void init(std::string const& terrain_classes,
+                envire::Grid<uint8_t> const& map, std::string const& band_name,
+                float min_width = 0, float cost_cutoff = std::numeric_limits<float>::max());
+
+        /** Load the terrain classes and traversability map */
+        void init(nav_graph_search::TerrainClasses const& classes,
+                nav_graph_search::TraversabilityMap* map,
+                float min_width = 0, float cost_cutoff = std::numeric_limits<float>::max());
 
         /** Call to set the start and goal positions */
         void setWorldPositions(Eigen::Vector2d const& current, Eigen::Vector2d const& goal);

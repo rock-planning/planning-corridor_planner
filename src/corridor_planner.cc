@@ -38,12 +38,30 @@ void CorridorPlanner::processed()
 /** Load the terrain classes and traversability map */
 void CorridorPlanner::init(std::string const& terrain_classes, std::string const& map_file, float min_width, float cost_cutoff)
 {
-    classes = nav_graph_search::TerrainClass::load(terrain_classes);
-    delete map;
-    map     = TraversabilityMap::load(map_file, classes);
+    nav_graph_search::TerrainClasses classes = nav_graph_search::TerrainClass::load(terrain_classes);
+    TraversabilityMap* map     = TraversabilityMap::load(map_file, classes);
     if (!map)
         throw std::runtime_error("cannot load the specified map");
 
+    init(classes, map, min_width, cost_cutoff);
+}
+
+/** Load the terrain classes and traversability map */
+void CorridorPlanner::init(std::string const& terrain_classes,
+        envire::Grid<uint8_t> const& input_map, std::string const& band_name, float min_width, float cost_cutoff)
+{
+    nav_graph_search::TerrainClasses classes = nav_graph_search::TerrainClass::load(terrain_classes);
+    TraversabilityMap* map     = TraversabilityMap::load(input_map, band_name, classes);
+    if (!map)
+        throw std::runtime_error("cannot load the specified map");
+
+    init(classes, map, min_width, cost_cutoff);
+}
+
+void CorridorPlanner::init(nav_graph_search::TerrainClasses const& terrain_classes, TraversabilityMap* map, float min_width, float cost_cutoff)
+{
+    this->classes = terrain_classes;
+    this->map = map;
     delete dstar_to_start;
     delete dstar_to_goal;
     dstar_to_start = new DStar(*map, classes);
