@@ -7,14 +7,10 @@
 #include <corridor_planner/voronoi.hh>
 #include <corridor_planner/plan.hh>
 #include <corridor_planner/corridors.hh>
+#include <envire/Core.hpp>
 #include <envire/maps/Grid.hpp>
 
 #include <boost/noncopyable.hpp>
-
-namespace envire
-{
-    class Environment;
-}
 
 namespace corridor_planner
 {
@@ -81,7 +77,7 @@ namespace corridor_planner
         // If this value is true, the StrongEdgeAnnotation filter will be
         // passed on the resulting corridors
         bool strong_edge_enable;
-        std::string strong_edge_map;
+        envire::Grid<double>::Ptr strong_edge_map;
         std::string strong_edge_band;
         double strong_edge_threshold;
 
@@ -116,10 +112,14 @@ namespace corridor_planner
 
         void setMarginFactor(double factor);
 
+        /** @overload
+         */
+        void enableStrongEdgeFilter(std::string const& env_path, std::string map_id, std::string const& band_name, double threshold);
+
         /** Annotates the resulting corridors using the StrongEdgeAnnotation
          * filter
          */
-        void enableStrongEdgeFilter(std::string const& env_path, std::string map_id, std::string const& band_name, double threshold);
+        void enableStrongEdgeFilter(envire::Grid<double>::Ptr step_size, std::string const& band_name, double threshold);
 
         /** Disables the strong edge filter as enabled by enableStrongEdgeFilter
          */

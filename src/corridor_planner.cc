@@ -84,8 +84,17 @@ void CorridorPlanner::enableStrongEdgeFilter(std::string const& env_path, std::s
 {
     delete env;
     env = envire::Environment::unserialize(env_path);
+    strong_edge_map       = env->getItem< envire::Grid<double> >(map_id);
+    if (!strong_edge_map)
+        throw std::runtime_error("wrong map ID given for strong edge map");
+
+    enableStrongEdgeFilter(strong_edge_map, band_name, threshold);
+}
+
+void CorridorPlanner::enableStrongEdgeFilter(envire::Grid<double>::Ptr step_size, std::string const& band_name, double threshold)
+{
     strong_edge_enable    = true;
-    strong_edge_map       = map_id;
+    strong_edge_map       = step_size;
     strong_edge_band      = band_name;
     strong_edge_threshold = threshold;
     requireProcessing(ANNOTATIONS);
@@ -218,11 +227,7 @@ void CorridorPlanner::annotateCorridors()
 
         if (strong_edge_enable)
         {
-            envire::Grid<double>::Ptr map = env->getItem< envire::Grid<double> >(strong_edge_map);
-            if (!map)
-                throw std::runtime_error("invalid map selected for the strong edge filter");
-
-            StrongEdgeAnnotation filter(map.get(), strong_edge_band, strong_edge_threshold);
+            StrongEdgeAnnotation filter(strong_edge_map.get(), strong_edge_band, strong_edge_threshold);
             AnnotationFilter::apply(filter, final);
         }
         if (narrow_wide_enable)
