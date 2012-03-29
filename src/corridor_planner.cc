@@ -166,14 +166,14 @@ void CorridorPlanner::computeDStar()
     {
         double optimal = dstar_to_start->run(m_current.x(), m_current.y(), m_goal.x(), m_goal.y());
         if (base::isUnknown<double>(optimal))
-            throw CostCutoffReached("reached cost cutoff during planning from goal to start");
+            throw CostCutoffReached("reached cost cutoff (" + boost::lexical_cast<std::string>(dstar_to_start->getCostCutoff()) + ") during planning from goal to start");
 
         std::cout << "to start: optimal before expansion is " << optimal << std::endl;
         dstar_to_start->expandUntil(optimal * m_expand);
 
         optimal = dstar_to_goal->run(m_goal.x(), m_goal.y(), m_current.x(), m_current.y());
         if (base::isUnknown<double>(optimal))
-            throw CostCutoffReached("reached cost cutoff during planning from start to goal");
+            throw CostCutoffReached("reached cost cutoff (" + boost::lexical_cast<std::string>(dstar_to_start->getCostCutoff()) + ") during planning from start to goal");
 
         std::cout << "to goal:  optimal before expansion is " << optimal << std::endl;
         dstar_to_goal->expandUntil(optimal * m_expand);
