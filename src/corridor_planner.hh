@@ -87,6 +87,13 @@ namespace corridor_planner
         double narrow_wide_narrow_threshold;
         double narrow_wide_wide_threshold;
 
+        // If this value is true, the KnownUnknownAnnotation filter will be
+        // passed on the resulting corridors
+        bool known_unknown_enable;
+        envire::Grid<uint8_t>::Ptr known_unknown_map;
+        std::string known_unknown_band;
+        uint8_t known_unknown_class;
+
     public:
         CorridorPlanner();
         ~CorridorPlanner();
@@ -134,6 +141,16 @@ namespace corridor_planner
          * enableNarrowWideAnnotation
          */
         void disableNarrowWideFilter();
+
+        /** Annotates the resulting corridors using the KnownUnknownAnnotation
+         * filter
+         */
+        void enableKnownUnknownFilter(envire::Grid<uint8_t>::Ptr grid, std::string const& band_name, uint8_t unknown_class);
+
+        /** Disables the KnownUnknownAnnotation filter as enabled by
+         * enableKnownUnknownFilter
+         */
+        void disableKnownUnknownFilter();
 
         /** Call to notify the planner that the map changed at the given
          * position */

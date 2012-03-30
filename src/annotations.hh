@@ -103,6 +103,30 @@ namespace corridor_planner {
 
         virtual void annotate(int index, corridors::Corridor& corridor);
     };
+
+    /** Annotation filter that annotates the median line of a corridor as either
+     * KNOWN or UNKNOWN. It currently looks only at the cells on the median
+     * line. A better implementation would look at the ration between known and
+     * unknown cells in a corridor segment.
+     */
+    struct KnownUnknownAnnotation : public AnnotationFilter {
+        enum Symbols {
+            KNOWN,
+            UNKNOWN
+        };
+
+        /** The map that contains the local step (in meters) */
+        envire::Grid<uint8_t> const* map;
+        /** The band that should be used in \c map */
+        std::string band_name;
+        /** The value used in \c map to mark unknown */
+        uint8_t unknown_class;
+
+        KnownUnknownAnnotation(envire::Grid<uint8_t> const* map, std::string const& band_name,
+                uint8_t unknown_class);
+
+        virtual void annotate(int index, corridors::Corridor& corridor);
+    };
 }
 
 #endif

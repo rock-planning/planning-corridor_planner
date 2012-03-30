@@ -15,7 +15,7 @@ CorridorPlanner::CorridorPlanner()
     , min_width(0)
     , env(0)
     , m_state(DSTAR), m_expand(1.1)
-    , strong_edge_enable(false), narrow_wide_enable(false)
+    , strong_edge_enable(false), narrow_wide_enable(false), known_unknown_enable(false)
 {
 }
 
@@ -117,6 +117,21 @@ void CorridorPlanner::enableNarrowWideFilter(double narrow_threshold, double wid
 void CorridorPlanner::disableNarrowWideFilter()
 {
     narrow_wide_enable = false;
+    requireProcessing(ANNOTATIONS);
+}
+
+void CorridorPlanner::enableKnownUnknownFilter(envire::Grid<uint8_t>::Ptr map, std::string const& band_name, uint8_t unknown_class)
+{
+    known_unknown_enable    = true;
+    known_unknown_map       = map;
+    known_unknown_band      = band_name;
+    known_unknown_class = unknown_class;
+    requireProcessing(ANNOTATIONS);
+}
+
+void CorridorPlanner::disableKnownUnknownFilter()
+{
+    known_unknown_enable    = false;
     requireProcessing(ANNOTATIONS);
 }
 
@@ -232,8 +247,12 @@ void CorridorPlanner::annotateCorridors()
         }
         if (narrow_wide_enable)
         {
-            std::cout << "running the narrow_wide filter" << std::endl;
             NarrowWideAnnotation filter(narrow_wide_narrow_threshold, narrow_wide_wide_threshold);
+            AnnotationFilter::apply(filter, final);
+        }
+        if (known_unknown_enable)
+        {
+            KnownUnknownAnnotation filter(known_unknown_map.get(), known_unknown_band, known_unknown_class);
             AnnotationFilter::apply(filter, final);
         }
         processed();

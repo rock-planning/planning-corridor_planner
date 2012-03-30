@@ -151,3 +151,56 @@ void NarrowWideAnnotation::annotate(int index, corridors::Corridor& corridor)
     }
 }
 
+KnownUnknownAnnotation::KnownUnknownAnnotation(envire::Grid<uint8_t> const* map,
+        std::string const& band_name, uint8_t unknown_class)
+    : AnnotationFilter("KNOWN_UNKNOWN")
+    , map(map), band_name(band_name), unknown_class(unknown_class)
+{
+}
+
+void KnownUnknownAnnotation::annotate(int index, corridors::Corridor& corridor)
+{
+    typedef base::geometry::Spline<3> Spline;
+    typedef corridors::Corridor::AnnotatedSegment AnnotatedSegment;
+
+    std::vector<double> parameters;
+
+    envire::Grid<uint8_t>::ArrayType const& data =
+        map->getGridData(band_name);
+
+    double sample_step = std::min(map->getCellSizeX(), map->getCellSizeY()) / 2;
+    std::vector<base::Vector3d> points =
+        corridor.median_curve.sample(sample_step, &parameters);
+
+    corridors::Corridor::Annotations& result =
+        corridor.annotations[0][index];
+    envire::FrameNode const* world_node = map->getFrameNode()->getRoot();
+
+    // The current state
+    double state_start = corridor.median_curve.getStartParam();
+    int current_state = -1;
+    for (size_t point_idx = 0; point_idx < points.size(); ++point_idx)
+    {
+        size_t x, y;
+        map->toGrid(points[point_idx], x, y, world_node);
+
+        int new_state = KNOWN;
+        if (data[y][x] == unknown_class)
+            new_state = UNKNOWN;
+
+        if (new_state != current_state)
+        {
+            if (current_state != -1)
+                result.push_back( AnnotatedSegment(state_start, parameters[point_idx], current_state) );
+
+            state_start = parameters[point_idx];
+        }
+        current_state = new_state;
+    }
+
+    if (current_state != -1)
+    {
+        result.push_back( AnnotatedSegment(state_start, parameters.back(), current_state) );
+    }
+}
+
