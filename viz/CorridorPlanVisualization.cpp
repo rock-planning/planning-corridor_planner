@@ -359,7 +359,6 @@ void CorridorPlanVisualization::updateDataIntern(corridors::Plan const& plan)
 }
 void CorridorPlanVisualization::displayAnnotationsOnPlan(bool enable)
 { boost::mutex::scoped_lock lockit(this->updateMutex);
-    std::cout << "displayAnnotationsOnPlan: " << enable << std::endl;
     p->plan_annotations = enable;
     setDirty();
 }
