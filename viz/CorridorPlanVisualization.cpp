@@ -327,12 +327,10 @@ void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
             }
         }
 
-        if (min_annotation > max_annotation)
-        {
-            // no data
-            return;
-        }
-        computeColors(p->annotation_colors, max_annotation - min_annotation + 2);
+        if (min_annotation < max_annotation)
+            computeColors(p->annotation_colors, max_annotation - min_annotation + 2);
+        else
+            computeColors(p->annotation_colors, 2);
     }
 
     // Create objects for each of the plan's corridors
