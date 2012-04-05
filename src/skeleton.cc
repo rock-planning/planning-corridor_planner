@@ -248,9 +248,9 @@ void SkeletonExtraction::initializeFromDStar(
     fill(heightmap.begin(), heightmap.end(), 0);
 
     float cost_max = nav_to_goal.getValue(x, y) * expand;
-    for (int y = 0; y < height; ++y)
+    for (int y = 1; y < height - 1; ++y)
     {
-        for (int x = 0; x < width; ++x)
+        for (int x = 1; x < width - 1; ++x)
         {
             float cost = nav_to_start.getValue(x, y) + nav_to_goal.getValue(x, y);
             if (cost <= cost_max)
@@ -260,9 +260,9 @@ void SkeletonExtraction::initializeFromDStar(
 
     // Filter out "small spots" of "outside" in the "inside"
     int const small_spot_radius = 2;
-    for (int y = small_spot_radius; y < height - small_spot_radius; ++y)
+    for (int y = small_spot_radius + 1; y < height - small_spot_radius - 1; ++y)
     {
-        for (int x = small_spot_radius; x < width - small_spot_radius; ++x)
+        for (int x = small_spot_radius + 1; x < width - small_spot_radius - 1; ++x)
         {
             if (heightmap[y * width + x] != MAX_DIST)
             {
@@ -301,7 +301,10 @@ void SkeletonExtraction::initializeFromDStar(
             for (int dy = -1; dy < 2; ++dy)
                 for (int dx = -1; dx < 2; ++dx)
                     if (heightmap[idx + width * dy + dx] != MAX_DIST)
-                        border.insert(PointID(x + dx, y + dy));
+                    {
+                        border.insert(PointID(x, y));
+                        break;
+                    }
         }
     }
 }
