@@ -12,6 +12,7 @@
 #include <boost/tuple/tuple.hpp>
 
 #include "corridor_planner.hh"
+#include "skeleton.hh"
 #include <boost/lambda/lambda.hpp>
 #include <boost/bind.hpp>
 
@@ -253,6 +254,42 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
     dot << "}\n";
 }
 
+void exportSkeletonHeightmap(std::vector<int16_t> const& heightmap,
+        size_t xSize, size_t ySize, std::string const& out_file)
+{
+    int max_val = 0;
+
+    vector<RGBColor> color_image;
+    for (size_t y = 0; y < ySize; ++y)
+    {
+        for (size_t x = 0; x < xSize; ++x)
+        {
+            int value = heightmap[y * xSize + x];
+            max_val = std::max(max_val, value);
+        }
+    }
+
+    std::vector<RGBColor> image;
+    for (size_t y = 0; y < ySize; ++y)
+    {
+        for (size_t x = 0; x < xSize; ++x)
+        {
+            int value = heightmap[y * xSize + x];
+            if (value == 0)
+                image.push_back(RGBColor(0, 0, 0));
+            else
+            {
+                float normalized = static_cast<float>(value) / max_val;;
+                image.push_back(RGBColor(128, 128, 255 * normalized));
+            }
+
+        }
+    }
+
+    std::cerr << "  saving result in " << out_file << std::endl;
+    saveColorImage(out_file, xSize, ySize, image);
+}
+
 void exportSkeleton(CorridorPlanner const& planner, size_t xSize, size_t ySize, std::vector<uint8_t> const& base_image, std::string const& out_file)
 {
     vector<RGBColor> color_image;
@@ -274,20 +311,22 @@ void exportSkeleton(CorridorPlanner const& planner, size_t xSize, size_t ySize, 
     saveColorImage(out_file, xSize, ySize, color_image);
 }
 
-void exportNavigationFunction(CorridorPlanner const& planner, size_t xSize, size_t ySize, std::vector<uint8_t> const& base_image, std::string const& out_file)
+void exportNavigationFunction(nav_graph_search::GridGraph const& graph, size_t xSize, size_t ySize, std::vector<uint8_t> const& base_image, std::string const& out_file)
 {
-    GridGraph const& graph = planner.dstar_to_goal->graph();
-
     // Find the maximum cost in the dstar output, filtering out actual
     // obstacles
+    float min_val = 10000;
     float max_val = 0;
     for (size_t y = 0; y < ySize; ++y)
     {
         for (size_t x = 0; x < xSize; ++x)
         {
             float val = graph.getValue(x, y);
-            if (val < 10000 && max_val < val)
-                max_val = val;
+            if (val > 0 && val < 10000)
+            {
+                max_val = std::max(max_val, val);
+                min_val = std::min(min_val, val);
+            }
         }
     }
 
@@ -302,10 +341,12 @@ void exportNavigationFunction(CorridorPlanner const& planner, size_t xSize, size
         {
             float val = graph.getValue(x, y);
             RGBColor color;
-            if (val < 100000)
-                color = RGBColor(128, 128, 255 * (val / max_val));
-            else
+            if (val >= 100000)
+                color = RGBColor(255, 255, 255);
+            else if (val == 0)
                 color = RGBColor(0, 0, 0);
+            else
+                color = RGBColor(128, 128, 255 * ((val - min_val) / (max_val - min_val)));
             color_image[y * xSize + x] = color;
         }
     }
@@ -336,15 +377,38 @@ void do_plan(char name_prefix,
     uint32_t const xSize = graph.xSize(), ySize = graph.ySize();
     auto_ptr<GDALDataset> set((GDALDataset*) GDALOpen(terrain_file.c_str(), GA_ReadOnly));
     GDALRasterBand* band = set->GetRasterBand(1);
-    vector<uint8_t> image(xSize * ySize);
-    band->RasterIO(GF_Read, 0, 0, xSize, ySize, &image[0], xSize, ySize, GDT_Byte, 0, 0);
 
-    string dstar_out = basename + "-dstar.tif";
-    exportNavigationFunction(planner, xSize, ySize, image, dstar_out);
+    vector<uint8_t> image(xSize * ySize);
+
+    nav_graph_search::GridGraph& cost_to_goal  = planner.dstar_to_goal->graph();
+    nav_graph_search::GridGraph& cost_to_start = planner.dstar_to_start->graph();
+    {
+        band->RasterIO(GF_Read, 0, 0, xSize, ySize, &image[0], xSize, ySize, GDT_Byte, 0, 0);
+        string dstar_out = basename + "-dstar_to_goal.tif";
+        exportNavigationFunction(cost_to_goal, xSize, ySize, image, dstar_out);
+    }
+
+    {
+        band->RasterIO(GF_Read, 0, 0, xSize, ySize, &image[0], xSize, ySize, GDT_Byte, 0, 0);
+        string dstar_out = basename + "-dstar_to_start.tif";
+        exportNavigationFunction(cost_to_start, xSize, ySize, image, dstar_out);
+    }
+
+    {
+        band->RasterIO(GF_Read, 0, 0, xSize, ySize, &image[0], xSize, ySize, GDT_Byte, 0, 0);
+        string dstar_out = basename + "-dstar.tif";
+        GridGraph common_graph(xSize, ySize);
+        for (unsigned int y = 0; y < ySize; ++y)
+            for (unsigned int x = 0; x < xSize; ++x)
+                common_graph.setValue(x, y, cost_to_goal.getValue(x, y) + cost_to_start.getValue(x, y));
+        exportNavigationFunction(common_graph, xSize, ySize, image, dstar_out);
+    }
+
 
     { Profile profiler("skeleton");
         planner.extractSkeleton();
     }
+    exportSkeletonHeightmap(planner.skeleton->heightmap, xSize, ySize, basename + "-skeleton-heightmap.tif");
     exportSkeleton(planner, xSize, ySize, image, basename + "-skeleton.tif");
 
     { Profile profiler("plan building");
