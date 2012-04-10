@@ -358,7 +358,10 @@ Typelib.specialize '/corridors/Corridor_m' do
         annotations[curve_idx][annotation_idx] = segments
     end
 
-    def intersect_annotations(ann0_idx, symbol0, ann1_idx, symbol1, save_as)
+    # Create a new annotation called +save_as+ in which segments are added where
+    # both the first annotation +ann0_idx+ has symbol +symbol0+ *and* another
+    # annotation +ann1_idx+ has symbol +symbol1+
+    def intersect_annotations(ann0_idx, symbol0, ann1_idx, symbol1, save_as, save_as_symbol = 0)
         result = []
 
         curves = [median_curve, boundary_curves[0], boundary_curves[1]]
@@ -393,7 +396,7 @@ Typelib.specialize '/corridors/Corridor_m' do
 
             result << do_segment_intersection(segments0, segments1)
             if save_as
-                save_corridor_segments_as_annotation(curve_idx, save_as, 0, result.last)
+                save_corridor_segments_as_annotation(curve_idx, save_as, save_as_symbol, result.last)
             end
         end
 
@@ -629,7 +632,7 @@ Typelib.specialize '/corridors/Plan_m' do
     #
     # If +save_as+ is non-nil, the result is saved as an annotation with the
     # symbol name given by +save_as+ (which can be the same than
-    # +annotation_symbol+.
+    # +ann0+ or +ann1+, and the given symbol (defaults to 0)
     #
     # The result is returned as an array of the form
     #
@@ -642,7 +645,7 @@ Typelib.specialize '/corridors/Plan_m' do
     #     corridor1 = ...
     #   ]
     #
-    def intersect_annotations(ann0, symbol0, ann1, symbol1, save_as = nil)
+    def intersect_annotations(ann0, symbol0, ann1, symbol1, save_as = nil, save_as_symbol = 0)
         ann0_idx = find_annotation(ann0)
         ann1_idx = find_annotation(ann1)
         if save_as
@@ -651,7 +654,7 @@ Typelib.specialize '/corridors/Plan_m' do
 
         result = []
         corridors.each_with_index do |c, i|
-            result << c.intersect_annotations(ann0_idx, symbol0, ann1_idx, symbol1, save_as_idx)
+            result << c.intersect_annotations(ann0_idx, symbol0, ann1_idx, symbol1, save_as_idx, save_as_symbol)
         end
         result
     end
