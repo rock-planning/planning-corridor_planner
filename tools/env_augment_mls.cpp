@@ -80,7 +80,7 @@ int main(int argc, char* argv[])
 	    // colorize all the patches in a cell
 	    for( envire::MLSGrid::iterator it = output->beginCell( x, y ); it != output->endCell(); it++ )
 	    {
-		it->color = color;
+		it->setColor( color );
 	    }
 
 	    // set in the image
