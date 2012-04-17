@@ -168,7 +168,7 @@ void KnownUnknownAnnotation::annotate(int index, corridors::Corridor& corridor)
     envire::Grid<uint8_t>::ArrayType const& data =
         map->getGridData(band_name);
 
-    double sample_step = std::min(map->getCellSizeX(), map->getCellSizeY()) / 2;
+    double sample_step = std::min(map->getScaleX(), map->getScaleY()) / 2;
     std::vector<base::Vector3d> points =
         corridor.median_curve.sample(sample_step, &parameters);
 
