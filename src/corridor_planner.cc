@@ -84,14 +84,14 @@ void CorridorPlanner::enableStrongEdgeFilter(std::string const& env_path, std::s
 {
     delete env;
     env = envire::Environment::unserialize(env_path);
-    strong_edge_map       = env->getItem< envire::Grid<double> >(map_id);
+    strong_edge_map       = env->getItem< envire::Grid<float> >(map_id);
     if (!strong_edge_map)
         throw std::runtime_error("wrong map ID given for strong edge map");
 
     enableStrongEdgeFilter(strong_edge_map, band_name, threshold);
 }
 
-void CorridorPlanner::enableStrongEdgeFilter(envire::Grid<double>::Ptr step_size, std::string const& band_name, double threshold)
+void CorridorPlanner::enableStrongEdgeFilter(envire::Grid<float>::Ptr step_size, std::string const& band_name, double threshold)
 {
     strong_edge_enable    = true;
     strong_edge_map       = step_size;

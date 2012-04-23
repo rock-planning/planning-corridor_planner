@@ -29,7 +29,7 @@ void AnnotationFilter::apply(AnnotationFilter& filter, corridors::Plan& plan)
     }
 }
 
-StrongEdgeAnnotation::StrongEdgeAnnotation(envire::Grid<double> const* step_map, std::string const& band_name, double threshold)
+StrongEdgeAnnotation::StrongEdgeAnnotation(envire::Grid<float> const* step_map, std::string const& band_name, double threshold)
     : AnnotationFilter("STRONG_EDGE"), map(step_map), band(band_name), threshold(threshold) {}
 
 
@@ -46,8 +46,8 @@ void StrongEdgeAnnotation::annotateCurve(corridors::Corridor::Annotations& resul
     double state_start = curve.getStartParam();
     int current_state = -1;
 
-    boost::multi_array<double, 2> const& data = map->getGridData(band);
-    std::pair<double, bool> const no_data = map->getNoData(band);
+    boost::multi_array<float, 2> const& data = map->getGridData(band);
+    std::pair<float, bool> const no_data = map->getNoData(band);
 
     static const int RADIUS = 1;
 

@@ -64,13 +64,13 @@ namespace corridor_planner {
             STRONG
         };
         /** The map that contains the local step (in meters) */
-        envire::Grid<double> const* map;
+        envire::Grid<float> const* map;
         /** The band that should be used in \c map */
         std::string band;
         /** The threshold above which a segment should be marked */
         double threshold;
 
-        StrongEdgeAnnotation(envire::Grid<double> const* map, std::string const& band_name, double threshold);
+        StrongEdgeAnnotation(envire::Grid<float> const* map, std::string const& band_name, double threshold);
 
         void annotateCurve(corridors::Corridor::Annotations& result, base::geometry::Spline<3> const& curve);
 
