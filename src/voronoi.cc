@@ -267,6 +267,7 @@ Corridor::Corridor()
     boundary_curves[1].setGeometricResolution(0.5);
     median_curve.setGeometricResolution(0.5);
     end_types[0] = end_types[1] = 0;
+    min_width = max_width = 0;
 }
 
 Corridor Corridor::singleton(PointID const& p, std::string const& name)
