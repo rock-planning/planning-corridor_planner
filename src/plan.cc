@@ -209,8 +209,9 @@ Corridor& Plan::split(int corridor_idx, Corridor::voronoi_iterator it)
     }
 
     corridors.push_back(back_corridor);
-    corridors.back().name = front_corridor.name + "/2";
-    front_corridor.name += "/1";
+    // WARN: front_corridor is now invalidated by the push_back
+    corridors.back().name = corridors[corridor_idx].name + "/2";
+    corridors[corridor_idx].name += "/1";
     return corridors.back();
 }
 
