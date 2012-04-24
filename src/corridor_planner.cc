@@ -14,9 +14,12 @@ CorridorPlanner::CorridorPlanner()
     : map(0), skeleton(0), dstar_to_start(0), dstar_to_goal(0)
     , min_width(0)
     , env(0)
+    , m_current(0, 0)
+    , m_goal(0, 0)
     , m_state(DSTAR), m_expand(1.1)
     , strong_edge_enable(false), narrow_wide_enable(false), known_unknown_enable(false)
 {
+    requireProcessing(DSTAR);
 }
 
 CorridorPlanner::~CorridorPlanner()
