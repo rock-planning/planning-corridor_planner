@@ -419,6 +419,29 @@ Typelib.specialize '/corridors/Corridor_m' do
         annotations[1][index] = cleanup_single_annotations(boundary_curves[0], annotations[1][index], operations)
         annotations[2][index] = cleanup_single_annotations(boundary_curves[1], annotations[2][index], operations)
     end
+    
+    def pretty_print(pp, annotation_symbols = nil)
+	curve_names = %w{median left right}
+ 	annotation_symbols ||= lambda { |x| x }
+	pp.text "width=[#{min_width}, #{max_width}]"
+	pp.breakable
+	pp.text "Annotations"
+	pp.nest(2) do
+	    annotations.each_with_index do |cx, curve_idx|
+		cx.each_with_index do |cy, annotation_idx|
+		    if cy.empty?
+			pp.breakable
+			pp.text "curve=#{curve_names[curve_idx]}, annotation=#{annotation_symbols[annotation_idx]}: empty"
+		    else
+			cy.each do |ci|
+			    pp.breakable
+			    pp.text "curve=#{curve_names[curve_idx]}, annotation=#{annotation_symbols[annotation_idx]}: Start #{ci.start} End: #{ci.end} Symbol : #{ci.symbol}"
+			end
+		    end
+		end
+	    end
+	end
+    end
 end
 
 Typelib.specialize '/corridors/Plan_m' do
@@ -563,10 +586,17 @@ Typelib.specialize '/corridors/Plan_m' do
         pp.text "start: #{start_corridor}"
         pp.breakable
         pp.text "target: #{end_corridor}"
-        pp.breakable
-        corridors.each_with_index do |c, i|
-            pp.text "#{i}: width=[#{c.min_width}, #{c.max_width}]"
+	annotation_symbols.each_with_index do |c, i|
             pp.breakable
+            pp.text "Symbol #{i}: #{c}"
+	end
+        corridors.each_with_index do |c, i|
+	    pp.breakable
+	    pp.text "Corridor #{i}:"
+	    pp.nest(2) do
+		pp.breakable		
+		c.pretty_print(pp, annotation_symbols)
+	    end
         end
 
         connections.pretty_print(pp)
