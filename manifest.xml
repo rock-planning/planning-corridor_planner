@@ -14,4 +14,5 @@
     <depend package="planning/nav_graph_search" />
     <depend package="external/sisl" />
     <depend package="gui/vizkit" optional="1"/>
+    <tags>needs_opt</tags>
 </package>
