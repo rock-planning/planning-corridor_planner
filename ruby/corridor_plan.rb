@@ -459,6 +459,8 @@ Typelib.specialize '/corridors/Corridor_m' do
  	annotation_symbols ||= lambda { |x| x }
 	pp.text "width=[#{min_width}, #{max_width}]"
 	pp.breakable
+	pp.text "dimensions=[#{median_curve.start_point}, #{median_curve.end_point}]"
+	pp.breakable
 	pp.text "Annotations"
 	pp.nest(2) do
 	    annotations.each_with_index do |cx, curve_idx|
