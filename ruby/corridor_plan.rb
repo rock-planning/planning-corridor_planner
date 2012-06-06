@@ -357,7 +357,41 @@ Typelib.specialize '/corridors/Corridor_m' do
         end
         annotations[curve_idx][annotation_idx] = segments
     end
+    
+    def get_inverse_annotation(ann0_idx, symbol0, save_as, save_as_symbol = 0)
+        result = []
 
+        curves = [median_curve, boundary_curves[0], boundary_curves[1]]
+        curves.each_with_index do |curve, curve_idx|
+	    inverse_segs = []
+
+	    start_param = curve.start_param
+	    end_param = curve.end_param
+
+	    cur_start = start_param
+	    
+	    annotations[curve_idx][ann0_idx].each do |seg|
+		if(symbol0 == seg.symbol)
+		    #found a matching annotation
+		    
+		    #save it for inversion
+		    inverse_segs << [cur_start, seg.start]
+		    cur_start = seg.end
+		end
+	    end
+	    
+	    if(cur_start != end_param)
+		inverse_segs << [cur_start, end_param]
+	    end
+	    
+	    if save_as
+                save_corridor_segments_as_annotation(curve_idx, save_as, save_as_symbol, inverse_segs)
+            end
+        end
+
+        result    
+    end
+	
     # Create a new annotation called +save_as+ in which segments are added where
     # both the first annotation +ann0_idx+ has symbol +symbol0+ *and* another
     # annotation +ann1_idx+ has symbol +symbol1+
@@ -685,6 +719,19 @@ Typelib.specialize '/corridors/Plan_m' do
         result = []
         corridors.each_with_index do |c, i|
             result << c.intersect_annotations(ann0_idx, symbol0, ann1_idx, symbol1, save_as_idx, save_as_symbol)
+        end
+        result
+    end
+    
+    def get_inverse_annotation(ann0, symbol0, save_as = nil, save_as_symbol = 0)
+        ann0_idx = find_annotation(ann0)
+        if save_as
+            save_as_idx = find_annotation(save_as, true)
+        end
+
+        result = []
+        corridors.each_with_index do |c, i|
+            result << c.get_inverse_annotation(ann0_idx, symbol0, save_as_idx, save_as_symbol)
         end
         result
     end
