@@ -94,15 +94,17 @@ Typelib.specialize '/corridors/Corridor_m' do
         self.annotations[0] = old_annotations
         new_corridor.annotations[0] = new_annotations
 
+        boundaries = []
         2.times do |boundary_idx|
             boundary_pos = associated_boundary(position, boundary_idx, 0.01).inject(&:+) / 2
             result = boundary_curves[boundary_idx].split(boundary_pos)
-            new_corridor.boundary_curves[boundary_idx] = result
+            boundaries[boundary_idx] = result
 
             old_annotations, new_annotations = split_annotations(annotations[boundary_idx + 1], position)
             self.annotations[boundary_idx + 1] = old_annotations
             new_corridor.annotations[boundary_idx + 1] = new_annotations
         end
+        new_corridor.boundary_curves = boundaries
 
         new_corridor
     end
