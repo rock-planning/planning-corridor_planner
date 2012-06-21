@@ -49,7 +49,7 @@ void StrongEdgeAnnotation::annotateCurve(corridors::Corridor::Annotations& resul
     boost::multi_array<float, 2> const& data = map->getGridData(band);
     std::pair<float, bool> const no_data = map->getNoData(band);
 
-    static const int RADIUS = 1;
+    static const int RADIUS = ceil(0.8 / scaleX);
 
     envire::FrameNode const* world_node = map->getFrameNode()->getRoot();
     for (unsigned int point_idx = 0; point_idx < points.size(); ++point_idx)
