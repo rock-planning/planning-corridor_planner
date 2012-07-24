@@ -67,6 +67,9 @@ void CorridorPlanner::init(nav_graph_search::TerrainClasses const& terrain_class
     this->map = map;
     delete dstar_to_start;
     delete dstar_to_goal;
+    
+    map->writeToPPM("terrain_map");
+    
     dstar_to_start = new DStar(*map, classes);
     dstar_to_start->setCostCutoff(cost_cutoff);
     dstar_to_goal  = new DStar(*map, classes);
