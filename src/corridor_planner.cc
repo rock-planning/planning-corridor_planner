@@ -188,18 +188,22 @@ void CorridorPlanner::computeDStar()
         double optimal = dstar_to_start->run(m_current.x(), m_current.y(), m_goal.x(), m_goal.y());
         if (base::isUnknown<double>(optimal))
             throw CostCutoffReached("reached cost cutoff (" + boost::lexical_cast<std::string>(dstar_to_start->getCostCutoff()) + ") during planning from goal to start");
+	dstar_to_start->writeCostMap("costMap_toStart_optimal");
 
         std::cout << "to start: optimal before expansion is " << optimal << std::endl;
         dstar_to_start->expandUntil(optimal * m_expand);
+	dstar_to_start->writeCostMap("costMap_toStart_expanded");
 
         optimal = dstar_to_goal->run(m_goal.x(), m_goal.y(), m_current.x(), m_current.y());
         if (base::isUnknown<double>(optimal))
             throw CostCutoffReached("reached cost cutoff (" + boost::lexical_cast<std::string>(dstar_to_start->getCostCutoff()) + ") during planning from start to goal");
+	dstar_to_goal->writeCostMap("costMap_toGoal_optimal");
 
         std::cout << "to goal:  optimal before expansion is " << optimal << std::endl;
         dstar_to_goal->expandUntil(optimal * m_expand);
         std::cout << "to start: optimal after expansion is " << dstar_to_start->graph().getValue(m_goal.x(), m_goal.y()) << std::endl;
         std::cout << "to goal:  optimal after expansion is " << dstar_to_goal->graph().getValue(m_current.x(), m_current.y()) << std::endl;
+	dstar_to_goal->writeCostMap("costMap_toGoal_expanded");
         processed();
     }
 }
