@@ -387,6 +387,8 @@ Typelib.specialize '/corridors/Corridor_m' do
 	    if save_as
                 save_corridor_segments_as_annotation(curve_idx, save_as, save_as_symbol, inverse_segs)
             end
+	    
+	    result << inverse_segs
         end
 
         result    
