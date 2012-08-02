@@ -454,13 +454,15 @@ void Corridor::update()
     Corridor::voronoi_const_iterator right = ++voronoi.begin();
     nav_graph_search::Point<float> last_slice_direction;
     int boundary0 = 0, boundary1 = 1;
-    min_width = voronoi.front().width, max_width = min_width;
+    min_width = voronoi.front().width * 2, max_width = min_width;
     for (Corridor::voronoi_iterator it = voronoi.begin(); it != voronoi.end(); ++it, ++left, ++right)
     {
         if (it->borders.size() != 2)
             continue;
 
-        float this_width = it->width;
+	//the voronoi contains the distance 
+	//to the borders aka the half width
+        float this_width = it->width * 2;
         if (this_width < min_width)
             min_width = this_width;
         if (this_width > max_width)

@@ -182,7 +182,6 @@ list<VoronoiPoint> SkeletonExtraction::process()
     }
 
     //displayHeightMap(cerr);
-    writeHeightPPM("skeleton");
 
     list<VoronoiPoint> result;
     for (CandidateSet::const_iterator it = skeleton.begin(); it != skeleton.end(); ++it)
@@ -324,8 +323,6 @@ void SkeletonExtraction::initializeFromDStar(
                     }
         }
     }
-
-    writeHeightPPM("outline");
 }
 
 list<VoronoiPoint> SkeletonExtraction::processDStar(
