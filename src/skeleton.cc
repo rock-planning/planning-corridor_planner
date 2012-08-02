@@ -200,13 +200,14 @@ list<VoronoiPoint> SkeletonExtraction::process()
 void SkeletonExtraction::writeHeightPPM( const std::string& file_name )
 {
     std::ofstream cost_img;
+    const int max_val = *std::max_element( heightmap.begin(), heightmap.end() );
     cost_img.open((file_name + std::string(".ppm")).c_str());
     cost_img << "P6" << std::endl;
     cost_img << width << " " << height << std::endl;
     cost_img << "255" << std::endl;
     for( size_t i=0; i<heightmap.size(); ++i )
     {
-	const uint8_t val = heightmap[i] * 255 / MAX_DIST;
+	const uint8_t val = heightmap[i] * 255 / max_val;
 	for( int j=0; j<3; ++j )
 	    cost_img.write( (const char*)&val, 1 );
     }
