@@ -182,6 +182,7 @@ list<VoronoiPoint> SkeletonExtraction::process()
     }
 
     //displayHeightMap(cerr);
+    writeHeightPPM("skeleton");
 
     list<VoronoiPoint> result;
     for (CandidateSet::const_iterator it = skeleton.begin(); it != skeleton.end(); ++it)
@@ -194,6 +195,21 @@ list<VoronoiPoint> SkeletonExtraction::process()
     }
 
     return result;
+}
+
+void SkeletonExtraction::writeHeightPPM( const std::string& file_name )
+{
+    std::ofstream cost_img;
+    cost_img.open((file_name + std::string(".ppm")).c_str());
+    cost_img << "P6" << std::endl;
+    cost_img << width << " " << height << std::endl;
+    cost_img << "255" << std::endl;
+    for( size_t i=0; i<heightmap.size(); ++i )
+    {
+	const uint8_t val = heightmap[i] * 255 / MAX_DIST;
+	for( int j=0; j<3; ++j )
+	    cost_img.write( (const char*)&val, 1 );
+    }
 }
 
 void SkeletonExtraction::displayHeightMap(std::ostream& io) const
@@ -307,6 +323,8 @@ void SkeletonExtraction::initializeFromDStar(
                     }
         }
     }
+
+    writeHeightPPM("outline");
 }
 
 list<VoronoiPoint> SkeletonExtraction::processDStar(

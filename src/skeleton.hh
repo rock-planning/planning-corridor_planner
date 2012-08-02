@@ -115,6 +115,7 @@ namespace corridor_planner
         SkeletonExtraction(size_t width, size_t height);
         ~SkeletonExtraction();
 
+	void writeHeightPPM( const std::string& file_name );
         void displayHeightMap(std::ostream& io) const;
 
         /** Initializes the skeleton extraction process by extracting the
