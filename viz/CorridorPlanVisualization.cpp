@@ -286,7 +286,10 @@ osg::ref_ptr<osg::Node> CorridorPlanVisualization::createMainNode()
 void CorridorPlanVisualization::updateMainNode ( osg::Node* node )
 {
     osg::Geode* geode = dynamic_cast<osg::Geode*>(node);
-
+ 
+    osg::StateSet* set = geode->getOrCreateStateSet(); 
+    set->setRenderingHint(osg::StateSet::TRANSPARENT_BIN); 
+    
     int corridor_count = p->plan.corridors.size();
 
     // Clear the geode
