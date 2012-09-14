@@ -277,18 +277,7 @@ void CorridorPlanner::done()
 
 template<typename SrcContainer, typename DstContainer>
 static void wrapContainer(DstContainer& dest, SrcContainer& src,
-        double scale, Eigen::Affine3d const& raster_to_world)
-{
-    dest.resize(src.size());
-
-    size_t point_idx;
-    typename SrcContainer::iterator src_it = src.begin();
-    typename SrcContainer::iterator const src_end = src.end();
-    for (point_idx = 0, src_it = src.begin(); src_it != src_end; ++point_idx, ++src_it)
-    {
-        toWrapper(dest[point_idx], *src_it, scale, raster_to_world);
-    }
-}
+        double scale, Eigen::Affine3d const& raster_to_world);
 
 template<int DIM, typename Transform>
 static void toWrapper(base::geometry::Spline<DIM>& dest, base::geometry::Spline<DIM> const& src,
@@ -329,7 +318,7 @@ static void toWrapper(corridors::Plan& dest, Plan& src,
         for (; conn_it != conn_end; ++conn_it)
         {
             corridors::CorridorConnection conn = 
-                { corridor_idx, conn_it->this_side ? corridors::BACK_SIDE : corridors::FRONT_SIDE,
+                { static_cast<int>(corridor_idx), conn_it->this_side ? corridors::BACK_SIDE : corridors::FRONT_SIDE,
                   conn_it->target_idx, conn_it->target_side ? corridors::BACK_SIDE : corridors::FRONT_SIDE };
 
             dest.connections.push_back(conn);
@@ -340,6 +329,20 @@ static void toWrapper(corridors::Plan& dest, Plan& src,
     dest.end_corridor   = src.findEndCorridor();
 }
 
+template<typename SrcContainer, typename DstContainer>
+static void wrapContainer(DstContainer& dest, SrcContainer& src,
+        double scale, Eigen::Affine3d const& raster_to_world)
+{
+    dest.resize(src.size());
+
+    size_t point_idx;
+    typename SrcContainer::iterator src_it = src.begin();
+    typename SrcContainer::iterator const src_end = src.end();
+    for (point_idx = 0, src_it = src.begin(); src_it != src_end; ++point_idx, ++src_it)
+    {
+        toWrapper(dest[point_idx], *src_it, scale, raster_to_world);
+    }
+}
 
 void CorridorPlanner::exportPlan()
 {
