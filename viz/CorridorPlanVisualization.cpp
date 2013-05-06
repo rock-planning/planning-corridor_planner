@@ -73,7 +73,7 @@ double CorridorPlanVisualization::getElevation(Eigen::Vector3d const& point) con
     {
         size_t m, n;
         p->mls->toGrid(point, m, n, p->environment->getRootNode());
-        MLSGrid::const_iterator it = std::max_element(p->mls->beginCell(m, n), p->mls->endCell());
+        MLSGrid::iterator it = std::max_element(p->mls->beginCell(m, n), p->mls->endCell());
         if (it != p->mls->endCell())
             return it->mean;
         else
