@@ -7,5 +7,6 @@ include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR})
 
 rock_testsuite(skeleton_testsuite
     testsuite.cc test_corridors.cc
-    DEPS corridor_planner)
+    DEPS corridor_planner
+    DEPS_PLAIN Boost_SYSTEM)
 
