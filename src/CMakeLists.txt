@@ -7,7 +7,9 @@ rock_library(corridor_planner
         merge.hh plan.hh skeleton.hh voronoi.hh
         corridor_planner.hh corridors.hh annotations.hh)
 
+find_package(Boost COMPONENTS system)
 rock_executable(plan_corridors main.cc
     DEPS corridor_planner
     DEPS_CMAKE GDAL
+    DEPS_PLAIN Boost Boost_SYSTEM
     DEPS_PKGCONFIG base-types)
