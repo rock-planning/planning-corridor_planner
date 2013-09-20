@@ -7,6 +7,6 @@ Name: @PROJECT_NAME@
 Description: Corridor-centric path planner
 Requires: @DEPS_PKGCONFIG@
 Version: @PROJECT_VERSION@
-Libs: -L${libdir} -l@PROJECT_NAME@ -llibboost_system
+Libs: -L${libdir} -l@PROJECT_NAME@ -lboost_system
 Cflags: -I${includedir}
 
