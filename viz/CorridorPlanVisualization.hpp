@@ -2,11 +2,11 @@
 #define PLAN_VISUALISATION_H
 
 #include <boost/noncopyable.hpp>
-#include <vizkit/Vizkit3DPlugin.hpp>
+#include <vizkit3d/Vizkit3DPlugin.hpp>
 #include <osg/Geometry>
 
 #include <envire/maps/Grids.hpp>
-#include <base/geometry/spline.h>
+#include <base/geometry/Spline.hpp>
 #include <corridor_planner/corridors.hh>
 
 namespace corridors
@@ -15,10 +15,10 @@ namespace corridors
     class Corridor;
 }
 
-namespace vizkit
+namespace vizkit3d
 {
     class CorridorPlanVisualization
-        : public vizkit::Vizkit3DPlugin<corridors::Plan>
+        : public vizkit3d::Vizkit3DPlugin<corridors::Plan>
         , boost::noncopyable
     {
     public:

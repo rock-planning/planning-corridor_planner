@@ -7,7 +7,7 @@
 
 #include <envire/maps/MLSGrid.hpp>
 
-using namespace vizkit;
+using namespace vizkit3d;
 using envire::MLSGrid;
 
 struct CorridorPlanVisualization::Data
