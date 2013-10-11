@@ -1,5 +1,5 @@
 Vizkit::UiLoader.register_3d_plugin('CorridorPlanVisualization', 'corridor_planner', 'CorridorPlanVisualization')
-Vizkit::UiLoader.register_3d_plugin_for('CorridorPlanVisualization', "/corridors/Plan_m", :updatePlan)
+Vizkit::UiLoader.register_3d_plugin_for('CorridorPlanVisualization', "/corridors/Plan_m", :update)
 
 require 'corridor_planner/corridor_plan_view'
 Vizkit::UiLoader.register_ruby_widget("CorridorPlanView", CorridorPlanView.method(:new))
