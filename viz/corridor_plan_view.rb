@@ -32,7 +32,7 @@ class CorridorPlanView < Qt::Widget
             controls.status.setText("Empty plan")
         end
 
-        vizkit_corridors.update(plan)
+        vizkit_corridors.updatePlan(plan)
         update_symbols
     end
 
@@ -128,7 +128,7 @@ class CorridorPlanView < Qt::Widget
                 controls.lstSymbol.currentText, controls.annotateSymbolIdx.value,
                 controls.lstSymbol.currentText)
             puts controls.annotateSymbolIdx.value
-            vizkit_corridors.update(plan)
+            vizkit_corridors.updatePlan(plan)
         end
         controls.btnSplit.connect(SIGNAL('clicked(bool)')) do |checked|
             if checked
