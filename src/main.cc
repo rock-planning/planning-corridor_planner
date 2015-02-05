@@ -48,10 +48,9 @@ void saveColorImage(string const& path, int xSize, int ySize, vector<RGBColor>& 
 void markCurve(base::geometry::Spline<3>& curve, int xSize, vector<RGBColor> & pixels, RGBColor color)
 {
     double t       = curve.getStartParam();
-    double unit_t  = curve.getUnitParameter();
     double end_t   = curve.getEndParam();
 
-    for (; t <= end_t; t += unit_t / 4)
+    for (; t <= end_t; t += (end_t - t) / 200)
     {
         Eigen::Vector3d p = curve.getPoint(t);
         int x = lrint(p.x()), y = lrint(p.y());
@@ -162,8 +161,8 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
             for (int i = 0; i < 2; ++i)
             {
                 double const start = curves[i]->getStartParam();
-                double delta = curves[i]->getUnitParameter() / 10;
                 double end   = curves[i]->getEndParam();
+                double delta = (end - start) / 200;
                 for (double t = start; t < end; t += delta)
                 {
                     Eigen::Vector3d p = curves[i]->getPoint(t);
@@ -179,8 +178,8 @@ void outputPlan(int xSize, int ySize, std::string const& basename, std::vector<u
 
             {
                 double const start = c.median_curve.getStartParam();
-                double delta = c.median_curve.getUnitParameter() / 10;
                 double end   = c.median_curve.getEndParam();
+                double delta = (end - start) / 200;
                 for (double t = start; t < end; t += delta)
                 {
                     Eigen::Vector3d p = c.median_curve.getPoint(t);
