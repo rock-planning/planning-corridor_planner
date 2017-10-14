@@ -6,7 +6,7 @@
 #include <iosfwd>
 #include <boost/tuple/tuple.hpp>
 
-#include <base/geometry/spline.h>
+#include <base/geometry/Spline.hpp>
 #include <nav_graph_search/point.hpp>
 #include <nav_graph_search/geometry.hpp>
 #include <nav_graph_search/grid_graph.hpp>

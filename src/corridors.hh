@@ -1,7 +1,7 @@
 #ifndef CORRIDOR_PLANNER_CORRIDORS_HH
 #define CORRIDOR_PLANNER_CORRIDORS_HH
 
-#include <base/geometry/spline.h>
+#include <base/geometry/Spline.hpp>
 
 namespace corridors
 {
